@@ -1,0 +1,935 @@
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using Aprint.Features.Settings;
+using Svg;
+
+namespace Aprint.Features.Editor;
+
+/// <summary>Janela de edição simples exibida após a captura, permitindo desenhar sobre a imagem antes de copiar/salvar.</summary>
+public sealed class EditorForm : Form
+{
+    private enum ToolIconKind
+    {
+        Color,
+        Freehand,
+        Line,
+        Arrow,
+        Rectangle,
+        Circle,
+        Counter,
+        Eraser,
+        Filled,
+        Pixelated,
+        Undo,
+        Redo,
+        Copy,
+        Save,
+    }
+
+    private const int PenWidth = 3;
+    private const int ToolPanelHeight = 50;
+    private const int ToolIconBaseSize = 24;
+
+    private static readonly object ToolIconCacheSync = new();
+    private static readonly Dictionary<int, ImageList> ToolIconImageLists = [];
+    private static readonly Dictionary<float, Font> CounterFonts = [];
+    private static readonly object CounterFontSync = new();
+
+    private readonly record struct ToolIconCacheKey(ToolIconKind Kind, int ColorArgb);
+
+    private Bitmap _workingBitmap;
+    private string _initialFolder;
+    private readonly bool _closeAfterCopyOrSave;
+    private readonly ImageList _toolIconImageList;
+    private readonly int _toolIconSize;
+    private readonly PictureBox _pictureBox;
+    private readonly ToolStripButton _btnFreehand;
+    private readonly ToolStripButton _btnLine;
+    private readonly ToolStripButton _btnArrow;
+    private readonly ToolStripButton _btnRectangle;
+    private readonly ToolStripButton _btnCircle;
+    private readonly ToolStripButton _btnCounter;
+    private readonly ToolStripButton _btnBlur;
+    private readonly ToolStripButton _btnColor;
+    private readonly ToolStripButton _btnBorrarFilled;
+    private readonly ToolStripButton _btnBorrarPixelated;
+    private readonly ToolStripButton _btnUndo;
+    private readonly ToolStripButton _btnRedo;
+    private readonly ToolStripComboBox _cmbBorrarSize;
+    private readonly EditHistory _editHistory;
+
+    private Color _selectedColor = Color.Red;
+    private EditTool _currentTool = EditTool.Freehand;
+    private BorrarMode _borrarMode = BorrarMode.Pixelate;
+    private int _borrarPixelSize = 6;
+    private int _nextCounterValue = 1;
+    private bool _isDrawing;
+    private Point _dragStart;
+    private Point _lastFreehandPoint;
+    private Rectangle _lastPreviewDirtyRect;
+    private Bitmap? _shapePreviewSnapshot;
+    private Bitmap? _currentPreviewFrame;
+
+    public event Action<string>? Saved;
+    public event Action? Copied;
+    public event Action<BorrarMode>? BorrarModeChanged;
+
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false)
+    {
+        _workingBitmap = (Bitmap)bitmap.Clone();
+        _closeAfterCopyOrSave = closeAfterCopyOrSave;
+        _editHistory = new EditHistory(_workingBitmap, _nextCounterValue);
+        _initialFolder = initialFolder;
+        _borrarMode = borrarMode;
+        _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
+        _toolIconImageList = GetOrCreateToolIconImageList(_toolIconSize);
+
+        Text = AppLocalization.Translate("Editor.FormTitle");
+        Icon = Program.AppIcon;
+        StartPosition = FormStartPosition.CenterScreen;
+        MaximizeBox = true;
+        MinimizeBox = true;
+
+        // A janela nasce do tamanho exato da captura (limitada apenas pela área útil da tela).
+        var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
+        var desiredWidth = _workingBitmap.Width;
+        var desiredHeight = _workingBitmap.Height + ToolPanelHeight;
+        ClientSize = new Size(Math.Min(desiredWidth, workingArea.Width), Math.Min(desiredHeight, workingArea.Height));
+
+        // Se a captura não couber na área útil da tela, abre já maximizada.
+        if (desiredWidth > workingArea.Width || desiredHeight > workingArea.Height)
+        {
+            WindowState = FormWindowState.Maximized;
+        }
+
+        var toolStrip = new ToolStrip
+        {
+            Dock = DockStyle.Top,
+            GripStyle = ToolStripGripStyle.Hidden,
+            AutoSize = false,
+            Height = ToolPanelHeight,
+            ShowItemToolTips = true,
+            RenderMode = ToolStripRenderMode.System,
+            Font = new Font("Segoe UI", 9F),
+            BackColor = Color.FromArgb(245, 245, 247),
+            ForeColor = Color.FromArgb(40, 44, 52),
+            Padding = new Padding(6, 6, 6, 6),
+            ImageList = _toolIconImageList,
+        };
+
+        _btnColor = new ToolStripButton(AppLocalization.Translate("Editor.Color"))
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Color, _selectedColor),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+            AutoToolTip = true,
+        };
+        UpdateColorButtonAppearance();
+        _btnFreehand = new ToolStripButton(AppLocalization.Translate("Editor.Freehand"))
+        {
+            CheckOnClick = true,
+            Checked = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            AutoToolTip = true,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Freehand, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnLine = new ToolStripButton(AppLocalization.Translate("Editor.Line"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Line, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnArrow = new ToolStripButton(AppLocalization.Translate("Editor.Arrow"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Arrow, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnRectangle = new ToolStripButton(AppLocalization.Translate("Editor.Rectangle"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Rectangle, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnCircle = new ToolStripButton(AppLocalization.Translate("Editor.Circle"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Circle, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnCounter = new ToolStripButton(AppLocalization.Translate("Editor.Counter"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Counter, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnBlur = new ToolStripButton(AppLocalization.Translate("Editor.Blur"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Eraser, Color.FromArgb(52, 129, 246)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+
+        _btnFreehand.Click += (_, _) => SetActiveTool(EditTool.Freehand);
+        _btnLine.Click += (_, _) => SetActiveTool(EditTool.Line);
+        _btnArrow.Click += (_, _) => SetActiveTool(EditTool.Arrow);
+        _btnRectangle.Click += (_, _) => SetActiveTool(EditTool.Rectangle);
+        _btnCircle.Click += (_, _) => SetActiveTool(EditTool.Circle);
+        _btnCounter.Click += (_, _) => SetActiveTool(EditTool.Counter);
+        _btnBlur.Click += (_, _) => SetActiveTool(EditTool.Blur);
+
+        
+        _btnColor.Click += (_, _) => PickColor();
+
+        _btnBorrarFilled = new ToolStripButton(AppLocalization.Translate("Editor.Filled"))
+        {
+            CheckOnClick = true,
+            Checked = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Filled, Color.FromArgb(52, 129, 246)),
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnBorrarFilled.Click += (_, _) => SetBorrarMode(BorrarMode.Solid);
+
+        _btnBorrarPixelated = new ToolStripButton(AppLocalization.Translate("Editor.Pixelated"))
+        {
+            CheckOnClick = true,
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Pixelated, Color.FromArgb(52, 129, 246)),
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnBorrarPixelated.Click += (_, _) => SetBorrarMode(BorrarMode.Pixelate);
+        SetBorrarMode(_borrarMode);
+
+        _btnUndo = new ToolStripButton(AppLocalization.Translate("Editor.Undo"))
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Undo, Color.FromArgb(74, 85, 104)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnUndo.Click += (_, _) => UndoLastEdit();
+        _btnRedo = new ToolStripButton(AppLocalization.Translate("Editor.Redo"))
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Redo, Color.FromArgb(74, 85, 104)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        _btnRedo.Click += (_, _) => RedoLastEdit();
+
+        _cmbBorrarSize = new ToolStripComboBox
+        {
+            Width = 56,
+            AutoSize = false,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+        };
+        _cmbBorrarSize.Items.AddRange(["6 px", "8 px", "12 px", "18 px", "32 px"]);
+        _cmbBorrarSize.SelectedIndex = 0;
+        _cmbBorrarSize.SelectedIndexChanged += (_, _) =>
+        {
+            _borrarPixelSize = _cmbBorrarSize.SelectedIndex switch
+            {
+                1 => 8,
+                2 => 12,
+                3 => 18,
+                4 => 32,
+                _ => 6,
+            };
+        };
+
+        var btnCopy = new ToolStripButton(AppLocalization.Translate("Editor.Copy"))
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Copy, Color.FromArgb(26, 131, 76)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        btnCopy.Click += (_, _) => CopyToClipboard();
+
+        var btnSaveAs = new ToolStripButton(AppLocalization.Translate("Editor.SaveAs"))
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Save, Color.FromArgb(26, 131, 76)),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(2, 0, 2, 0),
+        };
+        btnSaveAs.Click += async (_, _) => await SaveAsAsync();
+
+        toolStrip.Items.AddRange([
+            new ToolStripLabel(AppLocalization.Translate("Editor.DrawSection")) { ForeColor = Color.DimGray },
+            _btnColor,
+            _btnFreehand,
+            _btnLine,
+            _btnArrow,
+            _btnRectangle,
+            _btnCircle,
+            _btnCounter,
+            CreateToolStripSeparator(),
+            new ToolStripLabel(AppLocalization.Translate("Editor.BlurSection")) { ForeColor = Color.DimGray },
+            _btnBlur,
+            _btnBorrarFilled,
+            _btnBorrarPixelated,
+            _cmbBorrarSize,
+            CreateToolStripSeparator(),
+            _btnUndo,
+            _btnRedo,
+            btnCopy,
+            btnSaveAs,
+        ]);
+
+        SetToolLabelsVisible(toolStrip, showToolLabels);
+
+        var scrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        scrollPanel.Resize += (_, _) => CenterPictureBox(scrollPanel);
+
+        _pictureBox = new PictureBox
+        {
+            Image = _workingBitmap,
+            SizeMode = PictureBoxSizeMode.AutoSize,
+            Cursor = Cursors.Cross,
+        };
+        _pictureBox.MouseDown += PictureBox_MouseDown;
+        _pictureBox.MouseMove += PictureBox_MouseMove;
+        _pictureBox.MouseUp += PictureBox_MouseUp;
+
+        scrollPanel.Controls.Add(_pictureBox);
+        Controls.Add(scrollPanel);
+        Controls.Add(toolStrip);
+
+        CenterPictureBox(scrollPanel);
+    }
+
+    private static void CenterPictureBox(Panel scrollPanel)
+    {
+        if (scrollPanel.Controls.Count == 0)
+        {
+            return;
+        }
+
+        var pictureBox = (PictureBox)scrollPanel.Controls[0];
+        var x = Math.Max(0, (scrollPanel.ClientSize.Width - pictureBox.Width) / 2);
+        var y = Math.Max(0, (scrollPanel.ClientSize.Height - pictureBox.Height) / 2);
+        pictureBox.Location = new Point(x, y);
+    }
+
+    private static void SetToolLabelsVisible(ToolStrip toolStrip, bool visible)
+    {
+        foreach (ToolStripItem item in toolStrip.Items)
+        {
+            if (item is ToolStripButton button)
+            {
+                button.DisplayStyle = visible
+                    ? ToolStripItemDisplayStyle.ImageAndText
+                    : ToolStripItemDisplayStyle.Image;
+            }
+        }
+    }
+
+    private string EnsureToolIconKey(ToolIconKind kind, Color color)
+    {
+        var key = new ToolIconCacheKey(kind, color.ToArgb());
+        var imageKey = $"{_toolIconSize}:{(int)key.Kind}:{key.ColorArgb}";
+
+        lock (ToolIconCacheSync)
+        {
+            if (!_toolIconImageList.Images.ContainsKey(imageKey))
+            {
+                _toolIconImageList.Images.Add(imageKey, RenderToolIcon(kind, color, _toolIconSize));
+            }
+
+            return imageKey;
+        }
+    }
+
+    private static int GetToolIconSizeForDpi(int dpi)
+    {
+        var scaled = (int)Math.Round(ToolIconBaseSize * (dpi / 96F));
+        return scaled switch
+        {
+            <= 22 => 20,
+            <= 26 => 24,
+            <= 30 => 28,
+            _ => 32,
+        };
+    }
+
+    private static ImageList GetOrCreateToolIconImageList(int iconSize)
+    {
+        lock (ToolIconCacheSync)
+        {
+            if (!ToolIconImageLists.TryGetValue(iconSize, out var imageList))
+            {
+                imageList = CreateToolIconImageList(iconSize);
+                ToolIconImageLists[iconSize] = imageList;
+            }
+
+            return imageList;
+        }
+    }
+
+    private static ImageList CreateToolIconImageList(int iconSize)
+    {
+        return new ImageList
+        {
+            ColorDepth = ColorDepth.Depth32Bit,
+            ImageSize = new Size(iconSize, iconSize),
+            TransparentColor = Color.Transparent,
+        };
+    }
+
+    private static Bitmap RenderToolIcon(ToolIconKind kind, Color color, int iconSize)
+    {
+        var resourceName = GetToolIconResourceName(kind);
+        if (resourceName is null)
+        {
+            return new Bitmap(iconSize, iconSize, PixelFormat.Format32bppArgb);
+        }
+
+        using var sourceStream = typeof(EditorForm).Assembly.GetManifestResourceStream(resourceName);
+        if (sourceStream is null)
+        {
+            return new Bitmap(iconSize, iconSize, PixelFormat.Format32bppArgb);
+        }
+
+        using var reader = new StreamReader(sourceStream);
+        var svgText = reader.ReadToEnd();
+        var htmlColor = ColorTranslator.ToHtml(color);
+        svgText = svgText.Replace("currentColor", htmlColor, StringComparison.Ordinal);
+
+        using var svgStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(svgText));
+        var svgDocument = SvgDocument.Open<SvgDocument>(svgStream);
+        using var rendered = svgDocument.Draw(iconSize, iconSize);
+
+        return rendered is null
+            ? new Bitmap(iconSize, iconSize, PixelFormat.Format32bppArgb)
+            : new Bitmap(rendered);
+    }
+
+    private static string? GetToolIconResourceName(ToolIconKind kind)
+    {
+        return kind switch
+        {
+            ToolIconKind.Color => "Aprint.Resources.Icons.color.svg",
+            ToolIconKind.Freehand => "Aprint.Resources.Icons.freehand.svg",
+            ToolIconKind.Line => "Aprint.Resources.Icons.line.svg",
+            ToolIconKind.Arrow => "Aprint.Resources.Icons.arrow.svg",
+            ToolIconKind.Rectangle => "Aprint.Resources.Icons.rectangle.svg",
+            ToolIconKind.Circle => "Aprint.Resources.Icons.circle.svg",
+            ToolIconKind.Counter => "Aprint.Resources.Icons.counter.svg",
+            ToolIconKind.Eraser => "Aprint.Resources.Icons.eraser.svg",
+            ToolIconKind.Filled => "Aprint.Resources.Icons.filled.svg",
+            ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.svg",
+            ToolIconKind.Undo => "Aprint.Resources.Icons.undo.svg",
+            ToolIconKind.Redo => "Aprint.Resources.Icons.redo.svg",
+            ToolIconKind.Copy => "Aprint.Resources.Icons.copy.svg",
+            ToolIconKind.Save => "Aprint.Resources.Icons.save.svg",
+            _ => null,
+        };
+    }
+
+    private static ToolStripSeparator CreateToolStripSeparator()
+    {
+        return new ToolStripSeparator
+        {
+            AutoSize = false,
+            Width = 8,
+            Margin = new Padding(4, 0, 4, 0),
+        };
+    }
+
+    private void SetActiveTool(EditTool tool)
+    {
+        _currentTool = tool;
+        _btnFreehand.Checked = tool == EditTool.Freehand;
+        _btnLine.Checked = tool == EditTool.Line;
+        _btnArrow.Checked = tool == EditTool.Arrow;
+        _btnRectangle.Checked = tool == EditTool.Rectangle;
+        _btnCircle.Checked = tool == EditTool.Circle;
+        _btnCounter.Checked = tool == EditTool.Counter;
+        _btnBlur.Checked = tool == EditTool.Blur;
+    }
+
+    private void SetBorrarMode(BorrarMode mode)
+    {
+        if (_borrarMode == mode)
+        {
+            _btnBorrarFilled.Checked = mode == BorrarMode.Solid;
+            _btnBorrarPixelated.Checked = mode == BorrarMode.Pixelate;
+            return;
+        }
+
+        _borrarMode = mode;
+        _btnBorrarFilled.Checked = mode == BorrarMode.Solid;
+        _btnBorrarPixelated.Checked = mode == BorrarMode.Pixelate;
+        BorrarModeChanged?.Invoke(mode);
+    }
+
+    private void PickColor()
+    {
+        using var dialog = new ColorDialog { Color = _selectedColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedColor = dialog.Color;
+            UpdateColorButtonAppearance();
+        }
+    }
+
+    private void UpdateColorButtonAppearance()
+    {
+        _btnColor.ImageKey = EnsureToolIconKey(ToolIconKind.Color, _selectedColor);
+        _btnColor.ToolTipText = $"{AppLocalization.Translate("Editor.Color")}: {_selectedColor.Name}";
+    }
+
+    private void SaveUndoState()
+    {
+        _editHistory.Capture(_workingBitmap, _nextCounterValue);
+    }
+
+    private void UndoLastEdit()
+    {
+        var replacement = _editHistory.Undo(_workingBitmap, _nextCounterValue);
+        if (replacement is null)
+        {
+            return;
+        }
+
+        var current = _workingBitmap;
+        _workingBitmap = replacement.Value.Bitmap;
+        _nextCounterValue = replacement.Value.NextCounterValue;
+        current.Dispose();
+
+        _pictureBox.Image = _workingBitmap;
+        _pictureBox.Invalidate();
+    }
+
+    private void RedoLastEdit()
+    {
+        var replacement = _editHistory.Redo(_workingBitmap, _nextCounterValue);
+        if (replacement is null)
+        {
+            return;
+        }
+
+        var current = _workingBitmap;
+        _workingBitmap = replacement.Value.Bitmap;
+        _nextCounterValue = replacement.Value.NextCounterValue;
+        current.Dispose();
+
+        _pictureBox.Image = _workingBitmap;
+        _pictureBox.Invalidate();
+    }
+
+    private void PictureBox_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        _isDrawing = true;
+        _dragStart = e.Location;
+        _lastFreehandPoint = e.Location;
+
+        SaveUndoState();
+
+        if (_currentTool == EditTool.Counter)
+        {
+            AddCounterMarker(e.Location);
+            _isDrawing = false;
+            return;
+        }
+
+        if (_currentTool != EditTool.Freehand)
+        {
+            _shapePreviewSnapshot = (Bitmap)_workingBitmap.Clone();
+            _lastPreviewDirtyRect = Rectangle.Empty;
+        }
+    }
+
+    private void PictureBox_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_isDrawing)
+        {
+            return;
+        }
+
+        using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+
+        if (_currentTool == EditTool.Freehand)
+        {
+            using (var graphics = Graphics.FromImage(_workingBitmap))
+            {
+                graphics.DrawLine(pen, _lastFreehandPoint, e.Location);
+            }
+
+            var dirtyRect = CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, PenWidth + 2);
+            _lastFreehandPoint = e.Location;
+            InvalidatePictureBoxRegion(dirtyRect);
+        }
+        else if (_shapePreviewSnapshot is not null)
+        {
+            var preview = (Bitmap)_shapePreviewSnapshot.Clone();
+            var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
+            using (var graphics = Graphics.FromImage(preview))
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                if (_currentTool == EditTool.Blur)
+                {
+                    using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
+                    var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
+                    graphics.DrawRectangle(selectionPen, selection);
+                }
+                else
+                {
+                    ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool);
+                }
+            }
+
+            _pictureBox.Image = preview;
+            _currentPreviewFrame?.Dispose();
+            _currentPreviewFrame = preview;
+
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? currentDirtyRect
+                : Rectangle.Union(_lastPreviewDirtyRect, currentDirtyRect);
+            _lastPreviewDirtyRect = currentDirtyRect;
+            InvalidatePictureBoxRegion(repaintRegion);
+        }
+    }
+
+    private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (!_isDrawing)
+        {
+            return;
+        }
+
+        _isDrawing = false;
+
+        if (_currentTool == EditTool.Blur && _shapePreviewSnapshot is not null)
+        {
+            var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
+            ApplyBorrarToSelection(selection);
+            _pictureBox.Image = _workingBitmap;
+            _currentPreviewFrame?.Dispose();
+            _currentPreviewFrame = null;
+            _shapePreviewSnapshot.Dispose();
+            _shapePreviewSnapshot = null;
+            _lastPreviewDirtyRect = Rectangle.Empty;
+            InvalidatePictureBoxRegion(selection);
+        }
+        else if (_currentTool != EditTool.Freehand && _shapePreviewSnapshot is not null)
+        {
+            var dirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
+            using (var graphics = Graphics.FromImage(_workingBitmap))
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+                ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool);
+            }
+
+            _pictureBox.Image = _workingBitmap;
+            _currentPreviewFrame?.Dispose();
+            _currentPreviewFrame = null;
+            _shapePreviewSnapshot.Dispose();
+            _shapePreviewSnapshot = null;
+            _lastPreviewDirtyRect = Rectangle.Empty;
+            InvalidatePictureBoxRegion(dirtyRect);
+        }
+    }
+
+    private void ApplyBorrarToSelection(Rectangle area)
+    {
+        ImageEditingService.ApplyBorrar(_workingBitmap, area, _borrarMode, _selectedColor, _borrarPixelSize);
+        _pictureBox.Image = _workingBitmap;
+        InvalidatePictureBoxRegion(InflateRectangle(area, 2));
+    }
+
+    private void AddCounterMarker(Point location)
+    {
+        var value = _nextCounterValue;
+        var text = value.ToString();
+        var diameter = text.Length switch
+        {
+            >= 3 => 38,
+            2 => 34,
+            _ => 30,
+        };
+
+        var markerArea = new Rectangle(
+            location.X - (diameter / 2),
+            location.Y - (diameter / 2),
+            diameter,
+            diameter);
+
+        using var graphics = Graphics.FromImage(_workingBitmap);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+        using var fillBrush = new SolidBrush(_selectedColor);
+        using var borderPen = new Pen(Color.White, 2);
+        graphics.FillEllipse(fillBrush, markerArea);
+        graphics.DrawEllipse(borderPen, markerArea);
+
+        var fontSize = diameter switch
+        {
+            >= 38 => 12F,
+            >= 34 => 11F,
+            _ => 10F,
+        };
+
+        var font = GetOrCreateCounterFont(fontSize);
+        using var textBrush = new SolidBrush(GetContrastingTextColor(_selectedColor));
+        using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        graphics.DrawString(text, font, textBrush, markerArea, format);
+
+        _nextCounterValue++;
+        _pictureBox.Image = _workingBitmap;
+        InvalidatePictureBoxRegion(InflateRectangle(markerArea, 2));
+    }
+
+    private static Color GetContrastingTextColor(Color background)
+    {
+        var luminance = (0.299 * background.R) + (0.587 * background.G) + (0.114 * background.B);
+        return luminance > 140 ? Color.Black : Color.White;
+    }
+
+    private void CopyToClipboard()
+    {
+        Clipboard.SetImage(_workingBitmap);
+        Copied?.Invoke();
+
+        if (_closeAfterCopyOrSave)
+        {
+            Close();
+        }
+    }
+
+    private static Font GetOrCreateCounterFont(float fontSize)
+    {
+        lock (CounterFontSync)
+        {
+            if (!CounterFonts.TryGetValue(fontSize, out var font))
+            {
+                font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
+                CounterFonts[fontSize] = font;
+            }
+
+            return font;
+        }
+    }
+
+    private static Rectangle InflateRectangle(Rectangle rectangle, int amount)
+    {
+        if (rectangle.IsEmpty)
+        {
+            return rectangle;
+        }
+
+        rectangle.Inflate(amount, amount);
+        return rectangle;
+    }
+
+    private static Rectangle CreateLineDirtyRectangle(Point start, Point end, int padding)
+    {
+        var left = Math.Min(start.X, end.X);
+        var top = Math.Min(start.Y, end.Y);
+        var width = Math.Abs(end.X - start.X);
+        var height = Math.Abs(end.Y - start.Y);
+        var dirtyRect = new Rectangle(left, top, width, height);
+        return InflateRectangle(dirtyRect, padding);
+    }
+
+    private static Rectangle CreateToolDirtyRectangle(Point start, Point end, EditTool tool, int padding)
+    {
+        var baseRect = tool == EditTool.Blur
+            ? ImageEditingService.CreateSelectionRectangle(start, end)
+            : CreateLineDirtyRectangle(start, end, 0);
+
+        return InflateRectangle(baseRect, padding);
+    }
+
+    private void InvalidatePictureBoxRegion(Rectangle region)
+    {
+        if (region.IsEmpty)
+        {
+            _pictureBox.Invalidate();
+            return;
+        }
+
+        var bounded = Rectangle.Intersect(new Rectangle(Point.Empty, _workingBitmap.Size), region);
+        if (bounded.IsEmpty)
+        {
+            return;
+        }
+
+        _pictureBox.Invalidate(bounded);
+    }
+
+    private async Task SaveAsAsync()
+    {
+        using var dialog = new SaveFileDialog
+        {
+            Filter = AppLocalization.Translate("Editor.SaveFilter"),
+            FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+            InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            var destinationPath = dialog.FileName;
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => ImageFormat.Jpeg,
+                ".bmp" => ImageFormat.Bmp,
+                _ => ImageFormat.Png,
+            };
+
+            using var saveCopy = (Bitmap)_workingBitmap.Clone();
+            await Task.Run(() => saveCopy.Save(destinationPath, format));
+
+            var savedDirectory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrWhiteSpace(savedDirectory) && Directory.Exists(savedDirectory))
+            {
+                _initialFolder = savedDirectory;
+            }
+
+            Saved?.Invoke(destinationPath);
+
+            if (_closeAfterCopyOrSave)
+            {
+                Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, AppLocalization.Translate("App.Name"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Control | Keys.Z))
+        {
+            UndoLastEdit();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Y))
+        {
+            RedoLastEdit();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.S))
+        {
+            _ = SaveAsAsync();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.C))
+        {
+            CopyToClipboard();
+            return true;
+        }
+
+        if (keyData == Keys.F)
+        {
+            SetActiveTool(EditTool.Freehand);
+            return true;
+        }
+
+        if (keyData == Keys.L)
+        {
+            SetActiveTool(EditTool.Line);
+            return true;
+        }
+
+        if (keyData == Keys.A)
+        {
+            SetActiveTool(EditTool.Arrow);
+            return true;
+        }
+
+        if (keyData == Keys.R)
+        {
+            SetActiveTool(EditTool.Rectangle);
+            return true;
+        }
+
+        if (keyData == Keys.C)
+        {
+            SetActiveTool(EditTool.Circle);
+            return true;
+        }
+
+        if (keyData == Keys.B)
+        {
+            SetActiveTool(EditTool.Blur);
+            return true;
+        }
+
+        if (keyData == Keys.N)
+        {
+            SetActiveTool(EditTool.Counter);
+            return true;
+        }
+
+        if (keyData == Keys.P)
+        {
+            SetBorrarMode(_borrarMode == BorrarMode.Pixelate ? BorrarMode.Solid : BorrarMode.Pixelate);
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _shapePreviewSnapshot?.Dispose();
+            _currentPreviewFrame?.Dispose();
+            _editHistory.Dispose();
+            _workingBitmap.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+}

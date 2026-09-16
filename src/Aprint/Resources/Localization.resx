@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+	<value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+	<value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+	<value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+	<value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App.Name" xml:space="preserve"><value>Aprint</value></data>
+  <data name="App.AlreadyRunning" xml:space="preserve"><value>O Aprint já está em execução na bandeja do sistema.</value></data>
+  <data name="Tray.CaptureNow" xml:space="preserve"><value>Capturar agora</value></data>
+  <data name="Tray.Settings" xml:space="preserve"><value>Configurações...</value></data>
+  <data name="Tray.About" xml:space="preserve"><value>Sobre</value></data>
+  <data name="Tray.Exit" xml:space="preserve"><value>Sair</value></data>
+  <data name="Tray.IconText" xml:space="preserve"><value>Aprint - Captura de tela</value></data>
+  <data name="Tray.HotkeyRegisterError" xml:space="preserve"><value>Não foi possível registrar o atalho global. Ele pode já estar em uso por outro aplicativo.</value></data>
+  <data name="Tray.ScreenshotCaptured" xml:space="preserve"><value>Print capturado</value></data>
+  <data name="Tray.EditorOpened" xml:space="preserve"><value>Editor aberto para finalizar o print.</value></data>
+  <data name="Tray.ClipboardOnly" xml:space="preserve"><value>Copiado para a área de transferência.</value></data>
+  <data name="Tray.SavedTo" xml:space="preserve"><value>Salvo em: {0}</value></data>
+  <data name="Tray.BothSavedAndClipboard" xml:space="preserve"><value>Copiado para a área de transferência e salvo em: {0}</value></data>
+  <data name="Tray.CapturedFallback" xml:space="preserve"><value>Print capturado.</value></data>
+  <data name="Tray.CaptureError" xml:space="preserve"><value>Erro ao capturar tela</value></data>
+  <data name="Tray.ScreenshotSaved" xml:space="preserve"><value>Print salvo</value></data>
+  <data name="Tray.ScreenshotCopied" xml:space="preserve"><value>Print copiado</value></data>
+  <data name="Tray.OpenError" xml:space="preserve"><value>Erro ao abrir</value></data>
+  <data name="Tray.AboutText" xml:space="preserve"><value>Aprint - A única ferramenta de captura de tela permitida para uso ;) - Adriano Ramos</value></data>
+  <data name="Tray.AboutTitle" xml:space="preserve"><value>Sobre</value></data>
+  <data name="Settings.FormTitle" xml:space="preserve"><value>Aprint - Configurações</value></data>
+  <data name="Settings.HotkeyGroup" xml:space="preserve"><value>Atalho global de captura</value></data>
+  <data name="Settings.ForcePrintScreen" xml:space="preserve"><value>Usar tecla padrão do Windows (Print Screen)</value></data>
+  <data name="Settings.CaptureModeGroup" xml:space="preserve"><value>Modo de captura</value></data>
+  <data name="Settings.CaptureAllScreens" xml:space="preserve"><value>Padrão (tela inteira)</value></data>
+  <data name="Settings.CaptureCursorScreen" xml:space="preserve"><value>Tela onde está o cursor</value></data>
+  <data name="Settings.CaptureSelectArea" xml:space="preserve"><value>Selecionar área</value></data>
+  <data name="Settings.ActionGroup" xml:space="preserve"><value>Após capturar a tela</value></data>
+  <data name="Settings.SavePathLabel" xml:space="preserve"><value>Salvar arquivos na pasta:</value></data>
+  <data name="Settings.Browse" xml:space="preserve"><value>&amp;Procurar...</value></data>
+  <data name="Settings.SaveToDiskOnly" xml:space="preserve"><value>Salvar em disco</value></data>
+  <data name="Settings.ClipboardOnly" xml:space="preserve"><value>Copiar para a área de transferência</value></data>
+  <data name="Settings.Both" xml:space="preserve"><value>Ambos</value></data>
+  <data name="Settings.NotificationClickGroup" xml:space="preserve"><value>Ao clicar no balão de notificação</value></data>
+  <data name="Settings.ClickNone" xml:space="preserve"><value>Nenhuma ação</value></data>
+  <data name="Settings.ClickOpenFolder" xml:space="preserve"><value>Abrir a pasta</value></data>
+  <data name="Settings.ClickOpenFile" xml:space="preserve"><value>Abrir o arquivo</value></data>
+  <data name="Settings.ClickOpenEditor" xml:space="preserve"><value>Abrir o editor</value></data>
+  <data name="Settings.GeneralGroup" xml:space="preserve"><value>Geral</value></data>
+  <data name="Settings.OpenEditorAfterCapture" xml:space="preserve"><value>Abrir editor após a captura</value></data>
+  <data name="Settings.ShowToolLabels" xml:space="preserve"><value>Exibir o rótulo dos botões na barra de ferramentas do editor</value></data>
+  <data name="Settings.CloseEditorOnCopyOrSave" xml:space="preserve"><value>Fechar o editor ao copiar/salvar a imagem</value></data>
+  <data name="Settings.ShowNotification" xml:space="preserve"><value>Exibir notificação após tirar o print</value></data>
+  <data name="Settings.PlaySound" xml:space="preserve"><value>Tocar som de notificação do Windows ao capturar</value></data>
+  <data name="Settings.StartWithWindows" xml:space="preserve"><value>Iniciar automaticamente com o Windows</value></data>
+  <data name="Settings.LanguageLabel" xml:space="preserve"><value>Idioma:</value></data>
+  <data name="Settings.LanguageSystem" xml:space="preserve"><value>Usar idioma do sistema</value></data>
+  <data name="Settings.LanguagePortugueseBrazil" xml:space="preserve"><value>Português (Brasil)</value></data>
+  <data name="Settings.LanguageEnglishUs" xml:space="preserve"><value>English (United States)</value></data>
+  <data name="Settings.Save" xml:space="preserve"><value>&amp;Salvar</value></data>
+  <data name="Settings.Cancel" xml:space="preserve"><value>&amp;Cancelar</value></data>
+  <data name="Settings.SelectSaveFolder" xml:space="preserve"><value>Selecione a pasta onde os prints serão salvos</value></data>
+  <data name="Settings.InvalidFolder" xml:space="preserve"><value>Informe uma pasta de salvamento válida.</value></data>
+  <data name="Settings.WarningTitle" xml:space="preserve"><value>Aprint</value></data>
+  <data name="Settings.SelectModifier" xml:space="preserve"><value>Selecione ao menos um modificador (Ctrl, Shift, Alt ou Win) para o atalho.</value></data>
+  <data name="Editor.FormTitle" xml:space="preserve"><value>Aprint - Editor</value></data>
+  <data name="Editor.Color" xml:space="preserve"><value>Cor</value></data>
+  <data name="Editor.Freehand" xml:space="preserve"><value>Livre</value></data>
+  <data name="Editor.Line" xml:space="preserve"><value>Linha</value></data>
+  <data name="Editor.Arrow" xml:space="preserve"><value>Seta</value></data>
+  <data name="Editor.Rectangle" xml:space="preserve"><value>Retângulo</value></data>
+  <data name="Editor.Circle" xml:space="preserve"><value>Círculo</value></data>
+  <data name="Editor.Counter" xml:space="preserve"><value>Contador</value></data>
+  <data name="Editor.Blur" xml:space="preserve"><value>Borrar</value></data>
+  <data name="Editor.Filled" xml:space="preserve"><value>Preenchido</value></data>
+  <data name="Editor.Pixelated" xml:space="preserve"><value>Pixelado</value></data>
+  <data name="Editor.Undo" xml:space="preserve"><value>Desfazer</value></data>
+  <data name="Editor.Redo" xml:space="preserve"><value>Refazer</value></data>
+  <data name="Editor.Copy" xml:space="preserve"><value>Copiar</value></data>
+  <data name="Editor.SaveAs" xml:space="preserve"><value>Salvar como</value></data>
+  <data name="Editor.DrawSection" xml:space="preserve"><value>Desenhar:</value></data>
+  <data name="Editor.BlurSection" xml:space="preserve"><value>Borrar:</value></data>
+  <data name="Editor.SaveFilter" xml:space="preserve"><value>Imagem PNG|*.png|Imagem JPEG|*.jpg|Imagem Bitmap|*.bmp</value></data>
+</root>
