@@ -71,7 +71,7 @@ jobs:
             throw "Inno Setup compiler was not found on the runner."
           }
 
-          & $compilerPath "/DMyAppVersion=$env:PACKAGE_VERSION" "installer\scrips\aprint.iss"
+          & $compilerPath "/DMyAppVersion=$env:PACKAGE_VERSION" "installer\scripts\aprint.iss"
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
