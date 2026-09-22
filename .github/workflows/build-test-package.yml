@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4.2.0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: 8.0.x
 
@@ -74,7 +74,7 @@ jobs:
           & $compilerPath "/DMyAppVersion=$env:PACKAGE_VERSION" "installer\scripts\aprint.iss"
 
       - name: Upload installer artifacts
-        uses: actions/upload-artifact@v4.3.6
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: Aprint-${{ steps.package-version.outputs.version }}
           path: installer/*.exe
@@ -82,7 +82,7 @@ jobs:
 
       - name: Publish GitHub release
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2.0.8
+        uses: softprops/action-gh-release@v2.1.0
         with:
           files: installer/*.exe
           generate_release_notes: true
