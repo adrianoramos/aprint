@@ -1,4 +1,4 @@
-#ifndef MyAppName
+﻿#ifndef MyAppName
   #define MyAppName "Aprint"
 #endif
 #ifndef MyAppVersion
@@ -35,6 +35,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
+DisableDirPage=yes
 PrivilegesRequired=admin
 OutputDir=..
 OutputBaseFilename={#MyAppName}-{#MyAppVersion}-setup
@@ -57,14 +58,16 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "startup"; Description: "Run {#MyAppName} at system startup"; GroupDescription: "Startup Options:"; Flags: checkedonce
 
 [Files]
 Source: "{#MyPublishDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "{#MyAppName}"; ValueType: string; ValueData: "{app}\{#MyAppExeName}"; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
@@ -73,33 +76,86 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 Type: filesandordirs; Name: "{app}"
 
 [Code]
-function HasWindowsDesktopRuntime8Installed: Boolean;
+function HasWindowsDesktopRuntimeMinVersion(MinVersion: Integer): Boolean;
 var
-  Versions: TArrayOfString;
-  I: Integer;
+  BasePath: string;
+  FindRec: TFindRec;
+  VersionStr: string;
+  DotIndex: Integer;
+  MajorVersionStr: string;
+  MajorVersion: Integer;
 begin
   Result := False;
 
-  if RegGetSubkeyNames(HKLM, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
+  // Check x64 installation
+  BasePath := 'C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App';
+  if DirExists(BasePath) then
   begin
-	for I := 0 to GetArrayLength(Versions) - 1 do
+	if FindFirst(BasePath + '\*', FindRec) then
 	begin
-	  if Pos('8.', Versions[I]) = 1 then
-	  begin
-		Result := True;
-		Exit;
+	  try
+		repeat
+		  // Check if it's a directory and not a hidden file
+		  if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+		  begin
+			VersionStr := FindRec.Name;
+			// Extract major version number from string like "8.0.28"
+			DotIndex := Pos('.', VersionStr);
+			if DotIndex > 0 then
+			begin
+			  MajorVersionStr := Copy(VersionStr, 1, DotIndex - 1);
+			  try
+				MajorVersion := StrToInt(MajorVersionStr);
+				if MajorVersion >= MinVersion then
+				begin
+				  Result := True;
+				  Break;
+				end;
+			  except
+				// If conversion fails, skip this version
+			  end;
+			end;
+		  end;
+		until not FindNext(FindRec);
+	  finally
+		FindClose(FindRec);
 	  end;
 	end;
   end;
 
-  if RegGetSubkeyNames(HKLM32, 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
+  // If not found in x64, check x86 installation
+  if not Result then
   begin
-	for I := 0 to GetArrayLength(Versions) - 1 do
+	BasePath := 'C:\Program Files (x86)\dotnet\shared\Microsoft.WindowsDesktop.App';
+	if DirExists(BasePath) then
 	begin
-	  if Pos('8.', Versions[I]) = 1 then
+	  if FindFirst(BasePath + '\*', FindRec) then
 	  begin
-		Result := True;
-		Exit;
+		try
+		  repeat
+			if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+			begin
+			  VersionStr := FindRec.Name;
+			  DotIndex := Pos('.', VersionStr);
+			  if DotIndex > 0 then
+			  begin
+				MajorVersionStr := Copy(VersionStr, 1, DotIndex - 1);
+				try
+				  MajorVersion := StrToInt(MajorVersionStr);
+				  if MajorVersion >= MinVersion then
+				  begin
+					Result := True;
+					Break;
+				  end;
+				except
+				  // If conversion fails, skip this version
+				end;
+			  end;
+			end;
+		  until not FindNext(FindRec);
+		finally
+		  FindClose(FindRec);
+		end;
 	  end;
 	end;
   end;
@@ -112,10 +168,10 @@ var
 begin
   Result := True;
 
-  if not HasWindowsDesktopRuntime8Installed then
+  if not HasWindowsDesktopRuntimeMinVersion(8) then
   begin
 	OpenRuntimePage := MsgBox(
-	  'This installer requires .NET 8 Desktop Runtime (WindowsDesktop).'+#13#10#13#10+
+	  'This installer requires .NET 8 Desktop Runtime (WindowsDesktop) or higher.'+#13#10#13#10+
 	  'Click Yes to open the official download page, then run the installer again.',
 	  mbConfirmation,
 	  MB_YESNO
@@ -127,3 +183,4 @@ begin
 	Result := False;
   end;
 end;
+
