@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: 8.0.x
 
@@ -38,7 +38,7 @@ jobs:
         run: dotnet test tests/Aprint.Tests/Aprint.Tests.csproj --configuration Release --no-build
 
       - name: Publish application
-        run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output src/Aprint/bin/Release/net8.0-windows/publish
+        run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output artifacts/publish
 
       - name: Define package version
         id: package-version
@@ -71,10 +71,10 @@ jobs:
             throw "Inno Setup compiler was not found on the runner."
           }
 
-          & $compilerPath "/DMyAppVersion=$env:PACKAGE_VERSION" "installer\scrips\aprint.iss"
+          & $compilerPath "/DMyAppVersion=$env:PACKAGE_VERSION" "installer\scripts\aprint.iss"
 
       - name: Upload installer artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: Aprint-${{ steps.package-version.outputs.version }}
           path: installer/*.exe
@@ -82,7 +82,7 @@ jobs:
 
       - name: Publish GitHub release
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.1.0
         with:
           files: installer/*.exe
           generate_release_notes: true
