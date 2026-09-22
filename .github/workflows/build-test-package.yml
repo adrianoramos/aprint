@@ -38,7 +38,7 @@ jobs:
         run: dotnet test tests/Aprint.Tests/Aprint.Tests.csproj --configuration Release --no-build
 
       - name: Publish application
-        run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output src/Aprint/bin/Release/net8.0-windows/publish
+        run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output artifacts/publish
 
       - name: Define package version
         id: package-version
