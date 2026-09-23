@@ -1,88 +1,369 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
   <resheader name="resmimetype">
-	<value>text/microsoft-resx</value>
+    <value>text/microsoft-resx</value>
   </resheader>
   <resheader name="version">
-	<value>2.0</value>
+    <value>2.0</value>
   </resheader>
   <resheader name="reader">
-	<value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-	<value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="App.Name" xml:space="preserve"><value>Aprint</value></data>
-  <data name="App.AlreadyRunning" xml:space="preserve"><value>Aprint is already running in the system tray.</value></data>
-  <data name="Tray.CaptureNow" xml:space="preserve"><value>Capture now</value></data>
-  <data name="Tray.Settings" xml:space="preserve"><value>Settings...</value></data>
-  <data name="Tray.About" xml:space="preserve"><value>About</value></data>
-  <data name="Tray.Exit" xml:space="preserve"><value>Exit</value></data>
-  <data name="Tray.IconText" xml:space="preserve"><value>Aprint - Screen Capture</value></data>
-  <data name="Tray.HotkeyRegisterError" xml:space="preserve"><value>Could not register the global hotkey. It may already be in use by another app.</value></data>
-  <data name="Tray.ScreenshotCaptured" xml:space="preserve"><value>Screenshot captured</value></data>
-  <data name="Tray.EditorOpened" xml:space="preserve"><value>Editor opened to finish the screenshot.</value></data>
-  <data name="Tray.ClipboardOnly" xml:space="preserve"><value>Copied to clipboard.</value></data>
-  <data name="Tray.SavedTo" xml:space="preserve"><value>Saved to: {0}</value></data>
-  <data name="Tray.BothSavedAndClipboard" xml:space="preserve"><value>Copied to clipboard and saved to: {0}</value></data>
-  <data name="Tray.CapturedFallback" xml:space="preserve"><value>Screenshot captured.</value></data>
-  <data name="Tray.CaptureError" xml:space="preserve"><value>Screen capture error</value></data>
-  <data name="Tray.ScreenshotSaved" xml:space="preserve"><value>Screenshot saved</value></data>
-  <data name="Tray.ScreenshotCopied" xml:space="preserve"><value>Screenshot copied</value></data>
-  <data name="Tray.OpenError" xml:space="preserve"><value>Open error</value></data>
-  <data name="Tray.AboutText" xml:space="preserve"><value>Aprint - The only screenshot tool allowed for use ;) - Adriano Ramos</value></data>
-  <data name="Tray.AboutTitle" xml:space="preserve"><value>About</value></data>
-  <data name="Settings.FormTitle" xml:space="preserve"><value>Aprint - Settings</value></data>
-  <data name="Settings.HotkeyGroup" xml:space="preserve"><value>Global capture hotkey</value></data>
-  <data name="Settings.ForcePrintScreen" xml:space="preserve"><value>Use the default Windows key (Print Screen)</value></data>
-  <data name="Settings.CaptureModeGroup" xml:space="preserve"><value>Capture mode</value></data>
-  <data name="Settings.CaptureAllScreens" xml:space="preserve"><value>Default (full screen)</value></data>
-  <data name="Settings.CaptureCursorScreen" xml:space="preserve"><value>Screen where the cursor is</value></data>
-  <data name="Settings.CaptureSelectArea" xml:space="preserve"><value>Select area</value></data>
-  <data name="Settings.ActionGroup" xml:space="preserve"><value>After screenshot capture</value></data>
-  <data name="Settings.SavePathLabel" xml:space="preserve"><value>Save files to folder:</value></data>
-  <data name="Settings.Browse" xml:space="preserve"><value>&amp;Browse...</value></data>
-  <data name="Settings.SaveToDiskOnly" xml:space="preserve"><value>Save to disk</value></data>
-  <data name="Settings.ClipboardOnly" xml:space="preserve"><value>Copy to clipboard</value></data>
-  <data name="Settings.Both" xml:space="preserve"><value>Both</value></data>
-  <data name="Settings.NotificationClickGroup" xml:space="preserve"><value>When clicking the notification balloon</value></data>
-  <data name="Settings.ClickNone" xml:space="preserve"><value>No action</value></data>
-  <data name="Settings.ClickOpenFolder" xml:space="preserve"><value>Open folder</value></data>
-  <data name="Settings.ClickOpenFile" xml:space="preserve"><value>Open file</value></data>
-  <data name="Settings.ClickOpenEditor" xml:space="preserve"><value>Open editor</value></data>
-  <data name="Settings.GeneralGroup" xml:space="preserve"><value>General</value></data>
-  <data name="Settings.OpenEditorAfterCapture" xml:space="preserve"><value>Open editor after capture</value></data>
-  <data name="Settings.ShowToolLabels" xml:space="preserve"><value>Show button labels on the editor toolbar</value></data>
-  <data name="Settings.CloseEditorOnCopyOrSave" xml:space="preserve"><value>Close editor when copying/saving the image</value></data>
-  <data name="Settings.ShowNotification" xml:space="preserve"><value>Show notification after screenshot</value></data>
-  <data name="Settings.PlaySound" xml:space="preserve"><value>Play Windows notification sound after capture</value></data>
-  <data name="Settings.StartWithWindows" xml:space="preserve"><value>Start automatically with Windows</value></data>
-  <data name="Settings.LanguageLabel" xml:space="preserve"><value>Language:</value></data>
-  <data name="Settings.LanguageSystem" xml:space="preserve"><value>Use system language</value></data>
-  <data name="Settings.LanguagePortugueseBrazil" xml:space="preserve"><value>Portuguese (Brazil)</value></data>
-  <data name="Settings.LanguageEnglishUs" xml:space="preserve"><value>English (United States)</value></data>
-  <data name="Settings.Save" xml:space="preserve"><value>&amp;Save</value></data>
-  <data name="Settings.Cancel" xml:space="preserve"><value>&amp;Cancel</value></data>
-  <data name="Settings.SelectSaveFolder" xml:space="preserve"><value>Select the folder where screenshots will be saved</value></data>
-  <data name="Settings.InvalidFolder" xml:space="preserve"><value>Provide a valid save folder.</value></data>
-  <data name="Settings.WarningTitle" xml:space="preserve"><value>Aprint</value></data>
-  <data name="Settings.SelectModifier" xml:space="preserve"><value>Select at least one modifier (Ctrl, Shift, Alt, or Win) for the hotkey.</value></data>
-  <data name="Editor.FormTitle" xml:space="preserve"><value>Aprint - Editor</value></data>
-  <data name="Editor.Color" xml:space="preserve"><value>Color</value></data>
-  <data name="Editor.Freehand" xml:space="preserve"><value>Freehand</value></data>
-  <data name="Editor.Line" xml:space="preserve"><value>Line</value></data>
-  <data name="Editor.Arrow" xml:space="preserve"><value>Arrow</value></data>
-  <data name="Editor.Rectangle" xml:space="preserve"><value>Rectangle</value></data>
-  <data name="Editor.Circle" xml:space="preserve"><value>Circle</value></data>
-  <data name="Editor.Counter" xml:space="preserve"><value>Counter</value></data>
-  <data name="Editor.Blur" xml:space="preserve"><value>Blur</value></data>
-  <data name="Editor.Filled" xml:space="preserve"><value>Filled</value></data>
-  <data name="Editor.Pixelated" xml:space="preserve"><value>Pixelated</value></data>
-  <data name="Editor.Undo" xml:space="preserve"><value>Undo</value></data>
-  <data name="Editor.Redo" xml:space="preserve"><value>Redo</value></data>
-  <data name="Editor.Copy" xml:space="preserve"><value>Copy</value></data>
-  <data name="Editor.SaveAs" xml:space="preserve"><value>Save as</value></data>
-  <data name="Editor.DrawSection" xml:space="preserve"><value>Draw:</value></data>
-  <data name="Editor.BlurSection" xml:space="preserve"><value>Blur:</value></data>
-  <data name="Editor.SaveFilter" xml:space="preserve"><value>PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp</value></data>
+  <data name="App.Name" xml:space="preserve">
+    <value>Aprint</value>
+  </data>
+  <data name="App.AlreadyRunning" xml:space="preserve">
+    <value>Aprint is already running in the system tray.</value>
+  </data>
+  <data name="Tray.CaptureNow" xml:space="preserve">
+    <value>Capture now</value>
+  </data>
+  <data name="Tray.Settings" xml:space="preserve">
+    <value>Settings...</value>
+  </data>
+  <data name="Tray.About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Tray.Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Tray.IconText" xml:space="preserve">
+    <value>Aprint - Screen Capture</value>
+  </data>
+  <data name="Tray.HotkeyRegisterError" xml:space="preserve">
+    <value>Could not register the global hotkey. It may already be in use by another app.</value>
+  </data>
+  <data name="Tray.ScreenshotCaptured" xml:space="preserve">
+    <value>Screenshot captured</value>
+  </data>
+  <data name="Tray.EditorOpened" xml:space="preserve">
+    <value>Editor opened to finish the screenshot.</value>
+  </data>
+  <data name="Tray.ClipboardOnly" xml:space="preserve">
+    <value>Copied to clipboard.</value>
+  </data>
+  <data name="Tray.SavedTo" xml:space="preserve">
+    <value>Saved to: {0}</value>
+  </data>
+  <data name="Tray.BothSavedAndClipboard" xml:space="preserve">
+    <value>Copied to clipboard and saved to: {0}</value>
+  </data>
+  <data name="Tray.CapturedFallback" xml:space="preserve">
+    <value>Screenshot captured.</value>
+  </data>
+  <data name="Tray.CaptureError" xml:space="preserve">
+    <value>Screen capture error</value>
+  </data>
+  <data name="Tray.ScreenshotSaved" xml:space="preserve">
+    <value>Screenshot saved</value>
+  </data>
+  <data name="Tray.ScreenshotCopied" xml:space="preserve">
+    <value>Screenshot copied</value>
+  </data>
+  <data name="Tray.OpenError" xml:space="preserve">
+    <value>Open error</value>
+  </data>
+  <data name="Tray.AboutText" xml:space="preserve">
+    <value>Aprint - The only screenshot tool allowed for use ;) - Adriano Ramos</value>
+  </data>
+  <data name="Tray.AboutTitle" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Settings.FormTitle" xml:space="preserve">
+    <value>Aprint - Settings</value>
+  </data>
+  <data name="Settings.HotkeyGroup" xml:space="preserve">
+    <value>Hotkey</value>
+  </data>
+  <data name="Settings.ForcePrintScreen" xml:space="preserve">
+    <value>Use the default Windows key (Print Screen)</value>
+  </data>
+  <data name="Settings.CaptureModeGroup" xml:space="preserve">
+    <value>Capture mode</value>
+  </data>
+  <data name="Settings.CaptureGroup" xml:space="preserve">
+    <value>Capture</value>
+  </data>
+  <data name="Settings.CaptureModeLabel" xml:space="preserve">
+    <value>Capture mode:</value>
+  </data>
+  <data name="Settings.CaptureAllScreens" xml:space="preserve">
+    <value>Default (full screen)</value>
+  </data>
+  <data name="Settings.CaptureCursorScreen" xml:space="preserve">
+    <value>Screen where the cursor is</value>
+  </data>
+  <data name="Settings.CaptureSelectArea" xml:space="preserve">
+    <value>Select area</value>
+  </data>
+  <data name="Settings.ActionGroup" xml:space="preserve">
+    <value>After screenshot capture:</value>
+  </data>
+  <data name="Settings.SavePathLabel" xml:space="preserve">
+    <value>Save files to folder:</value>
+  </data>
+  <data name="Settings.Browse" xml:space="preserve">
+    <value>&amp;Browse...</value>
+  </data>
+  <data name="Settings.SaveToDiskOnly" xml:space="preserve">
+    <value>Save to disk</value>
+  </data>
+  <data name="Settings.ClipboardOnly" xml:space="preserve">
+    <value>Copy to clipboard</value>
+  </data>
+  <data name="CopyAndSave" xml:space="preserve">
+    <value>Both</value>
+  </data>
+  <data name="Settings.NotificationClickGroup" xml:space="preserve">
+    <value>When clicking the notification balloon</value>
+  </data>
+  <data name="Settings.ClickNone" xml:space="preserve">
+    <value>No action</value>
+  </data>
+  <data name="Settings.ClickOpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="Settings.ClickOpenFile" xml:space="preserve">
+    <value>Open file</value>
+  </data>
+  <data name="Settings.ClickOpenEditor" xml:space="preserve">
+    <value>Open editor</value>
+  </data>
+  <data name="Settings.GeneralGroup" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings.EditorGroup" xml:space="preserve">
+    <value>Editor</value>
+  </data>
+  <data name="Settings.NotificationClickLabel" xml:space="preserve">
+    <value>When clicking the notification:</value>
+  </data>
+  <data name="Settings.OpenEditorAfterCapture" xml:space="preserve">
+    <value>Open editor after capture</value>
+  </data>
+  <data name="Settings.ShowToolLabels" xml:space="preserve">
+    <value>Show button labels on the editor toolbar</value>
+  </data>
+  <data name="Settings.CloseEditorOnCopyOrSave" xml:space="preserve">
+    <value>Close editor when copying/saving the image</value>
+  </data>
+  <data name="Settings.ShowNotification" xml:space="preserve">
+    <value>Show notification after screenshot</value>
+  </data>
+  <data name="Settings.PlaySound" xml:space="preserve">
+    <value>Play Windows notification sound after capture</value>
+  </data>
+  <data name="Settings.StartWithWindows" xml:space="preserve">
+    <value>Start automatically with Windows</value>
+  </data>
+  <data name="Settings.LanguageLabel" xml:space="preserve">
+    <value>Language:</value>
+  </data>
+  <data name="Settings.LanguageSystem" xml:space="preserve">
+    <value>Use system language</value>
+  </data>
+  <data name="Settings.LanguagePortugueseBrazil" xml:space="preserve">
+    <value>Portuguese (Brazil)</value>
+  </data>
+  <data name="Settings.LanguageEnglishUs" xml:space="preserve">
+    <value>English (United States)</value>
+  </data>
+  <data name="Settings.Save" xml:space="preserve">
+    <value>&amp;Save</value>
+  </data>
+  <data name="Settings.Cancel" xml:space="preserve">
+    <value>&amp;Cancel</value>
+  </data>
+  <data name="Settings.SelectSaveFolder" xml:space="preserve">
+    <value>Select the folder where screenshots will be saved</value>
+  </data>
+  <data name="Settings.InvalidFolder" xml:space="preserve">
+    <value>Provide a valid save folder.</value>
+  </data>
+  <data name="Settings.WarningTitle" xml:space="preserve">
+    <value>Aprint</value>
+  </data>
+  <data name="Settings.SelectModifier" xml:space="preserve">
+    <value>Select at least one modifier (Ctrl, Shift, Alt, or Win) for the hotkey.</value>
+  </data>
+  <data name="Editor.FormTitle" xml:space="preserve">
+    <value>Aprint - Editor</value>
+  </data>
+  <data name="Editor.Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Editor.Freehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="Editor.Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="Editor.Arrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="Editor.Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="Editor.Circle" xml:space="preserve">
+    <value>Circle</value>
+  </data>
+  <data name="Editor.Counter" xml:space="preserve">
+    <value>Counter</value>
+  </data>
+  <data name="Editor.Blur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="Editor.Filled" xml:space="preserve">
+    <value>Filled</value>
+  </data>
+  <data name="Editor.Pixelated" xml:space="preserve">
+    <value>Pixelated</value>
+  </data>
+  <data name="Editor.Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="Editor.Redo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="Editor.Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Editor.SaveAs" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="Editor.DrawSection" xml:space="preserve">
+    <value>Draw:</value>
+  </data>
+  <data name="Editor.BlurSection" xml:space="preserve">
+    <value>Blur:</value>
+  </data>
+  <data name="Editor.SaveFilter" xml:space="preserve">
+    <value>PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp</value>
+  </data>
+  <data name="Settings.RememberLastTool" xml:space="preserve">
+    <value>Remember last used editor tool</value>
+  </data>
+  <data name="Settings.DefaultEditorTool" xml:space="preserve">
+    <value>Default editor tool:</value>
+  </data>
+  <data name="Settings.EditorStartDefault" xml:space="preserve">
+    <value>Default window</value>
+  </data>
+  <data name="Settings.EditorStartMaximized" xml:space="preserve">
+    <value>Maximized window</value>
+  </data>
+  <data name="Settings.EditorStartMinimized" xml:space="preserve">
+    <value>Minimized window</value>
+  </data>
+  <data name="Settings.CopyAndSave" xml:space="preserve">
+    <value>Copy and save to disk</value>
+  </data>
 </root>

@@ -74,7 +74,7 @@ public sealed class EditorForm : Form
     public event Action? Copied;
     public event Action<BorrarMode>? BorrarModeChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false)
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _closeAfterCopyOrSave = closeAfterCopyOrSave;
@@ -327,7 +327,11 @@ public sealed class EditorForm : Form
         Controls.Add(toolStrip);
 
         CenterPictureBox(scrollPanel);
+        SetActiveTool(initialTool);
     }
+
+    /// <summary>Current selected tool in the editor.</summary>
+    public EditTool SelectedTool => _currentTool;
 
     private static void CenterPictureBox(Panel scrollPanel)
     {

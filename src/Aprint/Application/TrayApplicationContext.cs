@@ -124,7 +124,8 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void OpenEditor(Bitmap bitmap)
     {
-        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave);
+        var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
+        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool);
 
         editor.BorrarModeChanged += mode =>
         {
@@ -157,7 +158,25 @@ public sealed class TrayApplicationContext : ApplicationContext
             }
         };
 
+        switch (_settings.EditorStartState)
+        {
+            case EditorWindowStartState.Maximized:
+                editor.WindowState = FormWindowState.Maximized;
+                break;
+            case EditorWindowStartState.Minimized:
+                editor.WindowState = FormWindowState.Minimized;
+                break;
+            default:
+                break;
+        }
+
         editor.ShowDialog();
+
+        if (_settings.RememberLastEditorTool)
+        {
+            _settings.LastEditorTool = editor.SelectedTool;
+            _settingsStore.Save(_settings);
+        }
     }
 
     private void HandleBalloonTipClicked()
