@@ -260,8 +260,15 @@ public sealed partial class SettingsForm : Form
         _workingSettings.HotkeyShift = chkShift.Checked;
         _workingSettings.HotkeyAlt = chkAlt.Checked;
         _workingSettings.HotkeyWin = chkWin.Checked;
-        _workingSettings.HotkeyKey = chkForcePrintScreen.Checked ? _previousHotkeyKey : (Keys)(cmbKey.SelectedItem ?? Keys.P);
+        _workingSettings.HotkeyKey = chkForcePrintScreen.Checked ? Keys.PrintScreen : (Keys)(cmbKey.SelectedItem ?? Keys.P);
         _workingSettings.ForcePrintScreen = chkForcePrintScreen.Checked;
+        if (chkForcePrintScreen.Checked)
+        {
+            _workingSettings.HotkeyCtrl = false;
+            _workingSettings.HotkeyShift = false;
+            _workingSettings.HotkeyAlt = false;
+            _workingSettings.HotkeyWin = false;
+        }
         _workingSettings.CaptureMode = radCaptureCursorScreen.Checked ? CaptureMode.ScreenWithCursor
             : radCaptureSelectArea.Checked ? CaptureMode.SelectArea
             : CaptureMode.AllScreens;
