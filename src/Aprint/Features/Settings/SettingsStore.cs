@@ -25,6 +25,7 @@ public sealed class SettingsStore
                 var settings = JsonSerializer.Deserialize<AppSettings>(json);
                 if (settings is not null)
                 {
+                    NormalizeHotkeySettings(settings);
                     return settings;
                 }
             }
@@ -39,9 +40,24 @@ public sealed class SettingsStore
 
     public void Save(AppSettings settings)
     {
+        NormalizeHotkeySettings(settings);
         var directory = Path.GetDirectoryName(_settingsFilePath)!;
         Directory.CreateDirectory(directory);
         var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(_settingsFilePath, json);
+    }
+
+    private static void NormalizeHotkeySettings(AppSettings settings)
+    {
+        if (!settings.ForcePrintScreen)
+        {
+            return;
+        }
+
+        settings.HotkeyKey = Keys.PrintScreen;
+        settings.HotkeyCtrl = false;
+        settings.HotkeyShift = false;
+        settings.HotkeyAlt = false;
+        settings.HotkeyWin = false;
     }
 }
