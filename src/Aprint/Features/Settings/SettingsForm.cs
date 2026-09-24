@@ -318,9 +318,7 @@ public sealed partial class SettingsForm : Form
             _workingSettings.HotkeyAlt = false;
             _workingSettings.HotkeyWin = false;
         }
-        _workingSettings.CaptureMode = radCaptureCursorScreen.Checked ? CaptureMode.ScreenWithCursor
-            : radCaptureSelectArea.Checked ? CaptureMode.SelectArea
-            : CaptureMode.AllScreens;
+        _workingSettings.CaptureMode = (CaptureMode)Math.Max(cmbCaptureMode.SelectedIndex, 0);
 
         SettingsSaved?.Invoke(_workingSettings);
         Close();
