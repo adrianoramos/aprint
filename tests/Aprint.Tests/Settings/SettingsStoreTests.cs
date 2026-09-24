@@ -54,6 +54,32 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.True(settings.HotkeyShift);
     }
 
+    [Fact]
+    public void ForcePrintScreenNormalizesPersistedHotkey()
+    {
+        var filePath = Path.Combine(_testDirectory, "settings.json");
+        var store = new SettingsStore(filePath);
+        var settings = new AppSettings
+        {
+            ForcePrintScreen = true,
+            HotkeyKey = Keys.F8,
+            HotkeyCtrl = true,
+            HotkeyShift = true,
+            HotkeyAlt = true,
+            HotkeyWin = true,
+        };
+
+        store.Save(settings);
+        var loaded = store.Load();
+
+        Assert.True(loaded.ForcePrintScreen);
+        Assert.Equal(Keys.PrintScreen, loaded.HotkeyKey);
+        Assert.False(loaded.HotkeyCtrl);
+        Assert.False(loaded.HotkeyShift);
+        Assert.False(loaded.HotkeyAlt);
+        Assert.False(loaded.HotkeyWin);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDirectory))
