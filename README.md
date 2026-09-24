@@ -59,7 +59,8 @@ dotnet run --project src/Aprint/Aprint.csproj
 Publicar a aplicação em `artifacts/publish`:
 
 ```powershell
-dotnet publish src/Aprint/Aprint.csproj --configuration Release --output artifacts/publish
+$Version = '1.0.0'
+dotnet publish src/Aprint/Aprint.csproj --configuration Release --output artifacts/publish "-p:Version=$Version"
 ```
 
 Gerar a publicação e o instalador em uma única etapa:
@@ -68,7 +69,7 @@ Gerar a publicação e o instalador em uma única etapa:
 .\installer\scripts\build-installer.ps1 -Version 1.0.0
 ```
 
-O script usa a versão informada no comando para a aplicação e para o instalador. A versão padrão do projeto fica em `Directory.Build.props`.
+O script usa a versão informada no comando para a aplicação e para o instalador. O workflow do GitHub também calcula a versão e a aplica ao build, à publicação e ao instalador. Não há uma versão padrão mantida em um arquivo MSBuild compartilhado.
 
 O instalador é framework-dependent e requer o .NET 8 Desktop Runtime no computador de destino. As saídas de `artifacts/`, `bin/` e `obj/` são geradas localmente e não devem ser versionadas.
 
