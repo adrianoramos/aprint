@@ -1,4 +1,5 @@
 using Aprint.Features.Capture;
+using Aprint.Features.Editor;
 using Aprint.Infrastructure.Windows;
 
 namespace Aprint.Features.Settings;
@@ -34,9 +35,13 @@ public sealed partial class SettingsForm : Form
             CaptureMode = currentSettings.CaptureMode,
             OpenEditorAfterCapture = currentSettings.OpenEditorAfterCapture,
             PlaySoundOnCapture = currentSettings.PlaySoundOnCapture,
+            EditorStartState = currentSettings.EditorStartState,
             BorrarMode = currentSettings.BorrarMode,
             ShowToolLabels = currentSettings.ShowToolLabels,
             CloseEditorOnCopyOrSave = currentSettings.CloseEditorOnCopyOrSave,
+            RememberLastEditorTool = currentSettings.RememberLastEditorTool,
+            LastEditorTool = currentSettings.LastEditorTool,
+            DefaultEditorTool = currentSettings.DefaultEditorTool,
             HotkeyKey = currentSettings.HotkeyKey,
             HotkeyCtrl = currentSettings.HotkeyCtrl,
             HotkeyShift = currentSettings.HotkeyShift,
@@ -75,6 +80,11 @@ public sealed partial class SettingsForm : Form
         }
     }
 
+    private void chkRememberLastTool_CheckedChanged(object? sender, EventArgs e)
+    {
+        cmbDefaultEditorTool.Enabled = !chkRememberLastTool.Checked;
+    }
+
     private void UpdateHotkeyControlsEnabled(bool forcePrintScreen)
     {
         chkCtrl.Enabled = !forcePrintScreen;
@@ -82,6 +92,16 @@ public sealed partial class SettingsForm : Form
         chkAlt.Enabled = !forcePrintScreen;
         chkWin.Enabled = !forcePrintScreen;
         cmbKey.Enabled = !forcePrintScreen;
+    }
+
+    private void UpdateEditorStartStateEnabled()
+    {
+        cmbEditorStartState.Enabled = chkOpenEditor.Checked;
+    }
+
+    private void UpdateNotificationComboEnabled()
+    {
+        cmbNotificationClick.Enabled = chkShowNotification.Checked;
     }
 
     private void LoadValuesIntoControls()
@@ -93,6 +113,63 @@ public sealed partial class SettingsForm : Form
         chkPlaySound.Checked = _workingSettings.PlaySoundOnCapture;
         chkShowToolLabels.Checked = _workingSettings.ShowToolLabels;
         chkCloseEditorOnCopyOrSave.Checked = _workingSettings.CloseEditorOnCopyOrSave;
+        
+        cmbEditorStartState.Items.Clear();
+        cmbEditorStartState.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.EditorStartDefault"),
+            AppLocalization.Translate("Settings.EditorStartMaximized"),
+            AppLocalization.Translate("Settings.EditorStartMinimized"),
+        });
+
+        cmbEditorStartState.SelectedIndex = (int)_workingSettings.EditorStartState;
+        UpdateEditorStartStateEnabled();
+        chkRememberLastTool.Checked = _workingSettings.RememberLastEditorTool;
+
+        cmbDefaultEditorTool.Items.Clear();
+        cmbDefaultEditorTool.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Editor.Freehand"),
+            AppLocalization.Translate("Editor.Line"),
+            AppLocalization.Translate("Editor.Arrow"),
+            AppLocalization.Translate("Editor.Rectangle"),
+            AppLocalization.Translate("Editor.Circle"),
+            AppLocalization.Translate("Editor.Counter"),
+            AppLocalization.Translate("Editor.Blur"),
+        });
+
+        cmbDefaultEditorTool.SelectedIndex = (int)_workingSettings.DefaultEditorTool;
+        cmbDefaultEditorTool.Enabled = !_workingSettings.RememberLastEditorTool;
+
+        cmbCaptureMode.Items.Clear();
+        cmbCaptureMode.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.CaptureAllScreens"),
+            AppLocalization.Translate("Settings.CaptureCursorScreen"),
+            AppLocalization.Translate("Settings.CaptureSelectArea"),
+        });
+        cmbCaptureMode.SelectedIndex = (int)_workingSettings.CaptureMode;
+
+        cmbCaptureAction.Items.Clear();
+        cmbCaptureAction.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.ClipboardOnly"),
+            AppLocalization.Translate("Settings.SaveToDiskOnly"),
+            AppLocalization.Translate("Settings.CopyAndSave"),
+        });
+        cmbCaptureAction.SelectedIndex = (int)_workingSettings.CaptureAction;
+
+        cmbNotificationClick.Items.Clear();
+        cmbNotificationClick.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.ClickNone"),
+            AppLocalization.Translate("Settings.ClickOpenFolder"),
+            AppLocalization.Translate("Settings.ClickOpenFile"),
+            AppLocalization.Translate("Settings.ClickOpenEditor"),
+        });
+        cmbNotificationClick.SelectedIndex = (int)_workingSettings.NotificationClickAction;
+        UpdateNotificationComboEnabled();
+        UpdateSaveFolderUi();
 
         PopulateLanguageOptions();
 
@@ -108,39 +185,6 @@ public sealed partial class SettingsForm : Form
         ApplyHotkeyUiState(_workingSettings.HotkeyKey, _workingSettings.HotkeyCtrl, _workingSettings.HotkeyShift, _workingSettings.HotkeyAlt, _workingSettings.HotkeyWin);
         chkForcePrintScreen.Checked = _workingSettings.ForcePrintScreen;
         UpdateHotkeyControlsEnabled(chkForcePrintScreen.Checked);
-
-        switch (_workingSettings.CaptureAction)
-        {
-            case CaptureAction.ClipboardOnly:
-                radClipboardOnly.Checked = true;
-                break;
-            case CaptureAction.Both:
-                radBoth.Checked = true;
-                break;
-            default:
-                radSaveToDiskOnly.Checked = true;
-                break;
-        }
-
-        switch (_workingSettings.NotificationClickAction)
-        {
-            case NotificationClickAction.OpenFolder:
-                radClickOpenFolder.Checked = true;
-                break;
-            case NotificationClickAction.OpenFile:
-                radClickOpenFile.Checked = true;
-                break;
-            case NotificationClickAction.OpenEditor:
-                radClickOpenEditor.Checked = true;
-                break;
-            default:
-                radClickNone.Checked = true;
-                break;
-        }
-
-        radCaptureAllScreens.Checked = _workingSettings.CaptureMode == CaptureMode.AllScreens;
-        radCaptureCursorScreen.Checked = _workingSettings.CaptureMode == CaptureMode.ScreenWithCursor;
-        radCaptureSelectArea.Checked = _workingSettings.CaptureMode == CaptureMode.SelectArea;
 
         cmbKey.SelectedItem = _workingSettings.HotkeyKey;
         if (cmbKey.SelectedItem is null && cmbKey.Items.Count > 0)
@@ -181,31 +225,38 @@ public sealed partial class SettingsForm : Form
         Text = AppLocalization.Translate("Settings.FormTitle");
         grpHotkey.Text = AppLocalization.Translate("Settings.HotkeyGroup");
         chkForcePrintScreen.Text = AppLocalization.Translate("Settings.ForcePrintScreen");
-        grpCaptureMode.Text = AppLocalization.Translate("Settings.CaptureModeGroup");
-        radCaptureAllScreens.Text = AppLocalization.Translate("Settings.CaptureAllScreens");
-        radCaptureCursorScreen.Text = AppLocalization.Translate("Settings.CaptureCursorScreen");
-        radCaptureSelectArea.Text = AppLocalization.Translate("Settings.CaptureSelectArea");
-        grpAction.Text = AppLocalization.Translate("Settings.ActionGroup");
+        grpCaptureMode.Text = AppLocalization.Translate("Settings.CaptureGroup");
+        lblCaptureMode.Text = AppLocalization.Translate("Settings.CaptureModeLabel");
+        lblCaptureAction.Text = AppLocalization.Translate("Settings.ActionGroup");
         lblSavePath.Text = AppLocalization.Translate("Settings.SavePathLabel");
         btnBrowse.Text = AppLocalization.Translate("Settings.Browse");
-        radSaveToDiskOnly.Text = AppLocalization.Translate("Settings.SaveToDiskOnly");
-        radClipboardOnly.Text = AppLocalization.Translate("Settings.ClipboardOnly");
-        radBoth.Text = AppLocalization.Translate("Settings.Both");
-        grpNotificationClick.Text = AppLocalization.Translate("Settings.NotificationClickGroup");
-        radClickNone.Text = AppLocalization.Translate("Settings.ClickNone");
-        radClickOpenFolder.Text = AppLocalization.Translate("Settings.ClickOpenFolder");
-        radClickOpenFile.Text = AppLocalization.Translate("Settings.ClickOpenFile");
-        radClickOpenEditor.Text = AppLocalization.Translate("Settings.ClickOpenEditor");
+        lblNotificationClick.Text = AppLocalization.Translate("Settings.NotificationClickLabel");
+        grpEditor.Text = AppLocalization.Translate("Settings.EditorGroup");
         grpGeneral.Text = AppLocalization.Translate("Settings.GeneralGroup");
         chkOpenEditor.Text = AppLocalization.Translate("Settings.OpenEditorAfterCapture");
         chkShowToolLabels.Text = AppLocalization.Translate("Settings.ShowToolLabels");
         chkCloseEditorOnCopyOrSave.Text = AppLocalization.Translate("Settings.CloseEditorOnCopyOrSave");
+        chkRememberLastTool.Text = AppLocalization.Translate("Settings.RememberLastTool");
+        lblDefaultEditorTool.Text = AppLocalization.Translate("Settings.DefaultEditorTool");
         chkShowNotification.Text = AppLocalization.Translate("Settings.ShowNotification");
         chkPlaySound.Text = AppLocalization.Translate("Settings.PlaySound");
         chkStartWithWindows.Text = AppLocalization.Translate("Settings.StartWithWindows");
         lblLanguage.Text = AppLocalization.Translate("Settings.LanguageLabel");
         btnSave.Text = AppLocalization.Translate("Settings.Save");
         btnCancel.Text = AppLocalization.Translate("Settings.Cancel");
+    }
+
+    private void cmbCaptureAction_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        UpdateSaveFolderUi();
+    }
+
+    private void UpdateSaveFolderUi()
+    {
+        var usesDisk = cmbCaptureAction.SelectedIndex is (int)CaptureAction.SaveToDiskOnly or (int)CaptureAction.Both;
+        lblSavePath.Enabled = usesDisk;
+        txtSaveFolder.Enabled = usesDisk;
+        btnBrowse.Enabled = usesDisk;
     }
 
     private void btnBrowse_Click(object? sender, EventArgs e)
@@ -225,9 +276,7 @@ public sealed partial class SettingsForm : Form
 
     private void btnSave_Click(object? sender, EventArgs e)
     {
-        var action = radClipboardOnly.Checked ? CaptureAction.ClipboardOnly
-            : radBoth.Checked ? CaptureAction.Both
-            : CaptureAction.SaveToDiskOnly;
+        var action = (CaptureAction)Math.Max(cmbCaptureAction.SelectedIndex, 0);
 
         if (action is CaptureAction.SaveToDiskOnly or CaptureAction.Both && string.IsNullOrWhiteSpace(txtSaveFolder.Text))
         {
@@ -250,12 +299,12 @@ public sealed partial class SettingsForm : Form
         _workingSettings.PlaySoundOnCapture = chkPlaySound.Checked;
         _workingSettings.ShowToolLabels = chkShowToolLabels.Checked;
         _workingSettings.CloseEditorOnCopyOrSave = chkCloseEditorOnCopyOrSave.Checked;
+        _workingSettings.EditorStartState = (EditorWindowStartState)Math.Max(cmbEditorStartState.SelectedIndex, 0);
+        _workingSettings.RememberLastEditorTool = chkRememberLastTool.Checked;
+        _workingSettings.DefaultEditorTool = (EditTool)(cmbDefaultEditorTool.SelectedIndex >= 0 ? cmbDefaultEditorTool.SelectedIndex : 0);
         _workingSettings.Language = (cmbLanguage.SelectedItem as LanguageItem)?.Code ?? AppLocalization.SystemLanguageCode;
         _workingSettings.CaptureAction = action;
-        _workingSettings.NotificationClickAction = radClickOpenFolder.Checked ? NotificationClickAction.OpenFolder
-            : radClickOpenFile.Checked ? NotificationClickAction.OpenFile
-            : radClickOpenEditor.Checked ? NotificationClickAction.OpenEditor
-            : NotificationClickAction.None;
+        _workingSettings.NotificationClickAction = (NotificationClickAction)Math.Max(cmbNotificationClick.SelectedIndex, 0);
         _workingSettings.HotkeyCtrl = chkCtrl.Checked;
         _workingSettings.HotkeyShift = chkShift.Checked;
         _workingSettings.HotkeyAlt = chkAlt.Checked;
@@ -269,9 +318,7 @@ public sealed partial class SettingsForm : Form
             _workingSettings.HotkeyAlt = false;
             _workingSettings.HotkeyWin = false;
         }
-        _workingSettings.CaptureMode = radCaptureCursorScreen.Checked ? CaptureMode.ScreenWithCursor
-            : radCaptureSelectArea.Checked ? CaptureMode.SelectArea
-            : CaptureMode.AllScreens;
+        _workingSettings.CaptureMode = (CaptureMode)Math.Max(cmbCaptureMode.SelectedIndex, 0);
 
         SettingsSaved?.Invoke(_workingSettings);
         Close();
@@ -299,5 +346,15 @@ public sealed partial class SettingsForm : Form
         }
 
         UpdateHotkeyControlsEnabled(forcePrintScreen);
+    }
+
+    private void chkOpenEditor_CheckedChanged(object? sender, EventArgs e)
+    {
+        UpdateEditorStartStateEnabled();
+    }
+
+    private void chkShowNotification_CheckedChanged(object? sender, EventArgs e)
+    {
+        UpdateNotificationComboEnabled();
     }
 }

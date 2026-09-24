@@ -3,7 +3,13 @@ using Aprint.Features.Editor;
 
 namespace Aprint.Features.Settings;
 
-/// <summary>Configurações persistidas do aplicativo (formato JSON em %AppData%).</summary>
+public enum EditorWindowStartState
+{
+    Default = 0,
+    Maximized = 1,
+    Minimized = 2,
+}
+
 public sealed class AppSettings
 {
     public string SaveFolder { get; set; } = GetDefaultSaveFolder();
@@ -20,11 +26,19 @@ public sealed class AppSettings
 
     public bool PlaySoundOnCapture { get; set; }
 
+    public EditorWindowStartState EditorStartState { get; set; } = EditorWindowStartState.Default;
+
     public BorrarMode BorrarMode { get; set; } = BorrarMode.Pixelate;
 
     public bool ShowToolLabels { get; set; } = true;
 
     public bool CloseEditorOnCopyOrSave { get; set; }
+
+    public bool RememberLastEditorTool { get; set; }
+
+    public EditTool LastEditorTool { get; set; } = EditTool.Freehand;
+
+    public EditTool DefaultEditorTool { get; set; } = EditTool.Freehand;
 
     public Keys HotkeyKey { get; set; } = Keys.P;
 
