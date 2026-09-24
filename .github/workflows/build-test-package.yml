@@ -28,18 +28,6 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Restore dependencies
-        run: dotnet restore Aprint.sln
-
-      - name: Build
-        run: dotnet build Aprint.sln --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test tests/Aprint.Tests/Aprint.Tests.csproj --configuration Release --no-build
-
-      - name: Publish application
-        run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output artifacts/publish
-
       - name: Define package version
         id: package-version
         shell: pwsh
@@ -48,11 +36,23 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
         run: |
           $version = "1.0.${{ github.run_number }}"
-          if ($env:REF_TYPE -eq "tag" -and $env:REF_NAME -match '^v?(\d+\.\d+\.\d+(?:\.\d+)?)$') {
+          if ($env:REF_TYPE -eq "tag" -and $env:REF_NAME -match '^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$') {
             $version = $Matches[1]
           }
           "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
           "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore dependencies
+        run: dotnet restore Aprint.sln
+
+      - name: Build
+        run: dotnet build Aprint.sln --configuration Release --no-restore "-p:Version=$env:PACKAGE_VERSION"
+
+      - name: Test
+        run: dotnet test tests/Aprint.Tests/Aprint.Tests.csproj --configuration Release --no-build
+
+      - name: Publish application
+        run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output artifacts/publish "-p:Version=$env:PACKAGE_VERSION"
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress --yes
