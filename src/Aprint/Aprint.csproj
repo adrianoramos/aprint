@@ -11,6 +11,7 @@
     <RootNamespace>Aprint</RootNamespace>
     <StartupObject>Aprint.Program</StartupObject>
     <ApplicationIcon>Resources\AppIcon.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,11 +20,10 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\AppIcon.ico" />
-    <EmbeddedResource Include="Resources\Icons\*.svg" />
+    <EmbeddedResource Include="Resources\Icons\*.png" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Svg" Version="3.4.8" />
   </ItemGroup>
 
 </Project>
