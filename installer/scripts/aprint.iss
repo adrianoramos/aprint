@@ -4,6 +4,9 @@
 #ifndef MyAppVersion
   #define MyAppVersion "1.0.0"
 #endif
+#ifndef MyFileVersion
+	#define MyFileVersion "1.0.0.0"
+#endif
 #ifndef MyAppPublisher
   #define MyAppPublisher "Aprint"
 #endif
@@ -41,12 +44,16 @@ OutputDir=..
 OutputBaseFilename={#MyAppName}-{#MyAppVersion}-setup
 SetupIconFile=..\..\src\Aprint\Resources\AppIcon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription=Another screenshot tool for Windows
+VersionInfoVersion={#MyFileVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-CloseApplications=yes
+CloseApplications=force
+CloseApplicationsFilter={#MyAppExeName}
 RestartApplications=no
 #if SignToolCmd != ""
 SignTool=byparam powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "{#SignToolCmd} $f"
@@ -58,7 +65,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
-Name: "startup"; Description: "Run {#MyAppName} at system startup"; GroupDescription: "Startup Options:"; Flags: checkedonce
+Name: "startup"; Description: "Run {#MyAppName} at system startup"; GroupDescription: "Startup Options:"
 
 [Files]
 Source: "{#MyPublishDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion

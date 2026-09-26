@@ -11,6 +11,8 @@ $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $projectPath = Join-Path $repositoryRoot 'src\Aprint\Aprint.csproj'
 $publishDirectory = Join-Path $repositoryRoot 'artifacts\publish'
 $installerScript = Join-Path $PSScriptRoot 'Aprint.iss'
+$versionMatch = [regex]::Match($Version, '^(\d+)\.(\d+)\.(\d+)')
+$fileVersion = '{0}.{1}.{2}.0' -f $versionMatch.Groups[1].Value, $versionMatch.Groups[2].Value, $versionMatch.Groups[3].Value
 
 if (Test-Path $publishDirectory) {
     Remove-Item $publishDirectory -Recurse -Force
@@ -37,7 +39,7 @@ if ([string]::IsNullOrWhiteSpace($isccPath)) {
 
 }
 
-& $isccPath "/DMyAppVersion=$Version" "/DMyPublishDir=$publishDirectory" $installerScript
+& $isccPath "/DMyAppVersion=$Version" "/DMyFileVersion=$fileVersion" "/DMyPublishDir=$publishDirectory" $installerScript
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
 }
