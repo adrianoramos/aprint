@@ -409,24 +409,34 @@ public sealed class EditorForm : Form
         using var loadedImage = Image.FromStream(sourceStream);
         var baseBitmap = new Bitmap(loadedImage);
 
-        // Aplica colorização apenas no ícone de "Cor"
-        if (kind == ToolIconKind.Color && color != Color.Black)
+        try
         {
-            baseBitmap = ColorizeIcon(baseBitmap, color);
-        }
+            // Aplica colorização apenas no ícone de "Cor"
+            if (kind == ToolIconKind.Color && color != Color.Black)
+            {
+                var colorizedBitmap = ColorizeIcon(baseBitmap, color);
+                baseBitmap.Dispose();
+                baseBitmap = colorizedBitmap;
+            }
 
-        // Redimensiona se necessário
-        if (baseBitmap.Width != iconSize || baseBitmap.Height != iconSize)
+            // Redimensiona se necessário
+            if (baseBitmap.Width != iconSize || baseBitmap.Height != iconSize)
+            {
+                var resized = new Bitmap(iconSize, iconSize, PixelFormat.Format32bppArgb);
+                using var graphics = Graphics.FromImage(resized);
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(baseBitmap, 0, 0, iconSize, iconSize);
+                baseBitmap.Dispose();
+                return resized;
+            }
+
+            return baseBitmap;
+        }
+        catch
         {
-            var resized = new Bitmap(iconSize, iconSize, PixelFormat.Format32bppArgb);
-            using var graphics = Graphics.FromImage(resized);
-            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            graphics.DrawImage(baseBitmap, 0, 0, iconSize, iconSize);
-            baseBitmap.Dispose();
-            return resized;
+            baseBitmap?.Dispose();
+            throw;
         }
-
-        return baseBitmap;
     }
 
     private static Bitmap ColorizeIcon(Bitmap bitmap, Color targetColor)
