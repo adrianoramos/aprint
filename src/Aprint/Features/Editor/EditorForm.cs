@@ -948,6 +948,61 @@ public sealed class EditorForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (keyData == (Keys.Control | Keys.N))
+        {
+            NewCaptureRequested?.Invoke();
+            Close();
+            return true;
+        }
+
+        if (keyData == Keys.F2)
+        {
+            SetActiveTool(EditTool.Freehand);
+            return true;
+        }
+
+        if (keyData == Keys.F3)
+        {
+            SetActiveTool(EditTool.Line);
+            return true;
+        }
+
+        if (keyData == Keys.F4)
+        {
+            SetActiveTool(EditTool.Arrow);
+            return true;
+        }
+
+        if (keyData == Keys.F5)
+        {
+            SetActiveTool(EditTool.Rectangle);
+            return true;
+        }
+
+        if (keyData == Keys.F6)
+        {
+            SetActiveTool(EditTool.Circle);
+            return true;
+        }
+
+        if (keyData == Keys.F7)
+        {
+            SetActiveTool(EditTool.Blur);
+            return true;
+        }
+
+        if (keyData == Keys.F8)
+        {
+            SetActiveTool(EditTool.Counter);
+            return true;
+        }
+
+        if (keyData == Keys.F9)
+        {
+            SetBorrarMode(_borrarMode == BorrarMode.Pixelate ? BorrarMode.Solid : BorrarMode.Pixelate);
+            return true;
+        }
+
         if (keyData == (Keys.Control | Keys.Z))
         {
             UndoLastEdit();
@@ -960,63 +1015,15 @@ public sealed class EditorForm : Form
             return true;
         }
 
-        if (keyData == (Keys.Control | Keys.S))
-        {
-            _ = SaveAsAsync();
-            return true;
-        }
-
         if (keyData == (Keys.Control | Keys.C))
         {
             CopyToClipboard();
             return true;
         }
 
-        if (keyData == Keys.F)
+        if (keyData == (Keys.Control | Keys.S))
         {
-            SetActiveTool(EditTool.Freehand);
-            return true;
-        }
-
-        if (keyData == Keys.L)
-        {
-            SetActiveTool(EditTool.Line);
-            return true;
-        }
-
-        if (keyData == Keys.A)
-        {
-            SetActiveTool(EditTool.Arrow);
-            return true;
-        }
-
-        if (keyData == Keys.R)
-        {
-            SetActiveTool(EditTool.Rectangle);
-            return true;
-        }
-
-        if (keyData == Keys.C)
-        {
-            SetActiveTool(EditTool.Circle);
-            return true;
-        }
-
-        if (keyData == Keys.B)
-        {
-            SetActiveTool(EditTool.Blur);
-            return true;
-        }
-
-        if (keyData == Keys.N)
-        {
-            SetActiveTool(EditTool.Counter);
-            return true;
-        }
-
-        if (keyData == Keys.P)
-        {
-            SetBorrarMode(_borrarMode == BorrarMode.Pixelate ? BorrarMode.Solid : BorrarMode.Pixelate);
+            _ = SaveAsAsync();
             return true;
         }
 
