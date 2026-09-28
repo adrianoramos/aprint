@@ -7,6 +7,31 @@ namespace Aprint.Features.Editor;
 /// <summary>Janela de edição simples exibida após a captura, permitindo desenhar sobre a imagem antes de copiar/salvar.</summary>
 public sealed class EditorForm : Form
 {
+    private sealed class EditorActivityMessageFilter(EditorForm editor, System.Windows.Forms.Timer timer) : IMessageFilter
+    {
+        public bool PreFilterMessage(ref Message message)
+        {
+            if (!IsActivityMessage(message.Msg))
+            {
+                return false;
+            }
+
+            var target = Control.FromHandle(message.HWnd) ?? Control.FromChildHandle(message.HWnd);
+            if (target == editor || target?.FindForm() == editor)
+            {
+                timer.Stop();
+                timer.Start();
+            }
+
+            return false;
+        }
+
+        private static bool IsActivityMessage(int message) => message is
+            0x0100 or 0x0101 or 0x0102 or 0x0104 or 0x0105 or 0x0106 or
+            0x0200 or 0x0201 or 0x0202 or 0x0204 or 0x0205 or 0x0207 or
+            0x0208 or 0x020A or 0x020B or 0x020C or 0x020E;
+    }
+
     private enum ToolIconKind
     {
         Color,
@@ -63,6 +88,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnRedo;
     private readonly ToolStripComboBox _cmbBorrarSize;
     private readonly EditHistory _editHistory;
+    private readonly System.Windows.Forms.Timer? _inactivityTimer;
+    private readonly IMessageFilter? _activityMessageFilter;
     private ToolStripMenuItem _blurMenuFilled;
     private ToolStripMenuItem _blurMenuPixelated;
 
@@ -83,11 +110,25 @@ public sealed class EditorForm : Form
     public event Action<BorrarMode>? BorrarModeChanged;
     public event Action? NewCaptureRequested;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false)
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _closeAfterCopyOrSave = closeAfterCopyOrSave;
         _saveWithoutPrompt = saveWithoutPrompt;
+        if (autoCloseWhenInactive)
+        {
+            var timeoutSeconds = inactivityTimeoutSeconds is 60 or 180 or 300 ? inactivityTimeoutSeconds : 30;
+            var inactivityTimer = new System.Windows.Forms.Timer { Interval = timeoutSeconds * 1000 };
+            inactivityTimer.Tick += (_, _) => Close();
+            _inactivityTimer = inactivityTimer;
+            _activityMessageFilter = new EditorActivityMessageFilter(this, inactivityTimer);
+            Shown += (_, _) =>
+            {
+                System.Windows.Forms.Application.AddMessageFilter(_activityMessageFilter);
+                inactivityTimer.Start();
+            };
+            FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(_activityMessageFilter);
+        }
         _editHistory = new EditHistory(_workingBitmap, _nextCounterValue);
         _initialFolder = initialFolder;
         var saveFolder = string.IsNullOrWhiteSpace(_initialFolder)
@@ -1034,6 +1075,8 @@ public sealed class EditorForm : Form
     {
         if (disposing)
         {
+            _inactivityTimer?.Stop();
+            _inactivityTimer?.Dispose();
             _shapePreviewSnapshot?.Dispose();
             _currentPreviewFrame?.Dispose();
             _editHistory.Dispose();

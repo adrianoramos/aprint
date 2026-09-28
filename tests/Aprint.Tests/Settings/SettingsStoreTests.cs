@@ -25,6 +25,8 @@ public sealed class SettingsStoreTests : IDisposable
             BorrarMode = BorrarMode.Solid,
             ShowToolLabels = false,
             SaveEditorImageWithoutPrompt = true,
+            AutoCloseEditorWhenInactive = true,
+            EditorInactivityTimeoutSeconds = 180,
             HotkeyKey = Keys.F8,
             HotkeyCtrl = false,
             HotkeyShift = false,

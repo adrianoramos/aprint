@@ -36,6 +36,10 @@ public sealed class AppSettings
 
     public bool CloseEditorOnCopyOrSave { get; set; }
 
+    public bool AutoCloseEditorWhenInactive { get; set; }
+
+    public int EditorInactivityTimeoutSeconds { get; set; } = 30;
+
     public bool RememberLastEditorTool { get; set; }
 
     public EditTool LastEditorTool { get; set; } = EditTool.Freehand;

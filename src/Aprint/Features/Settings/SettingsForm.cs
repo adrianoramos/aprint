@@ -40,6 +40,8 @@ public sealed partial class SettingsForm : Form
             ShowToolLabels = currentSettings.ShowToolLabels,
             SaveEditorImageWithoutPrompt = currentSettings.SaveEditorImageWithoutPrompt,
             CloseEditorOnCopyOrSave = currentSettings.CloseEditorOnCopyOrSave,
+            AutoCloseEditorWhenInactive = currentSettings.AutoCloseEditorWhenInactive,
+            EditorInactivityTimeoutSeconds = currentSettings.EditorInactivityTimeoutSeconds,
             RememberLastEditorTool = currentSettings.RememberLastEditorTool,
             LastEditorTool = currentSettings.LastEditorTool,
             DefaultEditorTool = currentSettings.DefaultEditorTool,
@@ -115,6 +117,23 @@ public sealed partial class SettingsForm : Form
         chkShowToolLabels.Checked = _workingSettings.ShowToolLabels;
         chkSaveEditorImageWithoutPrompt.Checked = _workingSettings.SaveEditorImageWithoutPrompt;
         chkCloseEditorOnCopyOrSave.Checked = _workingSettings.CloseEditorOnCopyOrSave;
+        chkAutoCloseEditorWhenInactive.Checked = _workingSettings.AutoCloseEditorWhenInactive;
+        cmbEditorInactivityTimeout.Items.Clear();
+        cmbEditorInactivityTimeout.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.Inactivity30Seconds"),
+            AppLocalization.Translate("Settings.Inactivity1Minute"),
+            AppLocalization.Translate("Settings.Inactivity3Minutes"),
+            AppLocalization.Translate("Settings.Inactivity5Minutes"),
+        });
+        cmbEditorInactivityTimeout.SelectedIndex = _workingSettings.EditorInactivityTimeoutSeconds switch
+        {
+            60 => 1,
+            180 => 2,
+            300 => 3,
+            _ => 0,
+        };
+        cmbEditorInactivityTimeout.Enabled = chkAutoCloseEditorWhenInactive.Checked;
         
         cmbEditorStartState.Items.Clear();
         cmbEditorStartState.Items.AddRange(new object[]
@@ -239,6 +258,7 @@ public sealed partial class SettingsForm : Form
         chkShowToolLabels.Text = AppLocalization.Translate("Settings.ShowToolLabels");
         chkSaveEditorImageWithoutPrompt.Text = AppLocalization.Translate("Settings.SaveEditorImageWithoutPrompt");
         chkCloseEditorOnCopyOrSave.Text = AppLocalization.Translate("Settings.CloseEditorOnCopyOrSave");
+        chkAutoCloseEditorWhenInactive.Text = AppLocalization.Translate("Settings.AutoCloseEditorWhenInactive");
         chkRememberLastTool.Text = AppLocalization.Translate("Settings.RememberLastTool");
         lblDefaultEditorTool.Text = AppLocalization.Translate("Settings.DefaultEditorTool");
         chkShowNotification.Text = AppLocalization.Translate("Settings.ShowNotification");
@@ -303,6 +323,14 @@ public sealed partial class SettingsForm : Form
         _workingSettings.ShowToolLabels = chkShowToolLabels.Checked;
         _workingSettings.SaveEditorImageWithoutPrompt = chkSaveEditorImageWithoutPrompt.Checked;
         _workingSettings.CloseEditorOnCopyOrSave = chkCloseEditorOnCopyOrSave.Checked;
+        _workingSettings.AutoCloseEditorWhenInactive = chkAutoCloseEditorWhenInactive.Checked;
+        _workingSettings.EditorInactivityTimeoutSeconds = cmbEditorInactivityTimeout.SelectedIndex switch
+        {
+            1 => 60,
+            2 => 180,
+            3 => 300,
+            _ => 30,
+        };
         _workingSettings.EditorStartState = (EditorWindowStartState)Math.Max(cmbEditorStartState.SelectedIndex, 0);
         _workingSettings.RememberLastEditorTool = chkRememberLastTool.Checked;
         _workingSettings.DefaultEditorTool = (EditTool)(cmbDefaultEditorTool.SelectedIndex >= 0 ? cmbDefaultEditorTool.SelectedIndex : 0);
@@ -360,5 +388,10 @@ public sealed partial class SettingsForm : Form
     private void chkShowNotification_CheckedChanged(object? sender, EventArgs e)
     {
         UpdateNotificationComboEnabled();
+    }
+
+    private void chkAutoCloseEditorWhenInactive_CheckedChanged(object? sender, EventArgs e)
+    {
+        cmbEditorInactivityTimeout.Enabled = chkAutoCloseEditorWhenInactive.Checked;
     }
 }
