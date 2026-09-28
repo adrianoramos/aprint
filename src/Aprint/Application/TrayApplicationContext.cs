@@ -42,8 +42,8 @@ public sealed class TrayApplicationContext : ApplicationContext
         _contextMenu.Items.Add(_captureNowMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_settingsMenuItem);
-        _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_aboutMenuItem);
+        _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_exitMenuItem);
 
         _notifyIcon = new NotifyIcon
