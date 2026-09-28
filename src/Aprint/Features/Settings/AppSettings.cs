@@ -32,7 +32,13 @@ public sealed class AppSettings
 
     public bool ShowToolLabels { get; set; } = true;
 
+    public bool SaveEditorImageWithoutPrompt { get; set; }
+
     public bool CloseEditorOnCopyOrSave { get; set; }
+
+    public bool AutoCloseEditorWhenInactive { get; set; }
+
+    public int EditorInactivityTimeoutSeconds { get; set; } = 30;
 
     public bool RememberLastEditorTool { get; set; }
 

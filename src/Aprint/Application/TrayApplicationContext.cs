@@ -15,6 +15,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly SettingsStore _settingsStore = new();
     private readonly CaptureWorkflow _captureWorkflow = new();
     private readonly ToolStripMenuItem _captureNowMenuItem;
+    private readonly ToolStripMenuItem _toggleCaptureModeMenuItem;
     private readonly ToolStripMenuItem _settingsMenuItem;
     private readonly ToolStripMenuItem _aboutMenuItem;
     private readonly ToolStripMenuItem _exitMenuItem;
@@ -31,6 +32,9 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         _captureNowMenuItem = new ToolStripMenuItem();
         _captureNowMenuItem.Click += (_, _) => CaptureScreenshot();
+        _toggleCaptureModeMenuItem = new ToolStripMenuItem();
+        _toggleCaptureModeMenuItem.Click += (_, _) => CaptureScreenshot(
+            _settings.CaptureMode == CaptureMode.SelectArea ? CaptureMode.AllScreens : CaptureMode.SelectArea);
         _settingsMenuItem = new ToolStripMenuItem();
         _settingsMenuItem.Click += (_, _) => OpenSettings();
         _aboutMenuItem = new ToolStripMenuItem();
@@ -40,10 +44,11 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         _contextMenu = new ContextMenuStrip();
         _contextMenu.Items.Add(_captureNowMenuItem);
+        _contextMenu.Items.Add(_toggleCaptureModeMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_settingsMenuItem);
-        _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_aboutMenuItem);
+        _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_exitMenuItem);
 
         _notifyIcon = new NotifyIcon
@@ -80,16 +85,24 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void CaptureScreenshot()
     {
+        CaptureScreenshot(null);
+    }
+
+    private void CaptureScreenshot(CaptureMode? captureModeOverride)
+    {
         try
         {
-            using var result = _captureWorkflow.Execute(_settings);
+            using var result = _captureWorkflow.Execute(_settings, captureModeOverride);
             if (result is null)
             {
                 return;
             }
 
             _lastCapturedBitmap?.Dispose();
-            _lastCapturedBitmap = (Bitmap)result.Bitmap.Clone();
+            _lastCapturedBitmap = _settings.ShowNotificationAfterCapture &&
+                _settings.NotificationClickAction == NotificationClickAction.OpenEditor
+                    ? (Bitmap)result.Bitmap.Clone()
+                    : null;
 
             if (_settings.OpenEditorAfterCapture)
             {
@@ -125,7 +138,9 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void OpenEditor(Bitmap bitmap)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool);
+        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds);
+        var captureAgain = false;
+        editor.NewCaptureRequested += () => captureAgain = true;
 
         editor.BorrarModeChanged += mode =>
         {
@@ -176,6 +191,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             _settings.LastEditorTool = editor.SelectedTool;
             _settingsStore.Save(_settings);
+        }
+
+        if (captureAgain)
+        {
+            CaptureScreenshot();
         }
     }
 
@@ -236,6 +256,12 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settingsForm.SettingsSaved += settings =>
         {
             _settings = settings;
+            if (!_settings.ShowNotificationAfterCapture || _settings.NotificationClickAction != NotificationClickAction.OpenEditor)
+            {
+                _lastCapturedBitmap?.Dispose();
+                _lastCapturedBitmap = null;
+            }
+
             AppLocalization.ApplyCulture(_settings.Language);
             _settingsStore.Save(_settings);
             ApplyLocalizedTexts();
@@ -260,6 +286,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void ApplyLocalizedTexts()
     {
         _captureNowMenuItem.Text = AppLocalization.Translate("Tray.CaptureNow");
+        _toggleCaptureModeMenuItem.Text = AppLocalization.Translate(
+            _settings.CaptureMode == CaptureMode.SelectArea ? "Tray.CaptureFullScreen" : "Tray.SelectArea");
         _settingsMenuItem.Text = AppLocalization.Translate("Tray.Settings");
         _aboutMenuItem.Text = AppLocalization.Translate("Tray.About");
         _exitMenuItem.Text = AppLocalization.Translate("Tray.Exit");

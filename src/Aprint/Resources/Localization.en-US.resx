@@ -126,6 +126,12 @@
   <data name="Tray.CaptureNow" xml:space="preserve">
     <value>Capture now</value>
   </data>
+  <data name="Tray.SelectArea" xml:space="preserve">
+    <value>Select area</value>
+  </data>
+  <data name="Tray.CaptureFullScreen" xml:space="preserve">
+    <value>Capture full screen</value>
+  </data>
   <data name="Tray.Settings" xml:space="preserve">
     <value>Settings...</value>
   </data>
@@ -252,8 +258,26 @@
   <data name="Settings.ShowToolLabels" xml:space="preserve">
     <value>Show button labels on the editor toolbar</value>
   </data>
+  <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
+    <value>Save without asking</value>
+  </data>
   <data name="Settings.CloseEditorOnCopyOrSave" xml:space="preserve">
     <value>Close editor when copying/saving the image</value>
+  </data>
+  <data name="Settings.AutoCloseEditorWhenInactive" xml:space="preserve">
+    <value>Automatically close when inactive</value>
+  </data>
+  <data name="Settings.Inactivity30Seconds" xml:space="preserve">
+    <value>30 seconds</value>
+  </data>
+  <data name="Settings.Inactivity1Minute" xml:space="preserve">
+    <value>1 minute</value>
+  </data>
+  <data name="Settings.Inactivity3Minutes" xml:space="preserve">
+    <value>3 minutes</value>
+  </data>
+  <data name="Settings.Inactivity5Minutes" xml:space="preserve">
+    <value>5 minutes</value>
   </data>
   <data name="Settings.ShowNotification" xml:space="preserve">
     <value>Show notification after screenshot</value>
@@ -336,8 +360,11 @@
   <data name="Editor.Copy" xml:space="preserve">
     <value>Copy</value>
   </data>
+  <data name="Editor.NewCapture" xml:space="preserve">
+    <value>New capture</value>
+  </data>
   <data name="Editor.SaveAs" xml:space="preserve">
-    <value>Save as</value>
+    <value>Save</value>
   </data>
   <data name="Editor.DrawSection" xml:space="preserve">
     <value>Draw:</value>

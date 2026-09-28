@@ -7,6 +7,31 @@ namespace Aprint.Features.Editor;
 /// <summary>Janela de edição simples exibida após a captura, permitindo desenhar sobre a imagem antes de copiar/salvar.</summary>
 public sealed class EditorForm : Form
 {
+    private sealed class EditorActivityMessageFilter(EditorForm editor, System.Windows.Forms.Timer timer) : IMessageFilter
+    {
+        public bool PreFilterMessage(ref Message message)
+        {
+            if (!IsActivityMessage(message.Msg))
+            {
+                return false;
+            }
+
+            var target = Control.FromHandle(message.HWnd) ?? Control.FromChildHandle(message.HWnd);
+            if (target == editor || target?.FindForm() == editor)
+            {
+                timer.Stop();
+                timer.Start();
+            }
+
+            return false;
+        }
+
+        private static bool IsActivityMessage(int message) => message is
+            0x0100 or 0x0101 or 0x0102 or 0x0104 or 0x0105 or 0x0106 or
+            0x0200 or 0x0201 or 0x0202 or 0x0204 or 0x0205 or 0x0207 or
+            0x0208 or 0x020A or 0x020B or 0x020C or 0x020E;
+    }
+
     private enum ToolIconKind
     {
         Color,
@@ -23,6 +48,7 @@ public sealed class EditorForm : Form
         Redo,
         Copy,
         Save,
+        NewCapture,
     }
 
     private const int PenWidth = 3;
@@ -44,6 +70,8 @@ public sealed class EditorForm : Form
     private Bitmap _workingBitmap;
     private string _initialFolder;
     private readonly bool _closeAfterCopyOrSave;
+    private readonly bool _saveWithoutPrompt;
+    private readonly string _automaticSavePath;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
     private readonly PictureBox _pictureBox;
@@ -60,6 +88,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnRedo;
     private readonly ToolStripComboBox _cmbBorrarSize;
     private readonly EditHistory _editHistory;
+    private readonly System.Windows.Forms.Timer? _inactivityTimer;
+    private readonly IMessageFilter? _activityMessageFilter;
     private ToolStripMenuItem _blurMenuFilled;
     private ToolStripMenuItem _blurMenuPixelated;
 
@@ -72,19 +102,39 @@ public sealed class EditorForm : Form
     private Point _dragStart;
     private Point _lastFreehandPoint;
     private Rectangle _lastPreviewDirtyRect;
-    private Bitmap? _shapePreviewSnapshot;
-    private Bitmap? _currentPreviewFrame;
+    private Point _shapePreviewEnd;
+    private bool _shapePreviewVisible;
 
     public event Action<string>? Saved;
     public event Action? Copied;
     public event Action<BorrarMode>? BorrarModeChanged;
+    public event Action? NewCaptureRequested;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand)
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _closeAfterCopyOrSave = closeAfterCopyOrSave;
+        _saveWithoutPrompt = saveWithoutPrompt;
+        if (autoCloseWhenInactive)
+        {
+            var timeoutSeconds = inactivityTimeoutSeconds is 60 or 180 or 300 ? inactivityTimeoutSeconds : 30;
+            var inactivityTimer = new System.Windows.Forms.Timer { Interval = timeoutSeconds * 1000 };
+            inactivityTimer.Tick += (_, _) => Close();
+            _inactivityTimer = inactivityTimer;
+            _activityMessageFilter = new EditorActivityMessageFilter(this, inactivityTimer);
+            Shown += (_, _) =>
+            {
+                System.Windows.Forms.Application.AddMessageFilter(_activityMessageFilter);
+                inactivityTimer.Start();
+            };
+            FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(_activityMessageFilter);
+        }
         _editHistory = new EditHistory(_workingBitmap, _nextCounterValue);
         _initialFolder = initialFolder;
+        var saveFolder = string.IsNullOrWhiteSpace(_initialFolder)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+            : _initialFolder;
+        _automaticSavePath = Path.Combine(saveFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         _borrarMode = borrarMode;
         _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
         _toolIconImageList = GetOrCreateToolIconImageList(_toolIconSize);
@@ -242,6 +292,16 @@ public sealed class EditorForm : Form
             Color.Black);
         btnCopy.Click += (_, _) => CopyToClipboard();
 
+        var btnNewCapture = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.NewCapture"),
+            ToolIconKind.NewCapture,
+            Color.Black);
+        btnNewCapture.Click += (_, _) =>
+        {
+            NewCaptureRequested?.Invoke();
+            Close();
+        };
+
         var btnSaveAs = CreateStandardToolButton(
             AppLocalization.Translate("Editor.SaveAs"),
             ToolIconKind.Save,
@@ -249,6 +309,8 @@ public sealed class EditorForm : Form
         btnSaveAs.Click += async (_, _) => await SaveAsAsync();
 
         toolStrip.Items.AddRange([
+            btnNewCapture,
+            CreateToolStripSeparator(),
             _btnColor,
             _btnFreehand,
             _btnLine,
@@ -279,6 +341,7 @@ public sealed class EditorForm : Form
         _pictureBox.MouseDown += PictureBox_MouseDown;
         _pictureBox.MouseMove += PictureBox_MouseMove;
         _pictureBox.MouseUp += PictureBox_MouseUp;
+        _pictureBox.Paint += PictureBox_Paint;
 
         scrollPanel.Controls.Add(_pictureBox);
         Controls.Add(scrollPanel);
@@ -517,6 +580,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Redo => "Aprint.Resources.Icons.redo.png",
             ToolIconKind.Copy => "Aprint.Resources.Icons.copy.png",
             ToolIconKind.Save => "Aprint.Resources.Icons.save.png",
+            ToolIconKind.NewCapture => "Aprint.Resources.Icons.new.png",
             _ => null,
         };
     }
@@ -639,8 +703,8 @@ public sealed class EditorForm : Form
 
         if (_currentTool != EditTool.Freehand)
         {
-            _shapePreviewSnapshot = (Bitmap)_workingBitmap.Clone();
             _lastPreviewDirtyRect = Rectangle.Empty;
+            _shapePreviewVisible = false;
         }
     }
 
@@ -664,29 +728,11 @@ public sealed class EditorForm : Form
             _lastFreehandPoint = e.Location;
             InvalidatePictureBoxRegion(dirtyRect);
         }
-        else if (_shapePreviewSnapshot is not null)
+        else
         {
-            var preview = (Bitmap)_shapePreviewSnapshot.Clone();
             var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
-            using (var graphics = Graphics.FromImage(preview))
-            {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
-                if (_currentTool == EditTool.Blur)
-                {
-                    using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
-                    var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
-                    graphics.DrawRectangle(selectionPen, selection);
-                }
-                else
-                {
-                    ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool);
-                }
-            }
-
-            _pictureBox.Image = preview;
-            _currentPreviewFrame?.Dispose();
-            _currentPreviewFrame = preview;
+            _shapePreviewEnd = e.Location;
+            _shapePreviewVisible = true;
 
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? currentDirtyRect
@@ -705,21 +751,23 @@ public sealed class EditorForm : Form
 
         _isDrawing = false;
 
-        if (_currentTool == EditTool.Blur && _shapePreviewSnapshot is not null)
+        if (_currentTool == EditTool.Blur)
         {
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? selection
+                : Rectangle.Union(_lastPreviewDirtyRect, selection);
             ApplyBorrarToSelection(selection);
-            _pictureBox.Image = _workingBitmap;
-            _currentPreviewFrame?.Dispose();
-            _currentPreviewFrame = null;
-            _shapePreviewSnapshot.Dispose();
-            _shapePreviewSnapshot = null;
+            _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
-            InvalidatePictureBoxRegion(selection);
+            InvalidatePictureBoxRegion(repaintRegion);
         }
-        else if (_currentTool != EditTool.Freehand && _shapePreviewSnapshot is not null)
+        else if (_currentTool != EditTool.Freehand)
         {
             var dirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? dirtyRect
+                : Rectangle.Union(_lastPreviewDirtyRect, dirtyRect);
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -728,13 +776,30 @@ public sealed class EditorForm : Form
             }
 
             _pictureBox.Image = _workingBitmap;
-            _currentPreviewFrame?.Dispose();
-            _currentPreviewFrame = null;
-            _shapePreviewSnapshot.Dispose();
-            _shapePreviewSnapshot = null;
+            _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
-            InvalidatePictureBoxRegion(dirtyRect);
+            InvalidatePictureBoxRegion(repaintRegion);
         }
+    }
+
+    private void PictureBox_Paint(object? sender, PaintEventArgs e)
+    {
+        if (!_shapePreviewVisible)
+        {
+            return;
+        }
+
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        if (_currentTool == EditTool.Blur)
+        {
+            using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
+            var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, _shapePreviewEnd);
+            e.Graphics.DrawRectangle(selectionPen, selection);
+            return;
+        }
+
+        using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        ImageEditingService.DrawShape(e.Graphics, pen, _dragStart, _shapePreviewEnd, _currentTool);
     }
 
     private void ApplyBorrarToSelection(Rectangle area)
@@ -866,21 +931,30 @@ public sealed class EditorForm : Form
 
     private async Task SaveAsAsync()
     {
-        using var dialog = new SaveFileDialog
+        string destinationPath;
+        if (_saveWithoutPrompt)
         {
-            Filter = AppLocalization.Translate("Editor.SaveFilter"),
-            FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-            InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
-        };
+            destinationPath = _automaticSavePath;
+        }
+        else
+        {
+            using var dialog = new SaveFileDialog
+            {
+                Filter = AppLocalization.Translate("Editor.SaveFilter"),
+                FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+                InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
+            };
 
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            destinationPath = dialog.FileName;
         }
 
         try
         {
-            var destinationPath = dialog.FileName;
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
             var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
             {
@@ -890,7 +964,11 @@ public sealed class EditorForm : Form
             };
 
             using var saveCopy = (Bitmap)_workingBitmap.Clone();
-            await Task.Run(() => saveCopy.Save(destinationPath, format));
+            await Task.Run(() =>
+            {
+                using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
+                saveCopy.Save(output, format);
+            });
 
             var savedDirectory = Path.GetDirectoryName(destinationPath);
             if (!string.IsNullOrWhiteSpace(savedDirectory) && Directory.Exists(savedDirectory))
@@ -913,6 +991,61 @@ public sealed class EditorForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (keyData == (Keys.Control | Keys.N))
+        {
+            NewCaptureRequested?.Invoke();
+            Close();
+            return true;
+        }
+
+        if (keyData == Keys.F2)
+        {
+            SetActiveTool(EditTool.Freehand);
+            return true;
+        }
+
+        if (keyData == Keys.F3)
+        {
+            SetActiveTool(EditTool.Line);
+            return true;
+        }
+
+        if (keyData == Keys.F4)
+        {
+            SetActiveTool(EditTool.Arrow);
+            return true;
+        }
+
+        if (keyData == Keys.F5)
+        {
+            SetActiveTool(EditTool.Rectangle);
+            return true;
+        }
+
+        if (keyData == Keys.F6)
+        {
+            SetActiveTool(EditTool.Circle);
+            return true;
+        }
+
+        if (keyData == Keys.F7)
+        {
+            SetActiveTool(EditTool.Blur);
+            return true;
+        }
+
+        if (keyData == Keys.F8)
+        {
+            SetActiveTool(EditTool.Counter);
+            return true;
+        }
+
+        if (keyData == Keys.F9)
+        {
+            SetBorrarMode(_borrarMode == BorrarMode.Pixelate ? BorrarMode.Solid : BorrarMode.Pixelate);
+            return true;
+        }
+
         if (keyData == (Keys.Control | Keys.Z))
         {
             UndoLastEdit();
@@ -925,63 +1058,15 @@ public sealed class EditorForm : Form
             return true;
         }
 
-        if (keyData == (Keys.Control | Keys.S))
-        {
-            _ = SaveAsAsync();
-            return true;
-        }
-
         if (keyData == (Keys.Control | Keys.C))
         {
             CopyToClipboard();
             return true;
         }
 
-        if (keyData == Keys.F)
+        if (keyData == (Keys.Control | Keys.S))
         {
-            SetActiveTool(EditTool.Freehand);
-            return true;
-        }
-
-        if (keyData == Keys.L)
-        {
-            SetActiveTool(EditTool.Line);
-            return true;
-        }
-
-        if (keyData == Keys.A)
-        {
-            SetActiveTool(EditTool.Arrow);
-            return true;
-        }
-
-        if (keyData == Keys.R)
-        {
-            SetActiveTool(EditTool.Rectangle);
-            return true;
-        }
-
-        if (keyData == Keys.C)
-        {
-            SetActiveTool(EditTool.Circle);
-            return true;
-        }
-
-        if (keyData == Keys.B)
-        {
-            SetActiveTool(EditTool.Blur);
-            return true;
-        }
-
-        if (keyData == Keys.N)
-        {
-            SetActiveTool(EditTool.Counter);
-            return true;
-        }
-
-        if (keyData == Keys.P)
-        {
-            SetBorrarMode(_borrarMode == BorrarMode.Pixelate ? BorrarMode.Solid : BorrarMode.Pixelate);
+            _ = SaveAsAsync();
             return true;
         }
 
@@ -992,8 +1077,8 @@ public sealed class EditorForm : Form
     {
         if (disposing)
         {
-            _shapePreviewSnapshot?.Dispose();
-            _currentPreviewFrame?.Dispose();
+            _inactivityTimer?.Stop();
+            _inactivityTimer?.Dispose();
             _editHistory.Dispose();
             _workingBitmap.Dispose();
         }
