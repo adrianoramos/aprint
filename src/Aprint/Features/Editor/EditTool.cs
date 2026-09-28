@@ -10,4 +10,5 @@ public enum EditTool
     Circle,
     Counter,
     Blur,
+    Highlight,
 }

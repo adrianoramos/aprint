@@ -342,6 +342,12 @@
   <data name="Editor.Blur" xml:space="preserve">
     <value>Borrar</value>
   </data>
+  <data name="Editor.Highlight" xml:space="preserve">
+    <value>Realçar</value>
+  </data>
+  <data name="Editor.HighlightSize" xml:space="preserve">
+    <value>Tamanho do realce</value>
+  </data>
   <data name="Editor.Filled" xml:space="preserve">
     <value>Preenchido</value>
   </data>
