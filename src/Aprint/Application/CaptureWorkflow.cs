@@ -7,15 +7,16 @@ namespace Aprint.Application;
 /// <summary>Executa o fluxo de captura e entrega o resultado pronto para apresentação.</summary>
 public sealed class CaptureWorkflow
 {
-    public CaptureResult? Execute(AppSettings settings)
+    public CaptureResult? Execute(AppSettings settings, CaptureMode? captureModeOverride = null)
     {
-        var captureMode = settings.CaptureMode == CaptureMode.SelectArea
+        var selectedMode = captureModeOverride ?? settings.CaptureMode;
+        var captureMode = selectedMode == CaptureMode.SelectArea
             ? CaptureMode.AllScreens
-            : settings.CaptureMode;
+            : selectedMode;
         using var fullBitmap = ScreenshotService.CaptureScreen(captureMode);
 
         Bitmap bitmap = fullBitmap;
-        using var selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, settings.CaptureMode, out var wasCancelled);
+        using var selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, out var wasCancelled);
         if (wasCancelled)
         {
             return null;

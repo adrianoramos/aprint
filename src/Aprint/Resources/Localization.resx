@@ -126,6 +126,12 @@
   <data name="Tray.CaptureNow" xml:space="preserve">
     <value>Capturar agora</value>
   </data>
+  <data name="Tray.SelectArea" xml:space="preserve">
+    <value>Selecionar área</value>
+  </data>
+  <data name="Tray.CaptureFullScreen" xml:space="preserve">
+    <value>Capturar tela inteira</value>
+  </data>
   <data name="Tray.Settings" xml:space="preserve">
     <value>Configurações...</value>
   </data>
