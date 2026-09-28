@@ -339,6 +339,9 @@
   <data name="Editor.Copy" xml:space="preserve">
     <value>Copy</value>
   </data>
+  <data name="Editor.NewCapture" xml:space="preserve">
+    <value>New capture</value>
+  </data>
   <data name="Editor.SaveAs" xml:space="preserve">
     <value>Save</value>
   </data>

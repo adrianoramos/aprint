@@ -23,6 +23,7 @@ public sealed class EditorForm : Form
         Redo,
         Copy,
         Save,
+        NewCapture,
     }
 
     private const int PenWidth = 3;
@@ -80,6 +81,7 @@ public sealed class EditorForm : Form
     public event Action<string>? Saved;
     public event Action? Copied;
     public event Action<BorrarMode>? BorrarModeChanged;
+    public event Action? NewCaptureRequested;
 
     public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false)
     {
@@ -249,6 +251,16 @@ public sealed class EditorForm : Form
             Color.Black);
         btnCopy.Click += (_, _) => CopyToClipboard();
 
+        var btnNewCapture = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.NewCapture"),
+            ToolIconKind.NewCapture,
+            Color.Black);
+        btnNewCapture.Click += (_, _) =>
+        {
+            NewCaptureRequested?.Invoke();
+            Close();
+        };
+
         var btnSaveAs = CreateStandardToolButton(
             AppLocalization.Translate("Editor.SaveAs"),
             ToolIconKind.Save,
@@ -256,6 +268,8 @@ public sealed class EditorForm : Form
         btnSaveAs.Click += async (_, _) => await SaveAsAsync();
 
         toolStrip.Items.AddRange([
+            btnNewCapture,
+            CreateToolStripSeparator(),
             _btnColor,
             _btnFreehand,
             _btnLine,
@@ -524,6 +538,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Redo => "Aprint.Resources.Icons.redo.png",
             ToolIconKind.Copy => "Aprint.Resources.Icons.copy.png",
             ToolIconKind.Save => "Aprint.Resources.Icons.save.png",
+            ToolIconKind.NewCapture => "Aprint.Resources.Icons.new.png",
             _ => null,
         };
     }
