@@ -99,7 +99,10 @@ public sealed class TrayApplicationContext : ApplicationContext
             }
 
             _lastCapturedBitmap?.Dispose();
-            _lastCapturedBitmap = (Bitmap)result.Bitmap.Clone();
+            _lastCapturedBitmap = _settings.ShowNotificationAfterCapture &&
+                _settings.NotificationClickAction == NotificationClickAction.OpenEditor
+                    ? (Bitmap)result.Bitmap.Clone()
+                    : null;
 
             if (_settings.OpenEditorAfterCapture)
             {
@@ -253,6 +256,12 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settingsForm.SettingsSaved += settings =>
         {
             _settings = settings;
+            if (!_settings.ShowNotificationAfterCapture || _settings.NotificationClickAction != NotificationClickAction.OpenEditor)
+            {
+                _lastCapturedBitmap?.Dispose();
+                _lastCapturedBitmap = null;
+            }
+
             AppLocalization.ApplyCulture(_settings.Language);
             _settingsStore.Save(_settings);
             ApplyLocalizedTexts();

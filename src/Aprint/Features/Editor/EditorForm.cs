@@ -102,8 +102,8 @@ public sealed class EditorForm : Form
     private Point _dragStart;
     private Point _lastFreehandPoint;
     private Rectangle _lastPreviewDirtyRect;
-    private Bitmap? _shapePreviewSnapshot;
-    private Bitmap? _currentPreviewFrame;
+    private Point _shapePreviewEnd;
+    private bool _shapePreviewVisible;
 
     public event Action<string>? Saved;
     public event Action? Copied;
@@ -341,6 +341,7 @@ public sealed class EditorForm : Form
         _pictureBox.MouseDown += PictureBox_MouseDown;
         _pictureBox.MouseMove += PictureBox_MouseMove;
         _pictureBox.MouseUp += PictureBox_MouseUp;
+        _pictureBox.Paint += PictureBox_Paint;
 
         scrollPanel.Controls.Add(_pictureBox);
         Controls.Add(scrollPanel);
@@ -702,8 +703,8 @@ public sealed class EditorForm : Form
 
         if (_currentTool != EditTool.Freehand)
         {
-            _shapePreviewSnapshot = (Bitmap)_workingBitmap.Clone();
             _lastPreviewDirtyRect = Rectangle.Empty;
+            _shapePreviewVisible = false;
         }
     }
 
@@ -727,29 +728,11 @@ public sealed class EditorForm : Form
             _lastFreehandPoint = e.Location;
             InvalidatePictureBoxRegion(dirtyRect);
         }
-        else if (_shapePreviewSnapshot is not null)
+        else
         {
-            var preview = (Bitmap)_shapePreviewSnapshot.Clone();
             var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
-            using (var graphics = Graphics.FromImage(preview))
-            {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
-                if (_currentTool == EditTool.Blur)
-                {
-                    using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
-                    var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
-                    graphics.DrawRectangle(selectionPen, selection);
-                }
-                else
-                {
-                    ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool);
-                }
-            }
-
-            _pictureBox.Image = preview;
-            _currentPreviewFrame?.Dispose();
-            _currentPreviewFrame = preview;
+            _shapePreviewEnd = e.Location;
+            _shapePreviewVisible = true;
 
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? currentDirtyRect
@@ -768,21 +751,23 @@ public sealed class EditorForm : Form
 
         _isDrawing = false;
 
-        if (_currentTool == EditTool.Blur && _shapePreviewSnapshot is not null)
+        if (_currentTool == EditTool.Blur)
         {
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? selection
+                : Rectangle.Union(_lastPreviewDirtyRect, selection);
             ApplyBorrarToSelection(selection);
-            _pictureBox.Image = _workingBitmap;
-            _currentPreviewFrame?.Dispose();
-            _currentPreviewFrame = null;
-            _shapePreviewSnapshot.Dispose();
-            _shapePreviewSnapshot = null;
+            _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
-            InvalidatePictureBoxRegion(selection);
+            InvalidatePictureBoxRegion(repaintRegion);
         }
-        else if (_currentTool != EditTool.Freehand && _shapePreviewSnapshot is not null)
+        else if (_currentTool != EditTool.Freehand)
         {
             var dirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? dirtyRect
+                : Rectangle.Union(_lastPreviewDirtyRect, dirtyRect);
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -791,13 +776,30 @@ public sealed class EditorForm : Form
             }
 
             _pictureBox.Image = _workingBitmap;
-            _currentPreviewFrame?.Dispose();
-            _currentPreviewFrame = null;
-            _shapePreviewSnapshot.Dispose();
-            _shapePreviewSnapshot = null;
+            _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
-            InvalidatePictureBoxRegion(dirtyRect);
+            InvalidatePictureBoxRegion(repaintRegion);
         }
+    }
+
+    private void PictureBox_Paint(object? sender, PaintEventArgs e)
+    {
+        if (!_shapePreviewVisible)
+        {
+            return;
+        }
+
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        if (_currentTool == EditTool.Blur)
+        {
+            using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
+            var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, _shapePreviewEnd);
+            e.Graphics.DrawRectangle(selectionPen, selection);
+            return;
+        }
+
+        using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        ImageEditingService.DrawShape(e.Graphics, pen, _dragStart, _shapePreviewEnd, _currentTool);
     }
 
     private void ApplyBorrarToSelection(Rectangle area)
@@ -1077,8 +1079,6 @@ public sealed class EditorForm : Form
         {
             _inactivityTimer?.Stop();
             _inactivityTimer?.Dispose();
-            _shapePreviewSnapshot?.Dispose();
-            _currentPreviewFrame?.Dispose();
             _editHistory.Dispose();
             _workingBitmap.Dispose();
         }
