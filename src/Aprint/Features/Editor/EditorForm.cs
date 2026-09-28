@@ -228,6 +228,7 @@ public sealed class EditorForm : Form
             Width = 14,
             Height = ToolButtonSize,
             AutoToolTip = false,
+            ToolTipText = AppLocalization.Translate("Editor.BlurOptions"),
         };
 
         _btnFreehand.Click += (_, _) => SetActiveTool(EditTool.Freehand);

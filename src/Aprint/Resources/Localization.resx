@@ -342,6 +342,9 @@
   <data name="Editor.Blur" xml:space="preserve">
     <value>Borrar</value>
   </data>
+  <data name="Editor.BlurOptions" xml:space="preserve">
+    <value>Opções do Borrar</value>
+  </data>
   <data name="Editor.Filled" xml:space="preserve">
     <value>Preenchido</value>
   </data>

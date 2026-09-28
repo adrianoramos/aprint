@@ -345,6 +345,9 @@
   <data name="Editor.Blur" xml:space="preserve">
     <value>Blur</value>
   </data>
+  <data name="Editor.BlurOptions" xml:space="preserve">
+    <value>Blur options</value>
+  </data>
   <data name="Editor.Filled" xml:space="preserve">
     <value>Filled</value>
   </data>
