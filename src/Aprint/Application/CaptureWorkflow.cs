@@ -13,38 +13,55 @@ public sealed class CaptureWorkflow
         var captureMode = selectedMode == CaptureMode.SelectArea
             ? CaptureMode.AllScreens
             : selectedMode;
-        using var fullBitmap = ScreenshotService.CaptureScreen(captureMode);
+        var fullBitmap = ScreenshotService.CaptureScreen(captureMode);
+        Bitmap? selectedRegionBitmap = null;
+        var transferFullBitmap = false;
+        var transferSelectedRegionBitmap = false;
 
-        Bitmap bitmap = fullBitmap;
-        using var selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, out var wasCancelled);
-        if (wasCancelled)
+        try
         {
-            return null;
-        }
+            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, out var wasCancelled);
+            if (wasCancelled)
+            {
+                return null;
+            }
 
-        if (selectedRegionBitmap is not null)
+            var bitmap = selectedRegionBitmap ?? fullBitmap;
+
+            if (settings.PlaySoundOnCapture)
+            {
+                NotificationSound.Play();
+            }
+
+            if (settings.CaptureAction is CaptureAction.ClipboardOnly or CaptureAction.Both)
+            {
+                Clipboard.SetImage(bitmap);
+            }
+
+            string? filePath = null;
+            if (!settings.OpenEditorAfterCapture &&
+                settings.CaptureAction is CaptureAction.SaveToDiskOnly or CaptureAction.Both)
+            {
+                filePath = ScreenshotService.SaveToDisk(bitmap, settings.SaveFolder);
+            }
+
+            var result = new CaptureResult(bitmap, filePath);
+            transferSelectedRegionBitmap = selectedRegionBitmap is not null;
+            transferFullBitmap = selectedRegionBitmap is null;
+            return result;
+        }
+        finally
         {
-            bitmap = selectedRegionBitmap;
-        }
+            if (!transferSelectedRegionBitmap)
+            {
+                selectedRegionBitmap?.Dispose();
+            }
 
-        if (settings.PlaySoundOnCapture)
-        {
-            NotificationSound.Play();
+            if (!transferFullBitmap)
+            {
+                fullBitmap.Dispose();
+            }
         }
-
-        if (settings.CaptureAction is CaptureAction.ClipboardOnly or CaptureAction.Both)
-        {
-            Clipboard.SetImage(bitmap);
-        }
-
-        string? filePath = null;
-        if (!settings.OpenEditorAfterCapture &&
-            settings.CaptureAction is CaptureAction.SaveToDiskOnly or CaptureAction.Both)
-        {
-            filePath = ScreenshotService.SaveToDisk(bitmap, settings.SaveFolder);
-        }
-
-        return new CaptureResult((Bitmap)bitmap.Clone(), filePath);
     }
 
     private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, out bool wasCancelled)

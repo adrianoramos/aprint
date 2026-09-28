@@ -84,14 +84,7 @@ public sealed class EditHistory : IDisposable
     private static (Bitmap Bitmap, int NextCounterValue) TakeSnapshot(Stack<HistoryEntry> stack)
     {
         var snapshot = stack.Pop();
-        try
-        {
-            return ((Bitmap)snapshot.Bitmap.Clone(), snapshot.NextCounterValue);
-        }
-        finally
-        {
-            snapshot.Bitmap.Dispose();
-        }
+        return (snapshot.Bitmap, snapshot.NextCounterValue);
     }
 
     private static void DisposeAll(Stack<HistoryEntry> stack)
