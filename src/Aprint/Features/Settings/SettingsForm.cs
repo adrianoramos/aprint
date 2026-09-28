@@ -38,6 +38,7 @@ public sealed partial class SettingsForm : Form
             EditorStartState = currentSettings.EditorStartState,
             BorrarMode = currentSettings.BorrarMode,
             ShowToolLabels = currentSettings.ShowToolLabels,
+            SaveEditorImageWithoutPrompt = currentSettings.SaveEditorImageWithoutPrompt,
             CloseEditorOnCopyOrSave = currentSettings.CloseEditorOnCopyOrSave,
             RememberLastEditorTool = currentSettings.RememberLastEditorTool,
             LastEditorTool = currentSettings.LastEditorTool,
@@ -112,6 +113,7 @@ public sealed partial class SettingsForm : Form
         chkStartWithWindows.Checked = StartupManager.IsEnabled();
         chkPlaySound.Checked = _workingSettings.PlaySoundOnCapture;
         chkShowToolLabels.Checked = _workingSettings.ShowToolLabels;
+        chkSaveEditorImageWithoutPrompt.Checked = _workingSettings.SaveEditorImageWithoutPrompt;
         chkCloseEditorOnCopyOrSave.Checked = _workingSettings.CloseEditorOnCopyOrSave;
         
         cmbEditorStartState.Items.Clear();
@@ -235,6 +237,7 @@ public sealed partial class SettingsForm : Form
         grpGeneral.Text = AppLocalization.Translate("Settings.GeneralGroup");
         chkOpenEditor.Text = AppLocalization.Translate("Settings.OpenEditorAfterCapture");
         chkShowToolLabels.Text = AppLocalization.Translate("Settings.ShowToolLabels");
+        chkSaveEditorImageWithoutPrompt.Text = AppLocalization.Translate("Settings.SaveEditorImageWithoutPrompt");
         chkCloseEditorOnCopyOrSave.Text = AppLocalization.Translate("Settings.CloseEditorOnCopyOrSave");
         chkRememberLastTool.Text = AppLocalization.Translate("Settings.RememberLastTool");
         lblDefaultEditorTool.Text = AppLocalization.Translate("Settings.DefaultEditorTool");
@@ -298,6 +301,7 @@ public sealed partial class SettingsForm : Form
         StartupManager.SetEnabled(chkStartWithWindows.Checked);
         _workingSettings.PlaySoundOnCapture = chkPlaySound.Checked;
         _workingSettings.ShowToolLabels = chkShowToolLabels.Checked;
+        _workingSettings.SaveEditorImageWithoutPrompt = chkSaveEditorImageWithoutPrompt.Checked;
         _workingSettings.CloseEditorOnCopyOrSave = chkCloseEditorOnCopyOrSave.Checked;
         _workingSettings.EditorStartState = (EditorWindowStartState)Math.Max(cmbEditorStartState.SelectedIndex, 0);
         _workingSettings.RememberLastEditorTool = chkRememberLastTool.Checked;

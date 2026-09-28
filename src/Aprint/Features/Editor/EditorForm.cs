@@ -44,6 +44,8 @@ public sealed class EditorForm : Form
     private Bitmap _workingBitmap;
     private string _initialFolder;
     private readonly bool _closeAfterCopyOrSave;
+    private readonly bool _saveWithoutPrompt;
+    private readonly string _automaticSavePath;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
     private readonly PictureBox _pictureBox;
@@ -79,12 +81,17 @@ public sealed class EditorForm : Form
     public event Action? Copied;
     public event Action<BorrarMode>? BorrarModeChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand)
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _closeAfterCopyOrSave = closeAfterCopyOrSave;
+        _saveWithoutPrompt = saveWithoutPrompt;
         _editHistory = new EditHistory(_workingBitmap, _nextCounterValue);
         _initialFolder = initialFolder;
+        var saveFolder = string.IsNullOrWhiteSpace(_initialFolder)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+            : _initialFolder;
+        _automaticSavePath = Path.Combine(saveFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         _borrarMode = borrarMode;
         _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
         _toolIconImageList = GetOrCreateToolIconImageList(_toolIconSize);
@@ -866,21 +873,30 @@ public sealed class EditorForm : Form
 
     private async Task SaveAsAsync()
     {
-        using var dialog = new SaveFileDialog
+        string destinationPath;
+        if (_saveWithoutPrompt)
         {
-            Filter = AppLocalization.Translate("Editor.SaveFilter"),
-            FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-            InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
-        };
+            destinationPath = _automaticSavePath;
+        }
+        else
+        {
+            using var dialog = new SaveFileDialog
+            {
+                Filter = AppLocalization.Translate("Editor.SaveFilter"),
+                FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+                InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
+            };
 
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            destinationPath = dialog.FileName;
         }
 
         try
         {
-            var destinationPath = dialog.FileName;
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
             var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
             {
@@ -890,7 +906,11 @@ public sealed class EditorForm : Form
             };
 
             using var saveCopy = (Bitmap)_workingBitmap.Clone();
-            await Task.Run(() => saveCopy.Save(destinationPath, format));
+            await Task.Run(() =>
+            {
+                using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
+                saveCopy.Save(output, format);
+            });
 
             var savedDirectory = Path.GetDirectoryName(destinationPath);
             if (!string.IsNullOrWhiteSpace(savedDirectory) && Directory.Exists(savedDirectory))

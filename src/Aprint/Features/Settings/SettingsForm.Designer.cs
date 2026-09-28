@@ -28,6 +28,7 @@ partial class SettingsForm
     private CheckBox chkPlaySound = null!;
     private CheckBox chkShowToolLabels = null!;
     private CheckBox chkCloseEditorOnCopyOrSave = null!;
+    private CheckBox chkSaveEditorImageWithoutPrompt = null!;
     private ComboBox cmbEditorStartState = null!;
     private ComboBox cmbDefaultEditorTool = null!;
     private Label lblLanguage = null!;
@@ -68,6 +69,7 @@ partial class SettingsForm
         grpEditor = new GroupBox();
         chkOpenEditor = new CheckBox();
         chkCloseEditorOnCopyOrSave = new CheckBox();
+        chkSaveEditorImageWithoutPrompt = new CheckBox();
         cmbEditorStartState = new ComboBox();
         chkRememberLastTool = new CheckBox();
         chkShowToolLabels = new CheckBox();
@@ -253,6 +255,7 @@ partial class SettingsForm
         // 
         grpEditor.Controls.Add(chkOpenEditor);
         grpEditor.Controls.Add(chkCloseEditorOnCopyOrSave);
+        grpEditor.Controls.Add(chkSaveEditorImageWithoutPrompt);
         grpEditor.Controls.Add(cmbEditorStartState);
         grpEditor.Controls.Add(chkRememberLastTool);
         grpEditor.Controls.Add(chkShowToolLabels);
@@ -260,7 +263,7 @@ partial class SettingsForm
         grpEditor.Controls.Add(cmbDefaultEditorTool);
         grpEditor.Location = new Point(12, 283);
         grpEditor.Name = "grpEditor";
-        grpEditor.Size = new Size(436, 160);
+        grpEditor.Size = new Size(436, 185);
         grpEditor.TabIndex = 2;
         grpEditor.TabStop = false;
         grpEditor.Text = "Editor";
@@ -295,7 +298,7 @@ partial class SettingsForm
         // chkRememberLastTool
         // 
         chkRememberLastTool.AutoSize = true;
-        chkRememberLastTool.Location = new Point(15, 98);
+        chkRememberLastTool.Location = new Point(15, 123);
         chkRememberLastTool.Name = "chkRememberLastTool";
         chkRememberLastTool.Size = new Size(219, 19);
         chkRememberLastTool.TabIndex = 14;
@@ -311,10 +314,19 @@ partial class SettingsForm
         chkShowToolLabels.TabIndex = 15;
         chkShowToolLabels.Text = "Exibir o rótulo dos botões na barra de ferramentas do editor";
         // 
+        // chkSaveEditorImageWithoutPrompt
+        // 
+        chkSaveEditorImageWithoutPrompt.AutoSize = true;
+        chkSaveEditorImageWithoutPrompt.Location = new Point(15, 98);
+        chkSaveEditorImageWithoutPrompt.Name = "chkSaveEditorImageWithoutPrompt";
+        chkSaveEditorImageWithoutPrompt.Size = new Size(152, 19);
+        chkSaveEditorImageWithoutPrompt.TabIndex = 16;
+        chkSaveEditorImageWithoutPrompt.Text = "Salvar sem perguntar";
+        // 
         // lblDefaultEditorTool
         // 
         lblDefaultEditorTool.AutoSize = true;
-        lblDefaultEditorTool.Location = new Point(15, 126);
+        lblDefaultEditorTool.Location = new Point(15, 151);
         lblDefaultEditorTool.Name = "lblDefaultEditorTool";
         lblDefaultEditorTool.Size = new Size(161, 15);
         lblDefaultEditorTool.TabIndex = 16;
@@ -323,7 +335,7 @@ partial class SettingsForm
         // cmbDefaultEditorTool
         // 
         cmbDefaultEditorTool.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbDefaultEditorTool.Location = new Point(215, 123);
+        cmbDefaultEditorTool.Location = new Point(215, 148);
         cmbDefaultEditorTool.Name = "cmbDefaultEditorTool";
         cmbDefaultEditorTool.Size = new Size(206, 23);
         cmbDefaultEditorTool.TabIndex = 17;
@@ -337,7 +349,7 @@ partial class SettingsForm
         grpGeneral.Controls.Add(chkStartWithWindows);
         grpGeneral.Controls.Add(lblLanguage);
         grpGeneral.Controls.Add(cmbLanguage);
-        grpGeneral.Location = new Point(12, 447);
+        grpGeneral.Location = new Point(12, 472);
         grpGeneral.Name = "grpGeneral";
         grpGeneral.Size = new Size(436, 167);
         grpGeneral.TabIndex = 3;
@@ -393,7 +405,7 @@ partial class SettingsForm
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(282, 620);
+        btnSave.Location = new Point(282, 645);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -403,7 +415,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 620);
+        btnCancel.Location = new Point(368, 645);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -416,7 +428,7 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(460, 659);
+        ClientSize = new Size(460, 684);
         Controls.Add(grpHotkey);
         Controls.Add(grpCaptureMode);
         Controls.Add(grpEditor);

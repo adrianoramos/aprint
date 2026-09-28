@@ -125,7 +125,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void OpenEditor(Bitmap bitmap)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool);
+        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt);
 
         editor.BorrarModeChanged += mode =>
         {

@@ -24,6 +24,7 @@ public sealed class SettingsStoreTests : IDisposable
             PlaySoundOnCapture = true,
             BorrarMode = BorrarMode.Solid,
             ShowToolLabels = false,
+            SaveEditorImageWithoutPrompt = true,
             HotkeyKey = Keys.F8,
             HotkeyCtrl = false,
             HotkeyShift = false,

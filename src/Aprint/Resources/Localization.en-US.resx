@@ -252,6 +252,9 @@
   <data name="Settings.ShowToolLabels" xml:space="preserve">
     <value>Show button labels on the editor toolbar</value>
   </data>
+  <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
+    <value>Save without asking</value>
+  </data>
   <data name="Settings.CloseEditorOnCopyOrSave" xml:space="preserve">
     <value>Close editor when copying/saving the image</value>
   </data>
@@ -337,7 +340,7 @@
     <value>Copy</value>
   </data>
   <data name="Editor.SaveAs" xml:space="preserve">
-    <value>Save as</value>
+    <value>Save</value>
   </data>
   <data name="Editor.DrawSection" xml:space="preserve">
     <value>Draw:</value>
