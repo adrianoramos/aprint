@@ -133,7 +133,7 @@
     <value>Capture full screen</value>
   </data>
   <data name="Tray.Settings" xml:space="preserve">
-    <value>Settings...</value>
+    <value>Settings</value>
   </data>
   <data name="Tray.About" xml:space="preserve">
     <value>About</value>
@@ -344,6 +344,9 @@
   </data>
   <data name="Editor.Blur" xml:space="preserve">
     <value>Blur</value>
+  </data>
+  <data name="Editor.BlurOptions" xml:space="preserve">
+    <value>Blur options</value>
   </data>
   <data name="Editor.Highlight" xml:space="preserve">
     <value>Highlight</value>
