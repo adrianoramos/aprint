@@ -157,6 +157,7 @@ public sealed partial class SettingsForm : Form
             AppLocalization.Translate("Editor.Circle"),
             AppLocalization.Translate("Editor.Counter"),
             AppLocalization.Translate("Editor.Blur"),
+            AppLocalization.Translate("Editor.Highlight"),
         });
 
         cmbDefaultEditorTool.SelectedIndex = (int)_workingSettings.DefaultEditorTool;
