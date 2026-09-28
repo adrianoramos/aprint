@@ -348,6 +348,12 @@
   <data name="Editor.BlurOptions" xml:space="preserve">
     <value>Blur options</value>
   </data>
+  <data name="Editor.Highlight" xml:space="preserve">
+    <value>Highlight</value>
+  </data>
+  <data name="Editor.HighlightSize" xml:space="preserve">
+    <value>Highlight size</value>
+  </data>
   <data name="Editor.Filled" xml:space="preserve">
     <value>Filled</value>
   </data>

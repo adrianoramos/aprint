@@ -41,6 +41,7 @@ public sealed class EditorForm : Form
         Rectangle,
         Circle,
         Counter,
+        Highlight,
         Eraser,
         Filled,
         Pixelated,
@@ -81,6 +82,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnRectangle;
     private readonly ToolStripButton _btnCircle;
     private readonly ToolStripButton _btnCounter;
+    private readonly ToolStripButton _btnHighlight;
+    private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
     private readonly ToolStripButton _btnBorrarMode;
     private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
     private readonly ToolStripButton _btnColor;
@@ -96,11 +99,13 @@ public sealed class EditorForm : Form
     private Color _selectedColor = Color.Red;
     private EditTool _currentTool = EditTool.Freehand;
     private BorrarMode _borrarMode = BorrarMode.Pixelate;
+    private int _highlightWidth = 18;
     private int _borrarPixelSize = 6;
     private int _nextCounterValue = 1;
     private bool _isDrawing;
     private Point _dragStart;
     private Point _lastFreehandPoint;
+    private readonly List<Point> _highlighterPoints = [];
     private Rectangle _lastPreviewDirtyRect;
     private Point _shapePreviewEnd;
     private bool _shapePreviewVisible;
@@ -210,6 +215,63 @@ public sealed class EditorForm : Form
             ToolIconKind.Counter,
             Color.Black,
             isCheckable: true);
+        _btnHighlight = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.Highlight"),
+            ToolIconKind.Highlight,
+            Color.Black,
+            isCheckable: true);
+        _btnHighlightSizeDropdown = new ToolStripDropDownButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Highlight, Color.Black),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(0, 0, ToolButtonMargin, 0),
+            AutoSize = false,
+            Width = 14,
+            Height = ToolButtonSize,
+            AutoToolTip = false,
+            ToolTipText = AppLocalization.Translate("Editor.HighlightSize"),
+        };
+        var highlightSizePanel = new Panel
+        {
+            Size = new Size(186, 48),
+            Padding = new Padding(4),
+            BackColor = SystemColors.Control,
+        };
+        var highlightSizeSlider = new TrackBar
+        {
+            Minimum = 4,
+            Maximum = 48,
+            Value = _highlightWidth,
+            TickFrequency = 4,
+            SmallChange = 1,
+            LargeChange = 4,
+            TickStyle = TickStyle.BottomRight,
+            AutoSize = false,
+            Size = new Size(138, 40),
+            Location = new Point(4, 4),
+        };
+        var highlightSizeLabel = new Label
+        {
+            AutoSize = false,
+            Text = $"{_highlightWidth} px",
+            TextAlign = ContentAlignment.MiddleCenter,
+            Size = new Size(38, 22),
+            Location = new Point(144, 13),
+        };
+        highlightSizeSlider.ValueChanged += (_, _) =>
+        {
+            _highlightWidth = highlightSizeSlider.Value;
+            highlightSizeLabel.Text = $"{_highlightWidth} px";
+        };
+        highlightSizePanel.Controls.Add(highlightSizeSlider);
+        highlightSizePanel.Controls.Add(highlightSizeLabel);
+        _btnHighlightSizeDropdown.DropDownItems.Add(new ToolStripControlHost(highlightSizePanel)
+        {
+            AutoSize = false,
+            Size = highlightSizePanel.Size,
+            Margin = Padding.Empty,
+        });
 
         _btnBorrarMode = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Blur"),
@@ -237,6 +299,7 @@ public sealed class EditorForm : Form
         _btnRectangle.Click += (_, _) => SetActiveTool(EditTool.Rectangle);
         _btnCircle.Click += (_, _) => SetActiveTool(EditTool.Circle);
         _btnCounter.Click += (_, _) => SetActiveTool(EditTool.Counter);
+        _btnHighlight.Click += (_, _) => SetActiveTool(EditTool.Highlight);
 
         _blurMenuFilled = new ToolStripMenuItem(AppLocalization.Translate("Editor.Filled"))
         {
@@ -319,6 +382,8 @@ public sealed class EditorForm : Form
             _btnRectangle,
             _btnCircle,
             _btnCounter,
+            _btnHighlight,
+            _btnHighlightSizeDropdown,
             _btnBorrarMode,
             _btnBorrarModeDropdown,
             _cmbBorrarSize,
@@ -574,6 +639,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Rectangle => "Aprint.Resources.Icons.rectangle.png",
             ToolIconKind.Circle => "Aprint.Resources.Icons.circle.png",
             ToolIconKind.Counter => "Aprint.Resources.Icons.counter.png",
+            ToolIconKind.Highlight => "Aprint.Resources.Icons.highlight.png",
             ToolIconKind.Eraser => "Aprint.Resources.Icons.erase.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
@@ -605,6 +671,7 @@ public sealed class EditorForm : Form
         _btnRectangle.Checked = tool == EditTool.Rectangle;
         _btnCircle.Checked = tool == EditTool.Circle;
         _btnCounter.Checked = tool == EditTool.Counter;
+        _btnHighlight.Checked = tool == EditTool.Highlight;
         _btnBorrarMode.Checked = tool == EditTool.Blur;
     }
 
@@ -692,6 +759,11 @@ public sealed class EditorForm : Form
         _isDrawing = true;
         _dragStart = e.Location;
         _lastFreehandPoint = e.Location;
+        if (_currentTool == EditTool.Highlight)
+        {
+            _highlighterPoints.Clear();
+            _highlighterPoints.Add(e.Location);
+        }
 
         SaveUndoState();
 
@@ -718,7 +790,16 @@ public sealed class EditorForm : Form
 
         using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
 
-        if (_currentTool == EditTool.Freehand)
+        if (_currentTool == EditTool.Highlight)
+        {
+            if (_highlighterPoints[^1] != e.Location)
+            {
+                var previousPoint = _highlighterPoints[^1];
+                _highlighterPoints.Add(e.Location);
+                InvalidatePictureBoxRegion(CreateLineDirtyRectangle(previousPoint, e.Location, (_highlightWidth / 2) + 2));
+            }
+        }
+        else if (_currentTool == EditTool.Freehand)
         {
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
@@ -752,7 +833,19 @@ public sealed class EditorForm : Form
 
         _isDrawing = false;
 
-        if (_currentTool == EditTool.Blur)
+        if (_currentTool == EditTool.Highlight)
+        {
+            if (_highlighterPoints.Count == 0 || _highlighterPoints[^1] != e.Location)
+            {
+                _highlighterPoints.Add(e.Location);
+            }
+
+            ImageEditingService.ApplyHighlighter(_workingBitmap, _highlighterPoints, _selectedColor, _highlightWidth);
+            _highlighterPoints.Clear();
+            _pictureBox.Image = _workingBitmap;
+            _pictureBox.Invalidate();
+        }
+        else if (_currentTool == EditTool.Blur)
         {
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
@@ -785,6 +878,12 @@ public sealed class EditorForm : Form
 
     private void PictureBox_Paint(object? sender, PaintEventArgs e)
     {
+        if (_currentTool == EditTool.Highlight && _isDrawing)
+        {
+            ImageEditingService.DrawHighlighter(e.Graphics, _highlighterPoints, _selectedColor, _highlightWidth);
+            return;
+        }
+
         if (!_shapePreviewVisible)
         {
             return;

@@ -4,6 +4,8 @@ namespace Aprint.Features.Editor;
 
 public static class ImageEditingService
 {
+    private const int HighlighterAlpha = 105;
+
     public static void DrawShape(Graphics graphics, Pen pen, Point start, Point end, EditTool tool)
     {
         var rectangle = CreateSelectionRectangle(start, end);
@@ -35,6 +37,39 @@ public static class ImageEditingService
         Math.Min(start.Y, end.Y),
         Math.Abs(start.X - end.X),
         Math.Abs(start.Y - end.Y));
+
+    public static void ApplyHighlighter(Bitmap bitmap, IReadOnlyList<Point> points, Color color, int width)
+    {
+        using var graphics = Graphics.FromImage(bitmap);
+        DrawHighlighter(graphics, points, color, width);
+    }
+
+    public static void DrawHighlighter(Graphics graphics, IReadOnlyList<Point> points, Color color, int width)
+    {
+        if (points.Count == 0)
+        {
+            return;
+        }
+
+        width = Math.Max(1, width);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = new Pen(Color.FromArgb(HighlighterAlpha, color), width)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round,
+        };
+
+        if (points.Count == 1)
+        {
+            using var brush = new SolidBrush(pen.Color);
+            var point = points[0];
+            graphics.FillEllipse(brush, point.X - width / 2, point.Y - width / 2, width, width);
+            return;
+        }
+
+        graphics.DrawLines(pen, points.ToArray());
+    }
 
     public static void ApplyBorrar(Bitmap bitmap, Rectangle area, BorrarMode mode, Color color, int pixelSize)
     {
