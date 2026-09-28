@@ -310,6 +310,12 @@ public sealed class EditorForm : Form
         {
             if (item is ToolStripButton button)
             {
+                button.AutoSize = visible;
+                if (!visible)
+                {
+                    button.Width = ToolButtonSize;
+                }
+
                 button.DisplayStyle = visible
                     ? ToolStripItemDisplayStyle.ImageAndText
                     : ToolStripItemDisplayStyle.Image;
