@@ -354,6 +354,9 @@
   <data name="Editor.Text" xml:space="preserve">
     <value>Texto</value>
   </data>
+  <data name="Editor.Crop" xml:space="preserve">
+    <value>Cortar</value>
+  </data>
   <data name="Editor.TextFormatting" xml:space="preserve">
     <value>Formatação do texto</value>
   </data>
