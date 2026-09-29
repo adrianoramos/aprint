@@ -354,6 +354,24 @@
   <data name="Editor.HighlightSize" xml:space="preserve">
     <value>Highlight size</value>
   </data>
+  <data name="Editor.Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Editor.TextFormatting" xml:space="preserve">
+    <value>Text formatting</value>
+  </data>
+  <data name="Editor.TextBold" xml:space="preserve">
+    <value>Bold</value>
+  </data>
+  <data name="Editor.TextItalic" xml:space="preserve">
+    <value>Italic</value>
+  </data>
+  <data name="Editor.TextUnderline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="Editor.TextStrikeout" xml:space="preserve">
+    <value>Strikethrough</value>
+  </data>
   <data name="Editor.Filled" xml:space="preserve">
     <value>Filled</value>
   </data>

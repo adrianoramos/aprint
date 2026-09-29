@@ -32,6 +32,38 @@ public sealed class EditorForm : Form
             0x0208 or 0x020A or 0x020B or 0x020C or 0x020E;
     }
 
+    private sealed class PopupDismissMessageFilter(params ToolStripDropDownButton[] buttons) : IMessageFilter
+    {
+        public bool PreFilterMessage(ref Message message)
+        {
+            if (message.Msg is not (0x0201 or 0x0204 or 0x0207))
+            {
+                return false;
+            }
+
+            var cursorPosition = Control.MousePosition;
+            var clickedButton = buttons.FirstOrDefault(button =>
+                button.Owner is not null &&
+                button.Owner.RectangleToScreen(button.Bounds).Contains(cursorPosition));
+
+            if (clickedButton?.DropDown.Visible == true)
+            {
+                clickedButton.DropDown.Close();
+                return true;
+            }
+
+            foreach (var button in buttons)
+            {
+                if (button.DropDown.Visible && !button.DropDown.Bounds.Contains(cursorPosition))
+                {
+                    button.DropDown.Close();
+                }
+            }
+
+            return false;
+        }
+    }
+
     private enum ToolIconKind
     {
         Color,
@@ -42,6 +74,7 @@ public sealed class EditorForm : Form
         Circle,
         Counter,
         Highlight,
+        Text,
         Eraser,
         Filled,
         Pixelated,
@@ -53,6 +86,7 @@ public sealed class EditorForm : Form
     }
 
     private const int PenWidth = 3;
+    private const int TextMinimumWidth = 100;
     private const int ToolPanelHeight = 50;
     private const int ToolIconBaseSize = 24;
     private const int ToolButtonPadding = 4;
@@ -84,6 +118,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnCounter;
     private readonly ToolStripButton _btnHighlight;
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
+    private readonly ToolStripButton _btnText;
+    private readonly ToolStripDropDownButton _btnTextFormatDropdown;
     private readonly ToolStripButton _btnBorrarMode;
     private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
     private readonly ToolStripButton _btnColor;
@@ -91,6 +127,10 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnRedo;
     private readonly ToolStripComboBox _cmbBorrarSize;
     private readonly EditHistory _editHistory;
+    private Font _textFont = new("Segoe UI", 12F);
+    private readonly List<Font> _textFormatButtonFonts = [];
+    private readonly ToolTip _textFormatToolTip = new();
+    private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
     private readonly System.Windows.Forms.Timer? _inactivityTimer;
     private readonly IMessageFilter? _activityMessageFilter;
     private ToolStripMenuItem _blurMenuFilled;
@@ -106,6 +146,16 @@ public sealed class EditorForm : Form
     private Point _dragStart;
     private Point _lastFreehandPoint;
     private readonly List<Point> _highlighterPoints = [];
+    private Rectangle _textBounds;
+    private int _textMinimumWidth;
+    private string _textBuffer = string.Empty;
+    private string _textFontFamily = "Segoe UI";
+    private float _textFontSize = 12F;
+    private FontStyle _textFontStyle = FontStyle.Regular;
+    private bool _isEditingText;
+    private bool _isTextSelected;
+    private bool _isTextFormatMenuOpen;
+    private bool _textCaretVisible;
     private Rectangle _lastPreviewDirtyRect;
     private Point _shapePreviewEnd;
     private bool _shapePreviewVisible;
@@ -114,10 +164,28 @@ public sealed class EditorForm : Form
     public event Action? Copied;
     public event Action<BorrarMode>? BorrarModeChanged;
     public event Action? NewCaptureRequested;
+    public event Action<string, float, FontStyle>? TextFormattingChanged;
+    public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30)
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
+        _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
+        var installedFontFamilies = FontFamily.Families;
+        _textFontFamily = installedFontFamilies
+            .Select(fontFamily => fontFamily.Name)
+            .FirstOrDefault(fontFamilyName => string.Equals(fontFamilyName, textFontFamily, StringComparison.OrdinalIgnoreCase))
+            ?? "Segoe UI";
+        foreach (var fontFamily in installedFontFamilies)
+        {
+            fontFamily.Dispose();
+        }
+
+        _textFontSize = float.IsFinite(textFontSize) ? Math.Clamp(textFontSize, 6F, 72F) : 12F;
+        const FontStyle supportedTextStyles = FontStyle.Bold | FontStyle.Italic | FontStyle.Underline | FontStyle.Strikeout;
+        _textFontStyle = textFontStyle & supportedTextStyles;
+        _textFont.Dispose();
+        _textFont = new Font(_textFontFamily, _textFontSize, _textFontStyle, GraphicsUnit.Point);
         _closeAfterCopyOrSave = closeAfterCopyOrSave;
         _saveWithoutPrompt = saveWithoutPrompt;
         if (autoCloseWhenInactive)
@@ -146,6 +214,7 @@ public sealed class EditorForm : Form
 
         Text = AppLocalization.Translate("Editor.FormTitle");
         Icon = Program.AppIcon;
+        KeyPreview = true;
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = true;
         MinimizeBox = true;
@@ -220,6 +289,110 @@ public sealed class EditorForm : Form
             ToolIconKind.Highlight,
             Color.Black,
             isCheckable: true);
+        _btnText = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.Text"),
+            ToolIconKind.Text,
+            Color.Black,
+            isCheckable: true);
+        _btnTextFormatDropdown = new ToolStripDropDownButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ImageKey = EnsureToolIconKey(ToolIconKind.Text, Color.Black),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(0, 0, ToolButtonMargin, 0),
+            AutoSize = false,
+            Width = 14,
+            Height = ToolButtonSize,
+            AutoToolTip = false,
+            ToolTipText = AppLocalization.Translate("Editor.TextFormatting"),
+        };
+        var textFormatPanel = new Panel
+        {
+            Size = new Size(400, 42),
+            Padding = new Padding(4),
+            BackColor = SystemColors.Control,
+        };
+        var textFontFamilyCombo = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Location = new Point(4, 8),
+            Size = new Size(170, 25),
+        };
+        var textFontFamilies = FontFamily.Families;
+        var fontFamilyNames = textFontFamilies
+            .Select(fontFamily => fontFamily.Name)
+            .OrderBy(fontFamilyName => fontFamilyName, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        foreach (var fontFamily in textFontFamilies)
+        {
+            fontFamily.Dispose();
+        }
+
+        textFontFamilyCombo.Items.AddRange(fontFamilyNames);
+        textFontFamilyCombo.SelectedItem = _textFontFamily;
+        if (textFontFamilyCombo.SelectedIndex < 0 && textFontFamilyCombo.Items.Count > 0)
+        {
+            textFontFamilyCombo.SelectedIndex = 0;
+        }
+
+        textFontFamilyCombo.SelectedIndexChanged += (_, _) =>
+        {
+            if (textFontFamilyCombo.SelectedItem is string fontFamilyName)
+            {
+                _textFontFamily = fontFamilyName;
+                UpdateTextFont();
+            }
+        };
+        var textFontSizeInput = new NumericUpDown
+        {
+            Minimum = 6,
+            Maximum = 72,
+            Value = (decimal)_textFontSize,
+            Location = new Point(180, 8),
+            Size = new Size(56, 25),
+        };
+        textFontSizeInput.ValueChanged += (_, _) =>
+        {
+            _textFontSize = (float)textFontSizeInput.Value;
+            UpdateTextFont();
+        };
+        var textFontSizeUnit = new Label
+        {
+            AutoSize = false,
+            Text = "pt",
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = new Point(238, 9),
+            Size = new Size(20, 22),
+        };
+        var boldButton = CreateTextFormatButton("B", "Editor.TextBold", FontStyle.Bold, new Point(268, 8));
+        var italicButton = CreateTextFormatButton("I", "Editor.TextItalic", FontStyle.Italic, new Point(300, 8));
+        var underlineButton = CreateTextFormatButton("U", "Editor.TextUnderline", FontStyle.Underline, new Point(332, 8));
+        var strikeoutButton = CreateTextFormatButton("S", "Editor.TextStrikeout", FontStyle.Strikeout, new Point(364, 8));
+        textFormatPanel.Controls.AddRange([
+            textFontFamilyCombo,
+            textFontSizeInput,
+            textFontSizeUnit,
+            boldButton,
+            italicButton,
+            underlineButton,
+            strikeoutButton,
+        ]);
+        _btnTextFormatDropdown.DropDownItems.Add(new ToolStripControlHost(textFormatPanel)
+        {
+            AutoSize = false,
+            Size = textFormatPanel.Size,
+            Margin = Padding.Empty,
+        });
+        _btnTextFormatDropdown.DropDown.AutoClose = false;
+        _btnTextFormatDropdown.DropDownOpening += (_, _) => _isTextFormatMenuOpen = true;
+        _btnTextFormatDropdown.DropDownClosed += (_, _) =>
+        {
+            _isTextFormatMenuOpen = false;
+            if (_isEditingText)
+            {
+                _pictureBox?.Focus();
+            }
+        };
         _btnHighlightSizeDropdown = new ToolStripDropDownButton
         {
             DisplayStyle = ToolStripItemDisplayStyle.Image,
@@ -263,6 +436,7 @@ public sealed class EditorForm : Form
         {
             _highlightWidth = highlightSizeSlider.Value;
             highlightSizeLabel.Text = $"{_highlightWidth} px";
+            HighlightWidthChanged?.Invoke(_highlightWidth);
         };
         highlightSizePanel.Controls.Add(highlightSizeSlider);
         highlightSizePanel.Controls.Add(highlightSizeLabel);
@@ -272,6 +446,12 @@ public sealed class EditorForm : Form
             Size = highlightSizePanel.Size,
             Margin = Padding.Empty,
         });
+        _btnHighlightSizeDropdown.DropDown.AutoClose = false;
+        var popupDismissMessageFilter = new PopupDismissMessageFilter(
+            _btnTextFormatDropdown,
+            _btnHighlightSizeDropdown);
+        Shown += (_, _) => System.Windows.Forms.Application.AddMessageFilter(popupDismissMessageFilter);
+        FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(popupDismissMessageFilter);
 
         _btnBorrarMode = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Blur"),
@@ -300,6 +480,7 @@ public sealed class EditorForm : Form
         _btnCircle.Click += (_, _) => SetActiveTool(EditTool.Circle);
         _btnCounter.Click += (_, _) => SetActiveTool(EditTool.Counter);
         _btnHighlight.Click += (_, _) => SetActiveTool(EditTool.Highlight);
+        _btnText.Click += (_, _) => SetActiveTool(EditTool.Text);
 
         _blurMenuFilled = new ToolStripMenuItem(AppLocalization.Translate("Editor.Filled"))
         {
@@ -384,6 +565,8 @@ public sealed class EditorForm : Form
             _btnCounter,
             _btnHighlight,
             _btnHighlightSizeDropdown,
+            _btnText,
+            _btnTextFormatDropdown,
             _btnBorrarMode,
             _btnBorrarModeDropdown,
             _cmbBorrarSize,
@@ -403,11 +586,28 @@ public sealed class EditorForm : Form
             Image = _workingBitmap,
             SizeMode = PictureBoxSizeMode.AutoSize,
             Cursor = Cursors.Cross,
+            TabStop = true,
         };
         _pictureBox.MouseDown += PictureBox_MouseDown;
         _pictureBox.MouseMove += PictureBox_MouseMove;
         _pictureBox.MouseUp += PictureBox_MouseUp;
         _pictureBox.Paint += PictureBox_Paint;
+        _pictureBox.LostFocus += (_, _) =>
+        {
+            if (_isEditingText && !_isTextFormatMenuOpen)
+            {
+                CommitTextEdit();
+            }
+        };
+        _textCaretTimer.Tick += (_, _) =>
+        {
+            _textCaretVisible = !_textCaretVisible;
+            if (_isEditingText)
+            {
+                _pictureBox.Invalidate(InflateRectangle(_textBounds, 2));
+            }
+        };
+        KeyPress += EditorForm_KeyPress;
 
         scrollPanel.Controls.Add(_pictureBox);
         Controls.Add(scrollPanel);
@@ -640,6 +840,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Circle => "Aprint.Resources.Icons.circle.png",
             ToolIconKind.Counter => "Aprint.Resources.Icons.counter.png",
             ToolIconKind.Highlight => "Aprint.Resources.Icons.highlight.png",
+            ToolIconKind.Text => "Aprint.Resources.Icons.text.png",
             ToolIconKind.Eraser => "Aprint.Resources.Icons.erase.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
@@ -664,6 +865,11 @@ public sealed class EditorForm : Form
 
     private void SetActiveTool(EditTool tool)
     {
+        if (_isEditingText && tool != EditTool.Text)
+        {
+            CommitTextEdit();
+        }
+
         _currentTool = tool;
         _btnFreehand.Checked = tool == EditTool.Freehand;
         _btnLine.Checked = tool == EditTool.Line;
@@ -672,7 +878,9 @@ public sealed class EditorForm : Form
         _btnCircle.Checked = tool == EditTool.Circle;
         _btnCounter.Checked = tool == EditTool.Counter;
         _btnHighlight.Checked = tool == EditTool.Highlight;
+        _btnText.Checked = tool == EditTool.Text;
         _btnBorrarMode.Checked = tool == EditTool.Blur;
+        _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;
     }
 
     private void SetBorrarMode(BorrarMode mode)
@@ -756,6 +964,11 @@ public sealed class EditorForm : Form
             return;
         }
 
+        if (_isEditingText)
+        {
+            CommitTextEdit();
+        }
+
         _isDrawing = true;
         _dragStart = e.Location;
         _lastFreehandPoint = e.Location;
@@ -798,6 +1011,17 @@ public sealed class EditorForm : Form
                 _highlighterPoints.Add(e.Location);
                 InvalidatePictureBoxRegion(CreateLineDirtyRectangle(previousPoint, e.Location, (_highlightWidth / 2) + 2));
             }
+        }
+        else if (_currentTool == EditTool.Text)
+        {
+            var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, 2);
+            _shapePreviewEnd = e.Location;
+            _shapePreviewVisible = true;
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? currentDirtyRect
+                : Rectangle.Union(_lastPreviewDirtyRect, currentDirtyRect);
+            _lastPreviewDirtyRect = currentDirtyRect;
+            InvalidatePictureBoxRegion(repaintRegion);
         }
         else if (_currentTool == EditTool.Freehand)
         {
@@ -845,6 +1069,22 @@ public sealed class EditorForm : Form
             _pictureBox.Image = _workingBitmap;
             _pictureBox.Invalidate();
         }
+        else if (_currentTool == EditTool.Text)
+        {
+            var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
+            _textMinimumWidth = Math.Max(TextMinimumWidth, selection.Width);
+            _textBounds = new Rectangle(_dragStart.X, e.Location.Y, _textMinimumWidth, _textFont.Height + 2);
+            _textBuffer = string.Empty;
+            _isTextSelected = false;
+            ResizeTextBoundsToContent();
+            _isEditingText = true;
+            _textCaretVisible = true;
+            _shapePreviewVisible = false;
+            _lastPreviewDirtyRect = Rectangle.Empty;
+            _textCaretTimer.Start();
+            _pictureBox.Focus();
+            _pictureBox.Invalidate(_textBounds);
+        }
         else if (_currentTool == EditTool.Blur)
         {
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
@@ -884,6 +1124,35 @@ public sealed class EditorForm : Form
             return;
         }
 
+        if (_currentTool == EditTool.Text)
+        {
+            if (_isEditingText)
+            {
+                if (_isTextSelected)
+                {
+                    using var selectionBrush = new SolidBrush(SystemColors.Highlight);
+                    e.Graphics.FillRectangle(selectionBrush, Rectangle.Inflate(_textBounds, -1, -1));
+                }
+
+                var textColor = _isTextSelected ? SystemColors.HighlightText : _selectedColor;
+                ImageEditingService.DrawText(e.Graphics, _textBounds, _textBuffer, textColor, _textFont);
+                using var borderPen = new Pen(Color.Gray) { DashStyle = DashStyle.Dash };
+                e.Graphics.DrawRectangle(borderPen, _textBounds.X, _textBounds.Y, _textBounds.Width - 1, _textBounds.Height - 1);
+                if (_textCaretVisible && !_isTextSelected)
+                {
+                    DrawTextCaret(e.Graphics);
+                }
+            }
+            else if (_isDrawing && _shapePreviewVisible)
+            {
+                var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, _shapePreviewEnd);
+                using var selectionPen = new Pen(Color.Gray) { DashStyle = DashStyle.Dash };
+                e.Graphics.DrawRectangle(selectionPen, selection);
+            }
+
+            return;
+        }
+
         if (!_shapePreviewVisible)
         {
             return;
@@ -907,6 +1176,146 @@ public sealed class EditorForm : Form
         ImageEditingService.ApplyBorrar(_workingBitmap, area, _borrarMode, _selectedColor, _borrarPixelSize);
         _pictureBox.Image = _workingBitmap;
         InvalidatePictureBoxRegion(InflateRectangle(area, 2));
+    }
+
+    private void EditorForm_KeyPress(object? sender, KeyPressEventArgs e)
+    {
+        if (!_isEditingText)
+        {
+            return;
+        }
+
+        if (e.KeyChar == '\b')
+        {
+            if (_isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+            }
+            else if (_textBuffer.Length > 0)
+            {
+                _textBuffer = _textBuffer[..^1];
+            }
+        }
+        else if (e.KeyChar is '\r' or '\n')
+        {
+            if (_isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+            }
+
+            _textBuffer += Environment.NewLine;
+        }
+        else if (!char.IsControl(e.KeyChar))
+        {
+            if (_isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+            }
+
+            _textBuffer += e.KeyChar;
+        }
+        else
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _textCaretVisible = true;
+        ResizeTextBoundsToContent();
+    }
+
+    private CheckBox CreateTextFormatButton(string text, string tooltipKey, FontStyle style, Point location)
+    {
+        var buttonFont = new Font("Segoe UI", 9F, style, GraphicsUnit.Point);
+        var button = new CheckBox
+        {
+            Appearance = Appearance.Button,
+            AutoSize = false,
+            Font = buttonFont,
+            Text = text,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = location,
+            Size = new Size(28, 25),
+            TabStop = false,
+            Checked = (_textFontStyle & style) != 0,
+        };
+        _textFormatButtonFonts.Add(buttonFont);
+        _textFormatToolTip.SetToolTip(button, AppLocalization.Translate(tooltipKey));
+        button.CheckedChanged += (_, _) => SetTextFontStyle(style, button.Checked);
+        return button;
+    }
+
+    private void SetTextFontStyle(FontStyle style, bool enabled)
+    {
+        _textFontStyle = enabled ? _textFontStyle | style : _textFontStyle & ~style;
+        UpdateTextFont();
+    }
+
+    private void UpdateTextFont()
+    {
+        var previousFont = _textFont;
+        _textFont = new Font(_textFontFamily, _textFontSize, _textFontStyle, GraphicsUnit.Point);
+        previousFont.Dispose();
+
+        TextFormattingChanged?.Invoke(_textFontFamily, _textFontSize, _textFontStyle);
+
+        if (_isEditingText)
+        {
+            _textCaretVisible = true;
+            ResizeTextBoundsToContent();
+        }
+    }
+
+    private void ResizeTextBoundsToContent()
+    {
+        var previousBounds = _textBounds;
+        var contentSize = ImageEditingService.MeasureTextContent(_textBuffer, _textFont);
+        var availableWidth = _workingBitmap.Width - _textBounds.Left;
+        var availableHeight = _workingBitmap.Height - _textBounds.Top;
+        var width = Math.Min(Math.Max(_textMinimumWidth, contentSize.Width + 3), availableWidth);
+        var height = Math.Min(Math.Max(_textFont.Height, contentSize.Height) + 2, availableHeight);
+        _textBounds = new Rectangle(_textBounds.X, _textBounds.Y, Math.Max(1, width), Math.Max(1, height));
+        _pictureBox.Invalidate(Rectangle.Union(previousBounds, _textBounds));
+    }
+
+    private void DrawTextCaret(Graphics graphics)
+    {
+        var lines = _textBuffer.Split('\n');
+        var lastLine = lines[^1].TrimEnd('\r');
+        var caretSize = TextRenderer.MeasureText(
+            lastLine,
+            _textFont,
+            Size.Empty,
+            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+        var x = Math.Min(_textBounds.Right - 1, _textBounds.Left + 1 + caretSize.Width);
+        var y = Math.Min(_textBounds.Bottom - 1, _textBounds.Top + 1 + ((lines.Length - 1) * _textFont.Height));
+        using var caretPen = new Pen(_selectedColor);
+        graphics.DrawLine(caretPen, x, y, x, Math.Min(_textBounds.Bottom - 1, y + _textFont.Height));
+    }
+
+    private void CommitTextEdit()
+    {
+        _textCaretTimer.Stop();
+        _isEditingText = false;
+        _isTextSelected = false;
+        ImageEditingService.ApplyText(_workingBitmap, _textBounds, _textBuffer, _selectedColor, _textFont);
+        _textBuffer = string.Empty;
+        _textCaretVisible = false;
+        _pictureBox.Image = _workingBitmap;
+        _pictureBox.Invalidate(InflateRectangle(_textBounds, 2));
+    }
+
+    private void CancelTextEdit()
+    {
+        _textCaretTimer.Stop();
+        _isEditingText = false;
+        _isTextSelected = false;
+        _textBuffer = string.Empty;
+        _textCaretVisible = false;
+        _pictureBox.Invalidate(InflateRectangle(_textBounds, 2));
     }
 
     private void AddCounterMarker(Point location)
@@ -1091,6 +1500,47 @@ public sealed class EditorForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (_isEditingText)
+        {
+            if ((keyData & Keys.Control) != 0 && (keyData & Keys.KeyCode) == Keys.A)
+            {
+                _isTextSelected = _textBuffer.Length > 0;
+                _textCaretVisible = false;
+                _pictureBox.Invalidate(_textBounds);
+                return true;
+            }
+
+            if (keyData == Keys.Delete && _isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+                _textCaretVisible = true;
+                ResizeTextBoundsToContent();
+                return true;
+            }
+
+            if (keyData == Keys.Escape)
+            {
+                CancelTextEdit();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.Enter))
+            {
+                CommitTextEdit();
+                return true;
+            }
+
+            if ((keyData & Keys.Control) != 0 && (keyData & Keys.KeyCode) != Keys.ControlKey)
+            {
+                CommitTextEdit();
+            }
+            else
+            {
+                return base.ProcessCmdKey(ref msg, keyData);
+            }
+        }
+
         if (keyData == (Keys.Control | Keys.N))
         {
             NewCaptureRequested?.Invoke();
@@ -1146,6 +1596,12 @@ public sealed class EditorForm : Form
             return true;
         }
 
+        if (keyData == Keys.T)
+        {
+            SetActiveTool(EditTool.Text);
+            return true;
+        }
+
         if (keyData == (Keys.Control | Keys.Z))
         {
             UndoLastEdit();
@@ -1179,6 +1635,15 @@ public sealed class EditorForm : Form
         {
             _inactivityTimer?.Stop();
             _inactivityTimer?.Dispose();
+            _textCaretTimer.Stop();
+            _textCaretTimer.Dispose();
+            _textFont.Dispose();
+            foreach (var buttonFont in _textFormatButtonFonts)
+            {
+                buttonFont.Dispose();
+            }
+
+            _textFormatToolTip.Dispose();
             _editHistory.Dispose();
             _workingBitmap.Dispose();
         }
