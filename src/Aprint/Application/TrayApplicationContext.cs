@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Diagnostics;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
@@ -138,9 +139,23 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void OpenEditor(Bitmap bitmap)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds);
+        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
+
+        editor.TextFormattingChanged += (fontFamily, fontSize, fontStyle) =>
+        {
+            _settings.LastTextFontFamily = fontFamily;
+            _settings.LastTextFontSize = fontSize;
+            _settings.LastTextFontStyle = fontStyle;
+            _settingsStore.Save(_settings);
+        };
+
+        editor.HighlightWidthChanged += width =>
+        {
+            _settings.LastHighlightWidth = width;
+            _settingsStore.Save(_settings);
+        };
 
         editor.BorrarModeChanged += mode =>
         {

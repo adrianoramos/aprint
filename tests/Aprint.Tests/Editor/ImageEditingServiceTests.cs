@@ -69,4 +69,48 @@ public sealed class ImageEditingServiceTests
         Assert.Equal(Color.White.ToArgb(), thinBitmap.GetPixel(15, 7).ToArgb());
         Assert.NotEqual(Color.White.ToArgb(), thickBitmap.GetPixel(15, 7).ToArgb());
     }
+
+    [Fact]
+    public void ApplyTextDrawsWithinTheSelectedBounds()
+    {
+        using var bitmap = new Bitmap(120, 60);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var font = new Font("Segoe UI", 12F);
+        var textBounds = new Rectangle(10, 10, 80, 30);
+        ImageEditingService.ApplyText(bitmap, textBounds, "Text", Color.Black, font);
+
+        var changedPixels = 0;
+        for (var y = textBounds.Top; y < textBounds.Bottom; y++)
+        {
+            for (var x = textBounds.Left; x < textBounds.Right; x++)
+            {
+                if (bitmap.GetPixel(x, y).ToArgb() != Color.White.ToArgb())
+                {
+                    changedPixels++;
+                }
+            }
+        }
+
+        Assert.True(changedPixels > 0);
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(100, 50).ToArgb());
+    }
+
+    [Fact]
+    public void MeasureTextContentGrowsForLongerLinesAndLineBreaks()
+    {
+        using var font = new Font("Segoe UI", 12F);
+
+        var caretSize = ImageEditingService.MeasureTextContent(string.Empty, font);
+        var shortLine = ImageEditingService.MeasureTextContent("Hi", font);
+        var longLine = ImageEditingService.MeasureTextContent("A much longer line", font);
+        var twoLines = ImageEditingService.MeasureTextContent("Hi\nthere", font);
+
+        Assert.Equal(font.Height, caretSize.Height);
+        Assert.True(longLine.Width > shortLine.Width);
+        Assert.Equal(shortLine.Height * 2, twoLines.Height);
+    }
 }

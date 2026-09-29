@@ -1,3 +1,4 @@
+using System.Drawing;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
 
@@ -45,6 +46,14 @@ public sealed class AppSettings
     public EditTool LastEditorTool { get; set; } = EditTool.Freehand;
 
     public EditTool DefaultEditorTool { get; set; } = EditTool.Freehand;
+
+    public string LastTextFontFamily { get; set; } = "Segoe UI";
+
+    public float LastTextFontSize { get; set; } = 12F;
+
+    public FontStyle LastTextFontStyle { get; set; } = FontStyle.Regular;
+
+    public int LastHighlightWidth { get; set; } = 18;
 
     public Keys HotkeyKey { get; set; } = Keys.P;
 
