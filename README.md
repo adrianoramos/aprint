@@ -9,6 +9,7 @@ Depois da captura, a imagem pode ser copiada para o clipboard, salva em uma past
 - Captura de tela por atalho global, menu da bandeja ou tecla Print Screen.
 - Seleção da região da tela a ser capturada.
 - Editor integrado para anotações e ocultação de informações sensíveis.
+- Corte da captura no editor: pressione `,`, arraste as alças nas bordas e confirme com Enter ou cancele com Esc.
 - Cópia direta da imagem para o clipboard.
 - Salvamento em pasta configurável.
 - Notificações após capturas, cópias e salvamentos.

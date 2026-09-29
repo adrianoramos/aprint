@@ -27,4 +27,44 @@ public sealed class EditHistoryTests
         Assert.Equal(2, redone.Value.NextCounterValue);
         Assert.Equal(Color.Blue.ToArgb(), redoneBitmap.GetPixel(0, 0).ToArgb());
     }
+
+    [Fact]
+    public void UndoAndRedoRestoreDimensionsAfterCrop()
+    {
+        using var original = new Bitmap(4, 3);
+        using var history = new EditHistory(original);
+        history.Capture(original, nextCounterValue: 1);
+        using var cropped = ImageEditingService.Crop(original, new Rectangle(1, 1, 2, 2));
+
+        var undone = history.Undo(cropped, currentNextCounterValue: 1);
+        Assert.NotNull(undone);
+        using var restored = undone.Value.Bitmap;
+        Assert.Equal(new Size(4, 3), restored.Size);
+
+        var redone = history.Redo(restored, currentNextCounterValue: 1);
+        Assert.NotNull(redone);
+        using var croppedAgain = redone.Value.Bitmap;
+        Assert.Equal(new Size(2, 2), croppedAgain.Size);
+    }
+
+    [Fact]
+    public void UndoAfterSecondCropRestoresFirstCrop()
+    {
+        using var original = new Bitmap(6, 5);
+        using var history = new EditHistory(original);
+        history.Capture(original, nextCounterValue: 1);
+        using var firstCrop = ImageEditingService.Crop(original, new Rectangle(1, 1, 4, 3));
+        history.Capture(firstCrop, nextCounterValue: 1);
+        using var secondCrop = ImageEditingService.Crop(firstCrop, new Rectangle(1, 1, 2, 2));
+
+        var undone = history.Undo(secondCrop, currentNextCounterValue: 1);
+        Assert.NotNull(undone);
+        using var restored = undone.Value.Bitmap;
+        Assert.Equal(new Size(4, 3), restored.Size);
+
+        var redone = history.Redo(restored, currentNextCounterValue: 1);
+        Assert.NotNull(redone);
+        using var croppedAgain = redone.Value.Bitmap;
+        Assert.Equal(new Size(2, 2), croppedAgain.Size);
+    }
 }

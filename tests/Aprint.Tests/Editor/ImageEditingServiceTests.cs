@@ -30,6 +30,42 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void CropPreservesPixelsWithoutResizingSource()
+    {
+        using var bitmap = new Bitmap(4, 3);
+        for (var row = 0; row < bitmap.Height; row++)
+        {
+            for (var column = 0; column < bitmap.Width; column++)
+            {
+                bitmap.SetPixel(column, row, Color.FromArgb(column * 40, row * 70, column + row));
+            }
+        }
+
+        using var cropped = ImageEditingService.Crop(bitmap, new Rectangle(1, 1, 2, 2));
+
+        Assert.Equal(new Size(2, 2), cropped.Size);
+        Assert.Equal(new Size(4, 3), bitmap.Size);
+        for (var row = 0; row < cropped.Height; row++)
+        {
+            for (var column = 0; column < cropped.Width; column++)
+            {
+                Assert.Equal(bitmap.GetPixel(column + 1, row + 1).ToArgb(), cropped.GetPixel(column, row).ToArgb());
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0, 2)]
+    [InlineData(3, 0, 2, 2)]
+    public void CropRejectsEmptyOrOutOfBoundsAreas(int x, int y, int width, int height)
+    {
+        using var bitmap = new Bitmap(4, 3);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            ImageEditingService.Crop(bitmap, new Rectangle(x, y, width, height)));
+    }
+
+    [Fact]
     public void ApplyHighlighterDrawsTranslucentStroke()
     {
         using var bitmap = new Bitmap(32, 24);

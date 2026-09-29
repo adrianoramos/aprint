@@ -75,6 +75,7 @@ public sealed class EditorForm : Form
         Counter,
         Highlight,
         Text,
+        Crop,
         Eraser,
         Filled,
         Pixelated,
@@ -94,6 +95,10 @@ public sealed class EditorForm : Form
     private const int ToolSeparatorMargin = 4;
     private const int ComboBoxWidth = 56;
     private const int ToolButtonSize = 32;
+    private const int CropHandleSize = 8;
+
+    [Flags]
+    private enum CropEdge { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
 
     private static readonly object ToolIconCacheSync = new();
     private static readonly Dictionary<int, ImageList> ToolIconImageLists = [];
@@ -119,6 +124,7 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnHighlight;
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
     private readonly ToolStripButton _btnText;
+    private readonly ToolStripButton _btnCrop;
     private readonly ToolStripDropDownButton _btnTextFormatDropdown;
     private readonly ToolStripButton _btnBorrarMode;
     private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
@@ -138,6 +144,7 @@ public sealed class EditorForm : Form
 
     private Color _selectedColor = Color.Red;
     private EditTool _currentTool = EditTool.Freehand;
+    private EditTool _toolBeforeCrop = EditTool.Freehand;
     private BorrarMode _borrarMode = BorrarMode.Pixelate;
     private int _highlightWidth = 18;
     private int _borrarPixelSize = 6;
@@ -159,6 +166,10 @@ public sealed class EditorForm : Form
     private Rectangle _lastPreviewDirtyRect;
     private Point _shapePreviewEnd;
     private bool _shapePreviewVisible;
+    private Rectangle _cropBounds;
+    private CropEdge _cropDragEdge;
+    private Point _cropDragStart;
+    private Rectangle _cropDragBounds;
 
     public event Action<string>? Saved;
     public event Action? Copied;
@@ -482,6 +493,13 @@ public sealed class EditorForm : Form
         _btnHighlight.Click += (_, _) => SetActiveTool(EditTool.Highlight);
         _btnText.Click += (_, _) => SetActiveTool(EditTool.Text);
 
+        _btnCrop = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.Crop"),
+            ToolIconKind.Crop,
+            Color.Black,
+            isCheckable: true);
+        _btnCrop.Click += (_, _) => SetActiveTool(EditTool.Crop);
+
         _blurMenuFilled = new ToolStripMenuItem(AppLocalization.Translate("Editor.Filled"))
         {
             DisplayStyle = ToolStripItemDisplayStyle.Text,
@@ -567,6 +585,7 @@ public sealed class EditorForm : Form
             _btnHighlightSizeDropdown,
             _btnText,
             _btnTextFormatDropdown,
+            _btnCrop,
             _btnBorrarMode,
             _btnBorrarModeDropdown,
             _cmbBorrarSize,
@@ -841,6 +860,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Counter => "Aprint.Resources.Icons.counter.png",
             ToolIconKind.Highlight => "Aprint.Resources.Icons.highlight.png",
             ToolIconKind.Text => "Aprint.Resources.Icons.text.png",
+            ToolIconKind.Crop => "Aprint.Resources.Icons.crop.png",
             ToolIconKind.Eraser => "Aprint.Resources.Icons.erase.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
@@ -870,6 +890,20 @@ public sealed class EditorForm : Form
             CommitTextEdit();
         }
 
+        if (_currentTool == EditTool.Crop && tool != EditTool.Crop)
+        {
+            _cropDragEdge = CropEdge.None;
+            _pictureBox.Capture = false;
+            _pictureBox.Invalidate();
+        }
+
+        if (tool == EditTool.Crop && _currentTool != EditTool.Crop)
+        {
+            _toolBeforeCrop = _currentTool;
+            _cropBounds = new Rectangle(Point.Empty, _workingBitmap.Size);
+            _pictureBox.Invalidate();
+        }
+
         _currentTool = tool;
         _btnFreehand.Checked = tool == EditTool.Freehand;
         _btnLine.Checked = tool == EditTool.Line;
@@ -879,6 +913,7 @@ public sealed class EditorForm : Form
         _btnCounter.Checked = tool == EditTool.Counter;
         _btnHighlight.Checked = tool == EditTool.Highlight;
         _btnText.Checked = tool == EditTool.Text;
+        _btnCrop.Checked = tool == EditTool.Crop;
         _btnBorrarMode.Checked = tool == EditTool.Blur;
         _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;
     }
@@ -937,6 +972,11 @@ public sealed class EditorForm : Form
         current.Dispose();
 
         _pictureBox.Image = _workingBitmap;
+        if (_currentTool == EditTool.Crop)
+        {
+            _cropBounds = new Rectangle(Point.Empty, _workingBitmap.Size);
+        }
+        CenterPictureBox((Panel)_pictureBox.Parent!);
         _pictureBox.Invalidate();
     }
 
@@ -954,6 +994,11 @@ public sealed class EditorForm : Form
         current.Dispose();
 
         _pictureBox.Image = _workingBitmap;
+        if (_currentTool == EditTool.Crop)
+        {
+            _cropBounds = new Rectangle(Point.Empty, _workingBitmap.Size);
+        }
+        CenterPictureBox((Panel)_pictureBox.Parent!);
         _pictureBox.Invalidate();
     }
 
@@ -961,6 +1006,14 @@ public sealed class EditorForm : Form
     {
         if (e.Button != MouseButtons.Left)
         {
+            return;
+        }
+
+        if (_currentTool == EditTool.Crop)
+        {
+            _cropDragEdge = HitTestCropEdge(e.Location);
+            _cropDragStart = e.Location;
+            _cropDragBounds = _cropBounds;
             return;
         }
 
@@ -996,6 +1049,38 @@ public sealed class EditorForm : Form
 
     private void PictureBox_MouseMove(object? sender, MouseEventArgs e)
     {
+        if (_currentTool == EditTool.Crop)
+        {
+            if (_cropDragEdge != CropEdge.None && (e.Button & MouseButtons.Left) != 0)
+            {
+                var deltaX = e.X - _cropDragStart.X;
+                var deltaY = e.Y - _cropDragStart.Y;
+                var left = _cropDragBounds.Left;
+                var top = _cropDragBounds.Top;
+                var right = _cropDragBounds.Right;
+                var bottom = _cropDragBounds.Bottom;
+                if (_cropDragEdge.HasFlag(CropEdge.Left)) left = Math.Clamp(left + deltaX, 0, right - 1);
+                if (_cropDragEdge.HasFlag(CropEdge.Right)) right = Math.Clamp(right + deltaX, left + 1, _workingBitmap.Width);
+                if (_cropDragEdge.HasFlag(CropEdge.Top)) top = Math.Clamp(top + deltaY, 0, bottom - 1);
+                if (_cropDragEdge.HasFlag(CropEdge.Bottom)) bottom = Math.Clamp(bottom + deltaY, top + 1, _workingBitmap.Height);
+                _cropBounds = Rectangle.FromLTRB(left, top, right, bottom);
+                _pictureBox.Invalidate();
+            }
+            else
+            {
+                var edge = HitTestCropEdge(e.Location);
+                _pictureBox.Cursor = edge switch
+                {
+                    CropEdge.Left or CropEdge.Right => Cursors.SizeWE,
+                    CropEdge.Top or CropEdge.Bottom => Cursors.SizeNS,
+                    CropEdge.Left | CropEdge.Top or CropEdge.Right | CropEdge.Bottom => Cursors.SizeNWSE,
+                    CropEdge.Right | CropEdge.Top or CropEdge.Left | CropEdge.Bottom => Cursors.SizeNESW,
+                    _ => Cursors.Default,
+                };
+            }
+            return;
+        }
+
         if (!_isDrawing)
         {
             return;
@@ -1050,6 +1135,12 @@ public sealed class EditorForm : Form
 
     private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
     {
+        if (_currentTool == EditTool.Crop)
+        {
+            _cropDragEdge = CropEdge.None;
+            return;
+        }
+
         if (!_isDrawing)
         {
             return;
@@ -1118,6 +1209,12 @@ public sealed class EditorForm : Form
 
     private void PictureBox_Paint(object? sender, PaintEventArgs e)
     {
+        if (_currentTool == EditTool.Crop)
+        {
+            DrawCropOverlay(e.Graphics);
+            return;
+        }
+
         if (_currentTool == EditTool.Highlight && _isDrawing)
         {
             ImageEditingService.DrawHighlighter(e.Graphics, _highlighterPoints, _selectedColor, _highlightWidth);
@@ -1169,6 +1266,70 @@ public sealed class EditorForm : Form
 
         using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
         ImageEditingService.DrawShape(e.Graphics, pen, _dragStart, _shapePreviewEnd, _currentTool);
+    }
+
+    private CropEdge HitTestCropEdge(Point location)
+    {
+        const int tolerance = CropHandleSize;
+        var onLeft = Math.Abs(location.X - _cropBounds.Left) <= tolerance;
+        var onRight = Math.Abs(location.X - (_cropBounds.Right - 1)) <= tolerance;
+        var onTop = Math.Abs(location.Y - _cropBounds.Top) <= tolerance;
+        var onBottom = Math.Abs(location.Y - (_cropBounds.Bottom - 1)) <= tolerance;
+        var insideX = location.X >= _cropBounds.Left - tolerance && location.X < _cropBounds.Right + tolerance;
+        var insideY = location.Y >= _cropBounds.Top - tolerance && location.Y < _cropBounds.Bottom + tolerance;
+        var edge = CropEdge.None;
+        if (insideY && onLeft) edge |= CropEdge.Left;
+        else if (insideY && onRight) edge |= CropEdge.Right;
+        if (insideX && onTop) edge |= CropEdge.Top;
+        else if (insideX && onBottom) edge |= CropEdge.Bottom;
+        return edge;
+    }
+
+    private void DrawCropOverlay(Graphics graphics)
+    {
+        var bounds = _cropBounds;
+        var image = new Rectangle(Point.Empty, _workingBitmap.Size);
+        using var shade = new SolidBrush(Color.FromArgb(110, Color.Black));
+        graphics.FillRectangle(shade, 0, 0, image.Width, bounds.Top);
+        graphics.FillRectangle(shade, 0, bounds.Top, bounds.Left, bounds.Height);
+        graphics.FillRectangle(shade, bounds.Right, bounds.Top, image.Width - bounds.Right, bounds.Height);
+        graphics.FillRectangle(shade, 0, bounds.Bottom, image.Width, image.Height - bounds.Bottom);
+        using var border = new Pen(Color.White) { DashStyle = DashStyle.Dash };
+        graphics.DrawRectangle(border, bounds.Left, bounds.Top, bounds.Width - 1, bounds.Height - 1);
+
+        using var handleFill = new SolidBrush(Color.White);
+        using var handleBorder = new Pen(Color.FromArgb(40, 44, 52));
+        var centerX = bounds.Left + (bounds.Width - 1) / 2;
+        var centerY = bounds.Top + (bounds.Height - 1) / 2;
+        foreach (var point in new[]
+        {
+            new Point(bounds.Left, bounds.Top), new Point(centerX, bounds.Top), new Point(bounds.Right - 1, bounds.Top),
+            new Point(bounds.Left, centerY), new Point(bounds.Right - 1, centerY),
+            new Point(bounds.Left, bounds.Bottom - 1), new Point(centerX, bounds.Bottom - 1), new Point(bounds.Right - 1, bounds.Bottom - 1),
+        })
+        {
+            var handle = new Rectangle(
+                Math.Clamp(point.X - CropHandleSize / 2, 0, Math.Max(0, image.Width - CropHandleSize)),
+                Math.Clamp(point.Y - CropHandleSize / 2, 0, Math.Max(0, image.Height - CropHandleSize)),
+                Math.Min(CropHandleSize, image.Width), Math.Min(CropHandleSize, image.Height));
+            graphics.FillRectangle(handleFill, handle);
+            graphics.DrawRectangle(handleBorder, handle.X, handle.Y, handle.Width - 1, handle.Height - 1);
+        }
+    }
+
+    private void ConfirmCrop()
+    {
+        if (_cropBounds != new Rectangle(Point.Empty, _workingBitmap.Size))
+        {
+            var cropped = ImageEditingService.Crop(_workingBitmap, _cropBounds);
+            SaveUndoState();
+            _pictureBox.Image = cropped;
+            _workingBitmap.Dispose();
+            _workingBitmap = cropped;
+            CenterPictureBox((Panel)_pictureBox.Parent!);
+        }
+
+        SetActiveTool(_toolBeforeCrop);
     }
 
     private void ApplyBorrarToSelection(Rectangle area)
@@ -1500,6 +1661,21 @@ public sealed class EditorForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (_currentTool == EditTool.Crop)
+        {
+            if (keyData == Keys.Enter)
+            {
+                ConfirmCrop();
+                return true;
+            }
+
+            if (keyData == Keys.Escape)
+            {
+                SetActiveTool(_toolBeforeCrop);
+                return true;
+            }
+        }
+
         if (_isEditingText)
         {
             if ((keyData & Keys.Control) != 0 && (keyData & Keys.KeyCode) == Keys.A)
@@ -1599,6 +1775,12 @@ public sealed class EditorForm : Form
         if (keyData == Keys.T)
         {
             SetActiveTool(EditTool.Text);
+            return true;
+        }
+
+        if (keyData == Keys.Oemcomma)
+        {
+            SetActiveTool(EditTool.Crop);
             return true;
         }
 

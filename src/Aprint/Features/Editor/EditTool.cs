@@ -12,4 +12,5 @@ public enum EditTool
     Blur,
     Highlight,
     Text,
+    Crop,
 }

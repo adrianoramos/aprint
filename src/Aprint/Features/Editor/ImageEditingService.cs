@@ -38,6 +38,17 @@ public static class ImageEditingService
         Math.Abs(start.X - end.X),
         Math.Abs(start.Y - end.Y));
 
+    public static Bitmap Crop(Bitmap bitmap, Rectangle area)
+    {
+        if (area.Width <= 0 || area.Height <= 0 ||
+            !new Rectangle(Point.Empty, bitmap.Size).Contains(area))
+        {
+            throw new ArgumentOutOfRangeException(nameof(area));
+        }
+
+        return bitmap.Clone(area, bitmap.PixelFormat);
+    }
+
     public static void ApplyHighlighter(Bitmap bitmap, IReadOnlyList<Point> points, Color color, int width)
     {
         using var graphics = Graphics.FromImage(bitmap);
