@@ -1063,8 +1063,13 @@ public sealed class EditorForm : Form
                 if (_cropDragEdge.HasFlag(CropEdge.Right)) right = Math.Clamp(right + deltaX, left + 1, _workingBitmap.Width);
                 if (_cropDragEdge.HasFlag(CropEdge.Top)) top = Math.Clamp(top + deltaY, 0, bottom - 1);
                 if (_cropDragEdge.HasFlag(CropEdge.Bottom)) bottom = Math.Clamp(bottom + deltaY, top + 1, _workingBitmap.Height);
-                _cropBounds = Rectangle.FromLTRB(left, top, right, bottom);
-                _pictureBox.Invalidate();
+                var newBounds = Rectangle.FromLTRB(left, top, right, bottom);
+                if (newBounds != _cropBounds)
+                {
+                    var previousBounds = _cropBounds;
+                    _cropBounds = newBounds;
+                    InvalidateCropPreview(previousBounds);
+                }
             }
             else
             {
@@ -1299,22 +1304,49 @@ public sealed class EditorForm : Form
 
         using var handleFill = new SolidBrush(Color.White);
         using var handleBorder = new Pen(Color.FromArgb(40, 44, 52));
-        var centerX = bounds.Left + (bounds.Width - 1) / 2;
-        var centerY = bounds.Top + (bounds.Height - 1) / 2;
-        foreach (var point in new[]
+        foreach (var point in GetCropHandlePoints(bounds))
         {
-            new Point(bounds.Left, bounds.Top), new Point(centerX, bounds.Top), new Point(bounds.Right - 1, bounds.Top),
-            new Point(bounds.Left, centerY), new Point(bounds.Right - 1, centerY),
-            new Point(bounds.Left, bounds.Bottom - 1), new Point(centerX, bounds.Bottom - 1), new Point(bounds.Right - 1, bounds.Bottom - 1),
-        })
-        {
-            var handle = new Rectangle(
-                Math.Clamp(point.X - CropHandleSize / 2, 0, Math.Max(0, image.Width - CropHandleSize)),
-                Math.Clamp(point.Y - CropHandleSize / 2, 0, Math.Max(0, image.Height - CropHandleSize)),
-                Math.Min(CropHandleSize, image.Width), Math.Min(CropHandleSize, image.Height));
+            var handle = GetCropHandleBounds(point);
             graphics.FillRectangle(handleFill, handle);
             graphics.DrawRectangle(handleBorder, handle.X, handle.Y, handle.Width - 1, handle.Height - 1);
         }
+    }
+
+    private void InvalidateCropPreview(Rectangle previousBounds)
+    {
+        using var dirtyRegion = new Region(previousBounds);
+        dirtyRegion.Xor(_cropBounds);
+        IncludeCropDecoration(dirtyRegion, previousBounds);
+        IncludeCropDecoration(dirtyRegion, _cropBounds);
+        _pictureBox.Invalidate(dirtyRegion);
+    }
+
+    private void IncludeCropDecoration(Region region, Rectangle bounds)
+    {
+        region.Union(new Rectangle(bounds.Left - 1, bounds.Top - 1, bounds.Width + 2, 3));
+        region.Union(new Rectangle(bounds.Left - 1, bounds.Bottom - 2, bounds.Width + 2, 3));
+        region.Union(new Rectangle(bounds.Left - 1, bounds.Top - 1, 3, bounds.Height + 2));
+        region.Union(new Rectangle(bounds.Right - 2, bounds.Top - 1, 3, bounds.Height + 2));
+        foreach (var point in GetCropHandlePoints(bounds))
+        {
+            region.Union(GetCropHandleBounds(point));
+        }
+    }
+
+    private Rectangle GetCropHandleBounds(Point point) => new(
+        Math.Clamp(point.X - CropHandleSize / 2, 0, Math.Max(0, _workingBitmap.Width - CropHandleSize)),
+        Math.Clamp(point.Y - CropHandleSize / 2, 0, Math.Max(0, _workingBitmap.Height - CropHandleSize)),
+        Math.Min(CropHandleSize, _workingBitmap.Width), Math.Min(CropHandleSize, _workingBitmap.Height));
+
+    private static Point[] GetCropHandlePoints(Rectangle bounds)
+    {
+        var centerX = bounds.Left + (bounds.Width - 1) / 2;
+        var centerY = bounds.Top + (bounds.Height - 1) / 2;
+        return [
+            new(bounds.Left, bounds.Top), new(centerX, bounds.Top), new(bounds.Right - 1, bounds.Top),
+            new(bounds.Left, centerY), new(bounds.Right - 1, centerY),
+            new(bounds.Left, bounds.Bottom - 1), new(centerX, bounds.Bottom - 1), new(bounds.Right - 1, bounds.Bottom - 1),
+        ];
     }
 
     private void ConfirmCrop()
