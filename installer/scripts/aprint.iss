@@ -83,6 +83,17 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 Type: filesandordirs; Name: "{app}"
 
 [Code]
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+	ResultCode: Integer;
+begin
+	if CurUninstallStep = usUninstall then
+	begin
+		RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#MyAppName}');
+		Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM "{#MyAppExeName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+	end;
+end;
+
 function HasWindowsDesktopRuntimeMinVersion(MinVersion: Integer): Boolean;
 var
   BasePath: string;
