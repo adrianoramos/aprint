@@ -78,6 +78,8 @@ public sealed class EditorForm : Form
         Highlight,
         Text,
         Crop,
+        Confirm,
+        Cancel,
         Filled,
         Pixelated,
         Undo,
@@ -125,6 +127,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
     private readonly ToolStripButton _btnText;
     private readonly ToolStripButton _btnCrop;
+    private readonly ToolStripButton _btnConfirmCrop;
+    private readonly ToolStripButton _btnCancelCrop;
     private readonly ToolStripDropDownButton _btnTextFormatDropdown;
     private readonly ToolStripButton _btnBorrar;
     private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
@@ -611,6 +615,20 @@ public sealed class EditorForm : Form
             isCheckable: true);
         _btnCrop.Click += (_, _) => SetActiveTool(EditTool.Crop);
 
+        _btnConfirmCrop = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.ConfirmCrop"),
+            ToolIconKind.Confirm,
+            Color.Black);
+        _btnConfirmCrop.Visible = false;
+        _btnConfirmCrop.Click += (_, _) => ConfirmCrop();
+
+        _btnCancelCrop = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.CancelCrop"),
+            ToolIconKind.Cancel,
+            Color.Black);
+        _btnCancelCrop.Visible = false;
+        _btnCancelCrop.Click += (_, _) => SetActiveTool(_toolBeforeCrop);
+
         _btnUndo = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Undo"),
             ToolIconKind.Undo,
@@ -652,6 +670,7 @@ public sealed class EditorForm : Form
             _btnTextColor,
             _btnFillColor,
             _btnFillColorDropdown,
+            CreateToolStripSeparator(),
             _btnFreehand,
             _btnLine,
             _btnArrow,
@@ -665,8 +684,12 @@ public sealed class EditorForm : Form
             _btnText,
             _btnTextFormatDropdown,
             _btnCrop,
+            _btnConfirmCrop,
+            _btnCancelCrop,
+            CreateToolStripSeparator(),
             _btnUndo,
             _btnRedo,
+            CreateToolStripSeparator(),
             btnCopy,
             btnSaveAs,
         ]);
@@ -939,6 +962,8 @@ public sealed class EditorForm : Form
             ToolIconKind.Highlight => "Aprint.Resources.Icons.highlight.png",
             ToolIconKind.Text => "Aprint.Resources.Icons.text.png",
             ToolIconKind.Crop => "Aprint.Resources.Icons.crop.png",
+            ToolIconKind.Confirm => "Aprint.Resources.Icons.confirm.png",
+            ToolIconKind.Cancel => "Aprint.Resources.Icons.cancel.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
             ToolIconKind.Undo => "Aprint.Resources.Icons.undo.png",
@@ -1000,6 +1025,8 @@ public sealed class EditorForm : Form
         _btnHighlight.Checked = tool == EditTool.Highlight;
         _btnText.Checked = tool == EditTool.Text;
         _btnCrop.Checked = tool == EditTool.Crop;
+        _btnConfirmCrop.Visible = tool == EditTool.Crop;
+        _btnCancelCrop.Visible = tool == EditTool.Crop;
         _btnBorrar.Checked = tool is EditTool.Blur or EditTool.Pixelated;
         UpdateBorrarToolAppearance();
         _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;

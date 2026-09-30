@@ -366,6 +366,12 @@
   <data name="Editor.Crop" xml:space="preserve">
     <value>Cortar</value>
   </data>
+  <data name="Editor.ConfirmCrop" xml:space="preserve">
+    <value>Confirmar</value>
+  </data>
+  <data name="Editor.CancelCrop" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
   <data name="Editor.TextFormatting" xml:space="preserve">
     <value>Formatação do texto</value>
   </data>
