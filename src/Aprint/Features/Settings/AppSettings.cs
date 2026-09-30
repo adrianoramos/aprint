@@ -55,6 +55,14 @@ public sealed class AppSettings
 
     public int LastHighlightWidth { get; set; } = 18;
 
+    public int LastLineColorArgb { get; set; } = Color.Red.ToArgb();
+
+    public int LastTextColorArgb { get; set; } = Color.Red.ToArgb();
+
+    public int? LastFillColorArgb { get; set; }
+
+    public int LastBorrarPixelSize { get; set; } = 6;
+
     public Keys HotkeyKey { get; set; } = Keys.P;
 
     public bool HotkeyCtrl { get; set; } = true;

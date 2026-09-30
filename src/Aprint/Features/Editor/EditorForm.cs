@@ -180,13 +180,21 @@ public sealed class EditorForm : Form
     public event Action<string>? Saved;
     public event Action? Copied;
     public event Action<BorrarMode>? BorrarModeChanged;
+    public event Action<Color>? LineColorChanged;
+    public event Action<Color>? TextColorChanged;
+    public event Action<Color?>? FillColorChanged;
+    public event Action<int>? BorrarPixelSizeChanged;
     public event Action? NewCaptureRequested;
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18)
+    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int borrarPixelSize = 6)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
+        _selectedColor = Color.FromArgb(lineColorArgb);
+        _selectedTextColor = Color.FromArgb(textColorArgb);
+        _selectedFillColor = fillColorArgb.HasValue ? Color.FromArgb(fillColorArgb.Value) : null;
+        _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
         var installedFontFamilies = FontFamily.Families;
         _textFontFamily = installedFontFamilies
@@ -298,6 +306,7 @@ public sealed class EditorForm : Form
         {
             _selectedFillColor = null;
             UpdateFillColorButtonAppearance();
+            FillColorChanged?.Invoke(null);
         });
         UpdateFillColorButtonAppearance();
 
@@ -567,6 +576,7 @@ public sealed class EditorForm : Form
         {
             _borrarPixelSize = pixelSizeSlider.Value;
             pixelSizeLabel.Text = $"{_borrarPixelSize} px";
+            BorrarPixelSizeChanged?.Invoke(_borrarPixelSize);
         };
         pixelSizePanel.Controls.Add(pixelSizeSlider);
         pixelSizePanel.Controls.Add(pixelSizeLabel);
@@ -1020,6 +1030,7 @@ public sealed class EditorForm : Form
         {
             _selectedColor = dialog.Color;
             UpdateColorButtonAppearance();
+            LineColorChanged?.Invoke(_selectedColor);
         }
     }
 
@@ -1030,6 +1041,7 @@ public sealed class EditorForm : Form
         {
             _selectedTextColor = dialog.Color;
             UpdateTextColorButtonAppearance();
+            TextColorChanged?.Invoke(_selectedTextColor);
             _pictureBox.Invalidate();
         }
     }
@@ -1053,6 +1065,7 @@ public sealed class EditorForm : Form
         {
             _selectedFillColor = dialog.Color;
             UpdateFillColorButtonAppearance();
+            FillColorChanged?.Invoke(_selectedFillColor);
         }
     }
 
