@@ -318,8 +318,17 @@
   <data name="Editor.FormTitle" xml:space="preserve">
     <value>Aprint - Editor</value>
   </data>
-  <data name="Editor.Color" xml:space="preserve">
-    <value>Cor</value>
+  <data name="Editor.LineColor" xml:space="preserve">
+    <value>Cor da linha</value>
+  </data>
+  <data name="Editor.TextColor" xml:space="preserve">
+    <value>Cor do texto</value>
+  </data>
+  <data name="Editor.FillColor" xml:space="preserve">
+    <value>Cor do preenchimento</value>
+  </data>
+  <data name="Editor.NoFill" xml:space="preserve">
+    <value>Sem preenchimento</value>
   </data>
   <data name="Editor.Freehand" xml:space="preserve">
     <value>Livre</value>
@@ -377,6 +386,9 @@
   </data>
   <data name="Editor.Pixelated" xml:space="preserve">
     <value>Pixelado</value>
+  </data>
+  <data name="Editor.PixelatedSize" xml:space="preserve">
+    <value>Tamanho do pixel</value>
   </data>
   <data name="Editor.Undo" xml:space="preserve">
     <value>Desfazer</value>

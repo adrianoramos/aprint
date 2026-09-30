@@ -13,4 +13,5 @@ public enum EditTool
     Highlight,
     Text,
     Crop,
+    Pixelated,
 }
