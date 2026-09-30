@@ -6,7 +6,7 @@ public static class ImageEditingService
 {
     private const int HighlighterAlpha = 105;
 
-    public static void DrawShape(Graphics graphics, Pen pen, Point start, Point end, EditTool tool)
+    public static void DrawShape(Graphics graphics, Pen pen, Point start, Point end, EditTool tool, Color? fillColor = null)
     {
         var rectangle = CreateSelectionRectangle(start, end);
 
@@ -24,9 +24,19 @@ public static class ImageEditingService
                 }
                 break;
             case EditTool.Rectangle:
+                if (fillColor is Color rectangleColor)
+                {
+                    using var brush = new SolidBrush(rectangleColor);
+                    graphics.FillRectangle(brush, rectangle);
+                }
                 graphics.DrawRectangle(pen, rectangle);
                 break;
             case EditTool.Circle:
+                if (fillColor is Color circleColor)
+                {
+                    using var brush = new SolidBrush(circleColor);
+                    graphics.FillEllipse(brush, rectangle);
+                }
                 graphics.DrawEllipse(pen, rectangle);
                 break;
         }

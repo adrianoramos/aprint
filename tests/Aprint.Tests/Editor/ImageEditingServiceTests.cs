@@ -4,6 +4,39 @@ namespace Aprint.Tests.Editor;
 
 public sealed class ImageEditingServiceTests
 {
+    [Theory]
+    [InlineData(EditTool.Rectangle)]
+    [InlineData(EditTool.Circle)]
+    public void DrawShapeKeepsOutlineAndFillColorsIndependent(EditTool tool)
+    {
+        using var bitmap = new Bitmap(32, 32);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+        using var pen = new Pen(Color.Red);
+
+        ImageEditingService.DrawShape(graphics, pen, new Point(4, 4), new Point(26, 26), tool, Color.Blue);
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, 15).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, 4).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Theory]
+    [InlineData(EditTool.Rectangle)]
+    [InlineData(EditTool.Circle)]
+    public void DrawShapeRemainsHollowWithoutFillColor(EditTool tool)
+    {
+        using var bitmap = new Bitmap(32, 32);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+        using var pen = new Pen(Color.Red);
+
+        ImageEditingService.DrawShape(graphics, pen, new Point(4, 4), new Point(26, 26), tool);
+
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(15, 15).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, 4).ToArgb());
+    }
+
     [Fact]
     public void ApplyBorrarFillsSelectionWithSolidColor()
     {
@@ -19,6 +52,25 @@ public sealed class ImageEditingServiceTests
         Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(1, 1).ToArgb());
         Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(2, 2).ToArgb());
         Assert.Equal(Color.FromArgb(0, 0, 0, 0).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Fact]
+    public void ApplyBorrarPixelatesSelectionWithoutFillingIt()
+    {
+        using var bitmap = new Bitmap(4, 4);
+        for (var row = 0; row < bitmap.Height; row++)
+        {
+            for (var column = 0; column < bitmap.Width; column++)
+            {
+                bitmap.SetPixel(column, row, Color.FromArgb(column * 40, row * 40, 0));
+            }
+        }
+
+        ImageEditingService.ApplyBorrar(bitmap, new Rectangle(0, 0, 4, 4), BorrarMode.Pixelate, Color.Red, pixelSize: 4);
+
+        Assert.Equal(Color.FromArgb(60, 60, 0).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+        Assert.Equal(bitmap.GetPixel(0, 0).ToArgb(), bitmap.GetPixel(3, 3).ToArgb());
+        Assert.NotEqual(Color.Red.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
     }
 
     [Fact]

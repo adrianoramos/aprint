@@ -156,9 +156,11 @@ public sealed partial class SettingsForm : Form
             AppLocalization.Translate("Editor.Rectangle"),
             AppLocalization.Translate("Editor.Circle"),
             AppLocalization.Translate("Editor.Counter"),
-            AppLocalization.Translate("Editor.Blur"),
+            AppLocalization.Translate("Editor.Filled"),
             AppLocalization.Translate("Editor.Highlight"),
             AppLocalization.Translate("Editor.Text"),
+            AppLocalization.Translate("Editor.Crop"),
+            AppLocalization.Translate("Editor.Pixelated"),
         });
 
         cmbDefaultEditorTool.SelectedIndex = (int)_workingSettings.DefaultEditorTool;

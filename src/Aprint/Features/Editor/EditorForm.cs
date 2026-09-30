@@ -66,7 +66,9 @@ public sealed class EditorForm : Form
 
     private enum ToolIconKind
     {
-        Color,
+        LineColor,
+        TextColor,
+        FillColor,
         Freehand,
         Line,
         Arrow,
@@ -76,7 +78,6 @@ public sealed class EditorForm : Form
         Highlight,
         Text,
         Crop,
-        Eraser,
         Filled,
         Pixelated,
         Undo,
@@ -93,7 +94,6 @@ public sealed class EditorForm : Form
     private const int ToolButtonPadding = 4;
     private const int ToolButtonMargin = 2;
     private const int ToolSeparatorMargin = 4;
-    private const int ComboBoxWidth = 56;
     private const int ToolButtonSize = 32;
     private const int CropHandleSize = 8;
 
@@ -126,12 +126,18 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnText;
     private readonly ToolStripButton _btnCrop;
     private readonly ToolStripDropDownButton _btnTextFormatDropdown;
-    private readonly ToolStripButton _btnBorrarMode;
+    private readonly ToolStripButton _btnBorrar;
     private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
+    private readonly ToolStripMenuItem _filledModeMenuItem;
+    private readonly ToolStripMenuItem _pixelatedModeMenuItem;
+    private readonly ToolStripSeparator _pixelSizeSeparator;
+    private readonly ToolStripControlHost _pixelSizeControlHost;
     private readonly ToolStripButton _btnColor;
+    private readonly ToolStripButton _btnTextColor;
+    private readonly ToolStripButton _btnFillColor;
+    private readonly ToolStripDropDownButton _btnFillColorDropdown;
     private readonly ToolStripButton _btnUndo;
     private readonly ToolStripButton _btnRedo;
-    private readonly ToolStripComboBox _cmbBorrarSize;
     private readonly EditHistory _editHistory;
     private Font _textFont = new("Segoe UI", 12F);
     private readonly List<Font> _textFormatButtonFonts = [];
@@ -139,10 +145,10 @@ public sealed class EditorForm : Form
     private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
     private readonly System.Windows.Forms.Timer? _inactivityTimer;
     private readonly IMessageFilter? _activityMessageFilter;
-    private ToolStripMenuItem _blurMenuFilled;
-    private ToolStripMenuItem _blurMenuPixelated;
 
     private Color _selectedColor = Color.Red;
+    private Color _selectedTextColor = Color.Red;
+    private Color? _selectedFillColor;
     private EditTool _currentTool = EditTool.Freehand;
     private EditTool _toolBeforeCrop = EditTool.Freehand;
     private BorrarMode _borrarMode = BorrarMode.Pixelate;
@@ -258,11 +264,42 @@ public sealed class EditorForm : Form
         };
 
         _btnColor = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.Color"),
-            ToolIconKind.Color,
+            AppLocalization.Translate("Editor.LineColor"),
+            ToolIconKind.LineColor,
             _selectedColor);
         UpdateColorButtonAppearance();
         _btnColor.Click += (_, _) => PickColor();
+
+        _btnTextColor = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.TextColor"),
+            ToolIconKind.TextColor,
+            _selectedTextColor);
+        UpdateTextColorButtonAppearance();
+        _btnTextColor.Click += (_, _) => PickTextColor();
+
+        _btnFillColor = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.FillColor"),
+            ToolIconKind.FillColor,
+            Color.Black);
+        _btnFillColor.Click += (_, _) => PickFillColor();
+        _btnFillColorDropdown = new ToolStripDropDownButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ImageKey = EnsureToolIconKey(ToolIconKind.FillColor, Color.Black),
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(0, 0, ToolButtonMargin, 0),
+            AutoSize = false,
+            Width = 14,
+            Height = ToolButtonSize,
+            AutoToolTip = false,
+            ToolTipText = AppLocalization.Translate("Editor.FillColor"),
+        };
+        _btnFillColorDropdown.DropDownItems.Add(AppLocalization.Translate("Editor.NoFill"), null, (_, _) =>
+        {
+            _selectedFillColor = null;
+            UpdateFillColorButtonAppearance();
+        });
+        UpdateFillColorButtonAppearance();
 
         _btnFreehand = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Freehand"),
@@ -458,31 +495,95 @@ public sealed class EditorForm : Form
             Margin = Padding.Empty,
         });
         _btnHighlightSizeDropdown.DropDown.AutoClose = false;
-        var popupDismissMessageFilter = new PopupDismissMessageFilter(
-            _btnTextFormatDropdown,
-            _btnHighlightSizeDropdown);
-        Shown += (_, _) => System.Windows.Forms.Application.AddMessageFilter(popupDismissMessageFilter);
-        FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(popupDismissMessageFilter);
 
-        _btnBorrarMode = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.Blur"),
-            ToolIconKind.Eraser,
+        _btnBorrar = CreateStandardToolButton(
+            AppLocalization.Translate(_borrarMode == BorrarMode.Solid ? "Editor.Filled" : "Editor.Pixelated"),
+            _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
             Color.Black,
-            isCheckable: false);
-        _btnBorrarMode.Click += (_, _) => SetActiveTool(EditTool.Blur);
+            isCheckable: true);
+        _btnBorrar.Click += (_, _) => SetActiveTool(
+            _borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
 
-        _btnBorrarModeDropdown = new ToolStripDropDownButton()
+        _btnBorrarModeDropdown = new ToolStripDropDownButton
         {
             DisplayStyle = ToolStripItemDisplayStyle.Image,
-            ImageKey = EnsureToolIconKey(ToolIconKind.Circle, Color.Black),
+            ImageKey = EnsureToolIconKey(
+                _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
+                Color.Black),
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
             AutoSize = false,
             Width = 14,
             Height = ToolButtonSize,
             AutoToolTip = false,
-            ToolTipText = AppLocalization.Translate("Editor.BlurOptions"),
+            ToolTipText = AppLocalization.Translate("Editor.PixelatedSize"),
         };
+        _filledModeMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.Filled"));
+        _filledModeMenuItem.Click += (_, _) =>
+        {
+            SetActiveTool(EditTool.Blur);
+            _btnBorrarModeDropdown.DropDown.Close();
+        };
+        _pixelatedModeMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.Pixelated"));
+        _pixelatedModeMenuItem.Click += (_, _) =>
+        {
+            SetActiveTool(EditTool.Pixelated);
+            _btnBorrarModeDropdown.DropDown.Close();
+        };
+        _pixelSizeSeparator = new ToolStripSeparator();
+        _btnBorrarModeDropdown.DropDownItems.AddRange([
+            _filledModeMenuItem,
+            _pixelatedModeMenuItem,
+            _pixelSizeSeparator,
+        ]);
+        var pixelSizePanel = new Panel
+        {
+            Size = new Size(186, 48),
+            Padding = new Padding(4),
+            BackColor = SystemColors.Control,
+        };
+        var pixelSizeSlider = new TrackBar
+        {
+            Minimum = 4,
+            Maximum = 32,
+            Value = _borrarPixelSize,
+            TickFrequency = 4,
+            SmallChange = 1,
+            LargeChange = 4,
+            TickStyle = TickStyle.BottomRight,
+            AutoSize = false,
+            Size = new Size(138, 40),
+            Location = new Point(4, 4),
+        };
+        var pixelSizeLabel = new Label
+        {
+            AutoSize = false,
+            Text = $"{_borrarPixelSize} px",
+            TextAlign = ContentAlignment.MiddleCenter,
+            Size = new Size(38, 22),
+            Location = new Point(144, 13),
+        };
+        pixelSizeSlider.ValueChanged += (_, _) =>
+        {
+            _borrarPixelSize = pixelSizeSlider.Value;
+            pixelSizeLabel.Text = $"{_borrarPixelSize} px";
+        };
+        pixelSizePanel.Controls.Add(pixelSizeSlider);
+        pixelSizePanel.Controls.Add(pixelSizeLabel);
+        _pixelSizeControlHost = new ToolStripControlHost(pixelSizePanel)
+        {
+            AutoSize = false,
+            Size = pixelSizePanel.Size,
+            Margin = Padding.Empty,
+        };
+        _btnBorrarModeDropdown.DropDownItems.Add(_pixelSizeControlHost);
+        _btnBorrarModeDropdown.DropDown.AutoClose = false;
+        var popupDismissMessageFilter = new PopupDismissMessageFilter(
+            _btnTextFormatDropdown,
+            _btnHighlightSizeDropdown,
+            _btnBorrarModeDropdown);
+        Shown += (_, _) => System.Windows.Forms.Application.AddMessageFilter(popupDismissMessageFilter);
+        FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(popupDismissMessageFilter);
 
         _btnFreehand.Click += (_, _) => SetActiveTool(EditTool.Freehand);
         _btnLine.Click += (_, _) => SetActiveTool(EditTool.Line);
@@ -500,22 +601,6 @@ public sealed class EditorForm : Form
             isCheckable: true);
         _btnCrop.Click += (_, _) => SetActiveTool(EditTool.Crop);
 
-        _blurMenuFilled = new ToolStripMenuItem(AppLocalization.Translate("Editor.Filled"))
-        {
-            DisplayStyle = ToolStripItemDisplayStyle.Text,
-        };
-        _blurMenuFilled.Click += (_, _) => SetBorrarMode(BorrarMode.Solid);
-
-        _blurMenuPixelated = new ToolStripMenuItem(AppLocalization.Translate("Editor.Pixelated"))
-        {
-            DisplayStyle = ToolStripItemDisplayStyle.Text,
-        };
-        _blurMenuPixelated.Click += (_, _) => SetBorrarMode(BorrarMode.Pixelate);
-
-        _btnBorrarModeDropdown.DropDownItems.Add(_blurMenuFilled);
-        _btnBorrarModeDropdown.DropDownItems.Add(_blurMenuPixelated);
-        SetBorrarMode(_borrarMode);
-
         _btnUndo = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Undo"),
             ToolIconKind.Undo,
@@ -527,27 +612,6 @@ public sealed class EditorForm : Form
             ToolIconKind.Redo,
             Color.Black);
         _btnRedo.Click += (_, _) => RedoLastEdit();
-
-        _cmbBorrarSize = new ToolStripComboBox
-        {
-            Width = ComboBoxWidth,
-            AutoSize = false,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Visible = _borrarMode == BorrarMode.Pixelate,
-        };
-        _cmbBorrarSize.Items.AddRange(["6 px", "8 px", "12 px", "18 px", "32 px"]);
-        _cmbBorrarSize.SelectedIndex = 0;
-        _cmbBorrarSize.SelectedIndexChanged += (_, _) =>
-        {
-            _borrarPixelSize = _cmbBorrarSize.SelectedIndex switch
-            {
-                1 => 8,
-                2 => 12,
-                3 => 18,
-                4 => 32,
-                _ => 6,
-            };
-        };
 
         var btnCopy = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Copy"),
@@ -575,20 +639,22 @@ public sealed class EditorForm : Form
             btnNewCapture,
             CreateToolStripSeparator(),
             _btnColor,
+            _btnTextColor,
+            _btnFillColor,
+            _btnFillColorDropdown,
             _btnFreehand,
             _btnLine,
             _btnArrow,
             _btnRectangle,
             _btnCircle,
-            _btnCounter,
             _btnHighlight,
             _btnHighlightSizeDropdown,
+            _btnBorrar,
+            _btnBorrarModeDropdown,
+            _btnCounter,
             _btnText,
             _btnTextFormatDropdown,
             _btnCrop,
-            _btnBorrarMode,
-            _btnBorrarModeDropdown,
-            _cmbBorrarSize,
             _btnUndo,
             _btnRedo,
             btnCopy,
@@ -766,7 +832,7 @@ public sealed class EditorForm : Form
         try
         {
             // Aplica colorização apenas no ícone de "Cor"
-            if (kind == ToolIconKind.Color && color != Color.Black)
+            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor && color != Color.Black)
             {
                 var colorizedBitmap = ColorizeIcon(baseBitmap, color);
                 baseBitmap.Dispose();
@@ -851,17 +917,18 @@ public sealed class EditorForm : Form
     {
         return kind switch
         {
-            ToolIconKind.Color => "Aprint.Resources.Icons.color.png",
+            ToolIconKind.LineColor => "Aprint.Resources.Icons.colorline.png",
+            ToolIconKind.TextColor => "Aprint.Resources.Icons.colortext.png",
+            ToolIconKind.FillColor => "Aprint.Resources.Icons.colorfill.png",
             ToolIconKind.Freehand => "Aprint.Resources.Icons.freehand.png",
             ToolIconKind.Line => "Aprint.Resources.Icons.line.png",
             ToolIconKind.Arrow => "Aprint.Resources.Icons.arrow.png",
-            ToolIconKind.Rectangle => "Aprint.Resources.Icons.rectangle.png",
+            ToolIconKind.Rectangle => "Aprint.Resources.Icons.square.png",
             ToolIconKind.Circle => "Aprint.Resources.Icons.circle.png",
             ToolIconKind.Counter => "Aprint.Resources.Icons.counter.png",
             ToolIconKind.Highlight => "Aprint.Resources.Icons.highlight.png",
             ToolIconKind.Text => "Aprint.Resources.Icons.text.png",
             ToolIconKind.Crop => "Aprint.Resources.Icons.crop.png",
-            ToolIconKind.Eraser => "Aprint.Resources.Icons.erase.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
             ToolIconKind.Undo => "Aprint.Resources.Icons.undo.png",
@@ -905,6 +972,15 @@ public sealed class EditorForm : Form
         }
 
         _currentTool = tool;
+        if (tool is EditTool.Blur or EditTool.Pixelated)
+        {
+            var mode = tool == EditTool.Blur ? BorrarMode.Solid : BorrarMode.Pixelate;
+            if (_borrarMode != mode)
+            {
+                _borrarMode = mode;
+                BorrarModeChanged?.Invoke(mode);
+            }
+        }
         _btnFreehand.Checked = tool == EditTool.Freehand;
         _btnLine.Checked = tool == EditTool.Line;
         _btnArrow.Checked = tool == EditTool.Arrow;
@@ -914,27 +990,27 @@ public sealed class EditorForm : Form
         _btnHighlight.Checked = tool == EditTool.Highlight;
         _btnText.Checked = tool == EditTool.Text;
         _btnCrop.Checked = tool == EditTool.Crop;
-        _btnBorrarMode.Checked = tool == EditTool.Blur;
+        _btnBorrar.Checked = tool is EditTool.Blur or EditTool.Pixelated;
+        UpdateBorrarToolAppearance();
         _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;
     }
 
-    private void SetBorrarMode(BorrarMode mode)
+    private void UpdateBorrarToolAppearance()
     {
-        _borrarMode = mode;
-        _blurMenuFilled.Checked = mode == BorrarMode.Solid;
-        _blurMenuPixelated.Checked = mode == BorrarMode.Pixelate;
+        var isFilled = _borrarMode == BorrarMode.Solid;
+        var iconKind = isFilled ? ToolIconKind.Filled : ToolIconKind.Pixelated;
+        var localizedMode = AppLocalization.Translate(isFilled ? "Editor.Filled" : "Editor.Pixelated");
+        var iconKey = EnsureToolIconKey(iconKind, Color.Black);
 
-        // Atualiza o ícone do botão Borrar baseado no modo selecionado
-        var iconKind = mode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated;
-        _btnBorrarMode.ImageKey = EnsureToolIconKey(iconKind, Color.Black);
-
-        // Exibe o dropdown de tamanho apenas quando o modo é Pixelado
-        if (_cmbBorrarSize != null)
-        {
-            _cmbBorrarSize.Visible = mode == BorrarMode.Pixelate;
-        }
-
-        BorrarModeChanged?.Invoke(mode);
+        _btnBorrar.Text = localizedMode;
+        _btnBorrar.ImageKey = iconKey;
+        _btnBorrar.ToolTipText = localizedMode;
+        _btnBorrarModeDropdown.ImageKey = iconKey;
+        _btnBorrarModeDropdown.ToolTipText = AppLocalization.Translate("Editor.PixelatedSize");
+        _filledModeMenuItem.Checked = isFilled;
+        _pixelatedModeMenuItem.Checked = !isFilled;
+        _pixelSizeSeparator.Visible = !isFilled;
+        _pixelSizeControlHost.Visible = !isFilled;
     }
 
     private void PickColor()
@@ -947,10 +1023,46 @@ public sealed class EditorForm : Form
         }
     }
 
+    private void PickTextColor()
+    {
+        using var dialog = new ColorDialog { Color = _selectedTextColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedTextColor = dialog.Color;
+            UpdateTextColorButtonAppearance();
+            _pictureBox.Invalidate();
+        }
+    }
+
     private void UpdateColorButtonAppearance()
     {
-        _btnColor.ImageKey = EnsureToolIconKey(ToolIconKind.Color, _selectedColor);
-        _btnColor.ToolTipText = $"{AppLocalization.Translate("Editor.Color")}: {_selectedColor.Name}";
+        _btnColor.ImageKey = EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor);
+        _btnColor.ToolTipText = $"{AppLocalization.Translate("Editor.LineColor")}: {_selectedColor.Name}";
+    }
+
+    private void UpdateTextColorButtonAppearance()
+    {
+        _btnTextColor.ImageKey = EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor);
+        _btnTextColor.ToolTipText = $"{AppLocalization.Translate("Editor.TextColor")}: {_selectedTextColor.Name}";
+    }
+
+    private void PickFillColor()
+    {
+        using var dialog = new ColorDialog { Color = _selectedFillColor ?? Color.White, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedFillColor = dialog.Color;
+            UpdateFillColorButtonAppearance();
+        }
+    }
+
+    private void UpdateFillColorButtonAppearance()
+    {
+        var iconKey = EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black);
+        _btnFillColor.ImageKey = iconKey;
+        _btnFillColorDropdown.ImageKey = iconKey;
+        var colorName = _selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill");
+        _btnFillColor.ToolTipText = $"{AppLocalization.Translate("Editor.FillColor")}: {colorName}";
     }
 
     private void SaveUndoState()
@@ -1181,7 +1293,7 @@ public sealed class EditorForm : Form
             _pictureBox.Focus();
             _pictureBox.Invalidate(_textBounds);
         }
-        else if (_currentTool == EditTool.Blur)
+        else if (_currentTool is EditTool.Blur or EditTool.Pixelated)
         {
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
@@ -1202,7 +1314,7 @@ public sealed class EditorForm : Form
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-                ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool);
+                ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool, _selectedFillColor);
             }
 
             _pictureBox.Image = _workingBitmap;
@@ -1236,7 +1348,7 @@ public sealed class EditorForm : Form
                     e.Graphics.FillRectangle(selectionBrush, Rectangle.Inflate(_textBounds, -1, -1));
                 }
 
-                var textColor = _isTextSelected ? SystemColors.HighlightText : _selectedColor;
+                var textColor = _isTextSelected ? SystemColors.HighlightText : _selectedTextColor;
                 ImageEditingService.DrawText(e.Graphics, _textBounds, _textBuffer, textColor, _textFont);
                 using var borderPen = new Pen(Color.Gray) { DashStyle = DashStyle.Dash };
                 e.Graphics.DrawRectangle(borderPen, _textBounds.X, _textBounds.Y, _textBounds.Width - 1, _textBounds.Height - 1);
@@ -1261,7 +1373,7 @@ public sealed class EditorForm : Form
         }
 
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        if (_currentTool == EditTool.Blur)
+        if (_currentTool is EditTool.Blur or EditTool.Pixelated)
         {
             using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, _shapePreviewEnd);
@@ -1270,7 +1382,7 @@ public sealed class EditorForm : Form
         }
 
         using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-        ImageEditingService.DrawShape(e.Graphics, pen, _dragStart, _shapePreviewEnd, _currentTool);
+        ImageEditingService.DrawShape(e.Graphics, pen, _dragStart, _shapePreviewEnd, _currentTool, _selectedFillColor);
     }
 
     private CropEdge HitTestCropEdge(Point location)
@@ -1485,7 +1597,7 @@ public sealed class EditorForm : Form
             TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
         var x = Math.Min(_textBounds.Right - 1, _textBounds.Left + 1 + caretSize.Width);
         var y = Math.Min(_textBounds.Bottom - 1, _textBounds.Top + 1 + ((lines.Length - 1) * _textFont.Height));
-        using var caretPen = new Pen(_selectedColor);
+        using var caretPen = new Pen(_selectedTextColor);
         graphics.DrawLine(caretPen, x, y, x, Math.Min(_textBounds.Bottom - 1, y + _textFont.Height));
     }
 
@@ -1494,7 +1606,7 @@ public sealed class EditorForm : Form
         _textCaretTimer.Stop();
         _isEditingText = false;
         _isTextSelected = false;
-        ImageEditingService.ApplyText(_workingBitmap, _textBounds, _textBuffer, _selectedColor, _textFont);
+        ImageEditingService.ApplyText(_workingBitmap, _textBounds, _textBuffer, _selectedTextColor, _textFont);
         _textBuffer = string.Empty;
         _textCaretVisible = false;
         _pictureBox.Image = _workingBitmap;
@@ -1607,7 +1719,7 @@ public sealed class EditorForm : Form
 
     private static Rectangle CreateToolDirtyRectangle(Point start, Point end, EditTool tool, int padding)
     {
-        var baseRect = tool == EditTool.Blur
+        var baseRect = tool is EditTool.Blur or EditTool.Pixelated
             ? ImageEditingService.CreateSelectionRectangle(start, end)
             : CreateLineDirtyRectangle(start, end, 0);
 
@@ -1800,7 +1912,7 @@ public sealed class EditorForm : Form
 
         if (keyData == Keys.F9)
         {
-            SetBorrarMode(_borrarMode == BorrarMode.Pixelate ? BorrarMode.Solid : BorrarMode.Pixelate);
+            SetActiveTool(_currentTool == EditTool.Pixelated ? EditTool.Blur : EditTool.Pixelated);
             return true;
         }
 
