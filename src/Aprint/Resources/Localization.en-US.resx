@@ -225,9 +225,6 @@
   <data name="Settings.ClipboardOnly" xml:space="preserve">
     <value>Copy to clipboard</value>
   </data>
-  <data name="CopyAndSave" xml:space="preserve">
-    <value>Both</value>
-  </data>
   <data name="Settings.NotificationClickGroup" xml:space="preserve">
     <value>When clicking the notification balloon</value>
   </data>
