@@ -1913,19 +1913,35 @@ public sealed class EditorForm : Form
 
         if (keyData == Keys.F7)
         {
-            SetActiveTool(EditTool.Blur);
+            SetActiveTool(EditTool.Highlight);
             return true;
         }
 
         if (keyData == Keys.F8)
         {
-            SetActiveTool(EditTool.Counter);
+            var borrarToolIsActive = _currentTool is EditTool.Blur or EditTool.Pixelated;
+            var tool = borrarToolIsActive
+                ? (_currentTool == EditTool.Blur ? EditTool.Pixelated : EditTool.Blur)
+                : (_borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
+            SetActiveTool(tool);
             return true;
         }
 
         if (keyData == Keys.F9)
         {
-            SetActiveTool(_currentTool == EditTool.Pixelated ? EditTool.Blur : EditTool.Pixelated);
+            SetActiveTool(EditTool.Counter);
+            return true;
+        }
+
+        if (keyData == Keys.F10)
+        {
+            SetActiveTool(EditTool.Text);
+            return true;
+        }
+
+        if (keyData == Keys.F11)
+        {
+            SetActiveTool(EditTool.Crop);
             return true;
         }
 
