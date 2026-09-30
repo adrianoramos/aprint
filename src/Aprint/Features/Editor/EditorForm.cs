@@ -319,42 +319,50 @@ public sealed class EditorForm : Form
             ToolIconKind.Freehand,
             Color.Black,
             isCheckable: true,
-            isChecked: true);
+            isChecked: true,
+            shortcut: "F2");
         _btnLine = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Line"),
             ToolIconKind.Line,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F3");
         _btnArrow = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Arrow"),
             ToolIconKind.Arrow,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F4");
         _btnRectangle = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Rectangle"),
             ToolIconKind.Rectangle,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F5");
         _btnCircle = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Circle"),
             ToolIconKind.Circle,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F6");
         _btnCounter = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Counter"),
             ToolIconKind.Counter,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F9");
         _btnHighlight = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Highlight"),
             ToolIconKind.Highlight,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F7");
         _btnText = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Text"),
             ToolIconKind.Text,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F10");
         _btnTextFormatDropdown = new ToolStripDropDownButton
         {
             DisplayStyle = ToolStripItemDisplayStyle.Image,
@@ -513,7 +521,8 @@ public sealed class EditorForm : Form
             AppLocalization.Translate(_borrarMode == BorrarMode.Solid ? "Editor.Filled" : "Editor.Pixelated"),
             _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F8");
         _btnBorrar.Click += (_, _) => SetActiveTool(
             _borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
 
@@ -612,45 +621,52 @@ public sealed class EditorForm : Form
             AppLocalization.Translate("Editor.Crop"),
             ToolIconKind.Crop,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F11");
         _btnCrop.Click += (_, _) => SetActiveTool(EditTool.Crop);
 
         _btnConfirmCrop = CreateStandardToolButton(
             AppLocalization.Translate("Editor.ConfirmCrop"),
             ToolIconKind.Confirm,
-            Color.Black);
+            Color.Black,
+            shortcut: "Enter");
         _btnConfirmCrop.Visible = false;
         _btnConfirmCrop.Click += (_, _) => ConfirmCrop();
 
         _btnCancelCrop = CreateStandardToolButton(
             AppLocalization.Translate("Editor.CancelCrop"),
             ToolIconKind.Cancel,
-            Color.Black);
+            Color.Black,
+            shortcut: "Escape");
         _btnCancelCrop.Visible = false;
         _btnCancelCrop.Click += (_, _) => SetActiveTool(_toolBeforeCrop);
 
         _btnUndo = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Undo"),
             ToolIconKind.Undo,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+Z");
         _btnUndo.Click += (_, _) => UndoLastEdit();
 
         _btnRedo = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Redo"),
             ToolIconKind.Redo,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+Y");
         _btnRedo.Click += (_, _) => RedoLastEdit();
 
         var btnCopy = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Copy"),
             ToolIconKind.Copy,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+C");
         btnCopy.Click += (_, _) => CopyToClipboard();
 
         var btnNewCapture = CreateStandardToolButton(
             AppLocalization.Translate("Editor.NewCapture"),
             ToolIconKind.NewCapture,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+N");
         btnNewCapture.Click += (_, _) =>
         {
             NewCaptureRequested?.Invoke();
@@ -660,7 +676,8 @@ public sealed class EditorForm : Form
         var btnSaveAs = CreateStandardToolButton(
             AppLocalization.Translate("Editor.SaveAs"),
             ToolIconKind.Save,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+S");
         btnSaveAs.Click += async (_, _) => await SaveAsAsync();
 
         toolStrip.Items.AddRange([
@@ -775,7 +792,8 @@ public sealed class EditorForm : Form
         ToolIconKind iconKind,
         Color iconColor,
         bool isCheckable = false,
-        bool isChecked = false)
+        bool isChecked = false,
+        string? shortcut = null)
     {
         return new ToolStripButton(text)
         {
@@ -789,6 +807,7 @@ public sealed class EditorForm : Form
             Width = ToolButtonSize,
             Height = ToolButtonSize,
             AutoToolTip = true,
+            ToolTipText = shortcut is null ? text : $"{text} ({shortcut})",
         };
     }
 
@@ -1041,7 +1060,7 @@ public sealed class EditorForm : Form
 
         _btnBorrar.Text = localizedMode;
         _btnBorrar.ImageKey = iconKey;
-        _btnBorrar.ToolTipText = localizedMode;
+        _btnBorrar.ToolTipText = $"{localizedMode} (F8)";
         _btnBorrarModeDropdown.ImageKey = iconKey;
         _btnBorrarModeDropdown.ToolTipText = AppLocalization.Translate("Editor.PixelatedSize");
         _filledModeMenuItem.Checked = isFilled;
