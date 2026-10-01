@@ -130,7 +130,6 @@ public sealed class RegionSelectorForm : Form
             invalidRectangle.Inflate(HandleSize, HandleSize);
             _selection = nextSelection;
             Invalidate(invalidRectangle);
-            UpdateActionBarLocation();
         }
 
         if (!_isSelecting && !_isResizing && !_isMoving)
@@ -150,6 +149,7 @@ public sealed class RegionSelectorForm : Form
         {
             _isResizing = false;
             _isMoving = false;
+            UpdateActionBarLocation();
             Cursor = Cursors.Default;
             return;
         }
