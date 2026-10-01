@@ -225,9 +225,6 @@
   <data name="Settings.ClipboardOnly" xml:space="preserve">
     <value>Copy to clipboard</value>
   </data>
-  <data name="CopyAndSave" xml:space="preserve">
-    <value>Both</value>
-  </data>
   <data name="Settings.NotificationClickGroup" xml:space="preserve">
     <value>When clicking the notification balloon</value>
   </data>
@@ -368,6 +365,12 @@
   </data>
   <data name="Editor.Crop" xml:space="preserve">
     <value>Crop</value>
+  </data>
+  <data name="Editor.ConfirmCrop" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Editor.CancelCrop" xml:space="preserve">
+    <value>Cancel</value>
   </data>
   <data name="Editor.TextFormatting" xml:space="preserve">
     <value>Text formatting</value>

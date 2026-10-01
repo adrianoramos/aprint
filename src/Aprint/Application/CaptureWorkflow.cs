@@ -13,7 +13,7 @@ public sealed class CaptureWorkflow
         var captureMode = selectedMode == CaptureMode.SelectArea
             ? CaptureMode.AllScreens
             : selectedMode;
-        var fullBitmap = ScreenshotService.CaptureScreen(captureMode);
+        Bitmap? fullBitmap = ScreenshotService.CaptureScreen(captureMode);
         Bitmap? selectedRegionBitmap = null;
         var transferFullBitmap = false;
         var transferSelectedRegionBitmap = false;
@@ -26,7 +26,13 @@ public sealed class CaptureWorkflow
                 return null;
             }
 
-            var bitmap = selectedRegionBitmap ?? fullBitmap;
+            if (selectedRegionBitmap is not null)
+            {
+                fullBitmap.Dispose();
+                fullBitmap = null;
+            }
+
+            var bitmap = selectedRegionBitmap ?? fullBitmap!;
 
             if (settings.PlaySoundOnCapture)
             {
@@ -59,7 +65,7 @@ public sealed class CaptureWorkflow
 
             if (!transferFullBitmap)
             {
-                fullBitmap.Dispose();
+                fullBitmap?.Dispose();
             }
         }
     }
@@ -79,7 +85,15 @@ public sealed class CaptureWorkflow
             return null;
         }
 
-        return fullBitmap.Clone(region, fullBitmap.PixelFormat);
+        var bitmapBounds = new Rectangle(Point.Empty, fullBitmap.Size);
+        var boundedRegion = Rectangle.Intersect(region, bitmapBounds);
+        if (boundedRegion.Width <= 0 || boundedRegion.Height <= 0)
+        {
+            wasCancelled = true;
+            return null;
+        }
+
+        return fullBitmap.Clone(boundedRegion, fullBitmap.PixelFormat);
     }
 }
 

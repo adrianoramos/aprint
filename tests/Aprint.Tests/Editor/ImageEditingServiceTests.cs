@@ -74,6 +74,30 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void ApplyBorrarPixelatesSelectionAtOffset()
+    {
+        using var bitmap = new Bitmap(8, 8);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.Black);
+        }
+
+        for (var row = 2; row < 6; row++)
+        {
+            for (var column = 2; column < 6; column++)
+            {
+                bitmap.SetPixel(column, row, Color.FromArgb((column - 2) * 40, (row - 2) * 40, 0));
+            }
+        }
+
+        ImageEditingService.ApplyBorrar(bitmap, new Rectangle(2, 2, 4, 4), BorrarMode.Pixelate, Color.Red, pixelSize: 4);
+
+        Assert.Equal(Color.FromArgb(60, 60, 0).ToArgb(), bitmap.GetPixel(2, 2).ToArgb());
+        Assert.Equal(bitmap.GetPixel(2, 2).ToArgb(), bitmap.GetPixel(5, 5).ToArgb());
+        Assert.Equal(Color.Black.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Fact]
     public void CreateSelectionRectangleNormalizesReverseDrag()
     {
         var rectangle = ImageEditingService.CreateSelectionRectangle(new Point(8, 6), new Point(2, 1));

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using Aprint.Features.Settings;
@@ -78,6 +79,8 @@ public sealed class EditorForm : Form
         Highlight,
         Text,
         Crop,
+        Confirm,
+        Cancel,
         Filled,
         Pixelated,
         Undo,
@@ -100,12 +103,8 @@ public sealed class EditorForm : Form
     [Flags]
     private enum CropEdge { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
 
-    private static readonly object ToolIconCacheSync = new();
-    private static readonly Dictionary<int, ImageList> ToolIconImageLists = [];
     private static readonly Dictionary<float, Font> CounterFonts = [];
     private static readonly object CounterFontSync = new();
-
-    private readonly record struct ToolIconCacheKey(ToolIconKind Kind, int ColorArgb);
 
     private Bitmap _workingBitmap;
     private string _initialFolder;
@@ -114,6 +113,8 @@ public sealed class EditorForm : Form
     private readonly string _automaticSavePath;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
+    private readonly Dictionary<string, Bitmap> _toolIconBitmaps = [];
+    private readonly Dictionary<ToolIconKind, int> _colorizedToolIconColors = [];
     private readonly PictureBox _pictureBox;
     private readonly ToolStripButton _btnFreehand;
     private readonly ToolStripButton _btnLine;
@@ -125,6 +126,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
     private readonly ToolStripButton _btnText;
     private readonly ToolStripButton _btnCrop;
+    private readonly ToolStripButton _btnConfirmCrop;
+    private readonly ToolStripButton _btnCancelCrop;
     private readonly ToolStripDropDownButton _btnTextFormatDropdown;
     private readonly ToolStripButton _btnBorrar;
     private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
@@ -235,7 +238,7 @@ public sealed class EditorForm : Form
         _automaticSavePath = Path.Combine(saveFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         _borrarMode = borrarMode;
         _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
-        _toolIconImageList = GetOrCreateToolIconImageList(_toolIconSize);
+        _toolIconImageList = CreateToolIconImageList(_toolIconSize);
 
         Text = AppLocalization.Translate("Editor.FormTitle");
         Icon = Program.AppIcon;
@@ -315,42 +318,50 @@ public sealed class EditorForm : Form
             ToolIconKind.Freehand,
             Color.Black,
             isCheckable: true,
-            isChecked: true);
+            isChecked: true,
+            shortcut: "F2");
         _btnLine = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Line"),
             ToolIconKind.Line,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F3");
         _btnArrow = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Arrow"),
             ToolIconKind.Arrow,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F4");
         _btnRectangle = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Rectangle"),
             ToolIconKind.Rectangle,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F5");
         _btnCircle = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Circle"),
             ToolIconKind.Circle,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F6");
         _btnCounter = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Counter"),
             ToolIconKind.Counter,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F9");
         _btnHighlight = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Highlight"),
             ToolIconKind.Highlight,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F7");
         _btnText = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Text"),
             ToolIconKind.Text,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F10");
         _btnTextFormatDropdown = new ToolStripDropDownButton
         {
             DisplayStyle = ToolStripItemDisplayStyle.Image,
@@ -509,7 +520,8 @@ public sealed class EditorForm : Form
             AppLocalization.Translate(_borrarMode == BorrarMode.Solid ? "Editor.Filled" : "Editor.Pixelated"),
             _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F8");
         _btnBorrar.Click += (_, _) => SetActiveTool(
             _borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
 
@@ -608,31 +620,52 @@ public sealed class EditorForm : Form
             AppLocalization.Translate("Editor.Crop"),
             ToolIconKind.Crop,
             Color.Black,
-            isCheckable: true);
+            isCheckable: true,
+            shortcut: "F11");
         _btnCrop.Click += (_, _) => SetActiveTool(EditTool.Crop);
+
+        _btnConfirmCrop = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.ConfirmCrop"),
+            ToolIconKind.Confirm,
+            Color.Black,
+            shortcut: "Enter");
+        _btnConfirmCrop.Visible = false;
+        _btnConfirmCrop.Click += (_, _) => ConfirmCrop();
+
+        _btnCancelCrop = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.CancelCrop"),
+            ToolIconKind.Cancel,
+            Color.Black,
+            shortcut: "Escape");
+        _btnCancelCrop.Visible = false;
+        _btnCancelCrop.Click += (_, _) => SetActiveTool(_toolBeforeCrop);
 
         _btnUndo = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Undo"),
             ToolIconKind.Undo,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+Z");
         _btnUndo.Click += (_, _) => UndoLastEdit();
 
         _btnRedo = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Redo"),
             ToolIconKind.Redo,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+Y");
         _btnRedo.Click += (_, _) => RedoLastEdit();
 
         var btnCopy = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Copy"),
             ToolIconKind.Copy,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+C");
         btnCopy.Click += (_, _) => CopyToClipboard();
 
         var btnNewCapture = CreateStandardToolButton(
             AppLocalization.Translate("Editor.NewCapture"),
             ToolIconKind.NewCapture,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+N");
         btnNewCapture.Click += (_, _) =>
         {
             NewCaptureRequested?.Invoke();
@@ -642,7 +675,8 @@ public sealed class EditorForm : Form
         var btnSaveAs = CreateStandardToolButton(
             AppLocalization.Translate("Editor.SaveAs"),
             ToolIconKind.Save,
-            Color.Black);
+            Color.Black,
+            shortcut: "Ctrl+S");
         btnSaveAs.Click += async (_, _) => await SaveAsAsync();
 
         toolStrip.Items.AddRange([
@@ -652,6 +686,7 @@ public sealed class EditorForm : Form
             _btnTextColor,
             _btnFillColor,
             _btnFillColorDropdown,
+            CreateToolStripSeparator(),
             _btnFreehand,
             _btnLine,
             _btnArrow,
@@ -665,8 +700,12 @@ public sealed class EditorForm : Form
             _btnText,
             _btnTextFormatDropdown,
             _btnCrop,
+            _btnConfirmCrop,
+            _btnCancelCrop,
+            CreateToolStripSeparator(),
             _btnUndo,
             _btnRedo,
+            CreateToolStripSeparator(),
             btnCopy,
             btnSaveAs,
         ]);
@@ -752,7 +791,8 @@ public sealed class EditorForm : Form
         ToolIconKind iconKind,
         Color iconColor,
         bool isCheckable = false,
-        bool isChecked = false)
+        bool isChecked = false,
+        string? shortcut = null)
     {
         return new ToolStripButton(text)
         {
@@ -766,23 +806,52 @@ public sealed class EditorForm : Form
             Width = ToolButtonSize,
             Height = ToolButtonSize,
             AutoToolTip = true,
+            ToolTipText = shortcut is null ? text : $"{text} ({shortcut})",
         };
     }
 
     private string EnsureToolIconKey(ToolIconKind kind, Color color)
     {
-        var key = new ToolIconCacheKey(kind, color.ToArgb());
-        var imageKey = $"{_toolIconSize}:{(int)key.Kind}:{key.ColorArgb}";
+        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor;
+        var imageKey = $"{_toolIconSize}:{(int)kind}";
 
-        lock (ToolIconCacheSync)
+        if (!isColorizedIcon && _toolIconImageList.Images.ContainsKey(imageKey))
         {
-            if (!_toolIconImageList.Images.ContainsKey(imageKey))
-            {
-                _toolIconImageList.Images.Add(imageKey, RenderToolIcon(kind, color, _toolIconSize));
-            }
-
             return imageKey;
         }
+
+        if (isColorizedIcon && _colorizedToolIconColors.TryGetValue(kind, out var currentColor) && currentColor == color.ToArgb())
+        {
+            return imageKey;
+        }
+
+        var icon = RenderToolIcon(kind, color, _toolIconSize);
+        if (_toolIconImageList.Images.ContainsKey(imageKey))
+        {
+            _toolIconImageList.Images.RemoveByKey(imageKey);
+            if (_toolIconBitmaps.Remove(imageKey, out var previousIcon))
+            {
+                previousIcon.Dispose();
+            }
+        }
+
+        try
+        {
+            _toolIconImageList.Images.Add(imageKey, icon);
+            _toolIconBitmaps[imageKey] = icon;
+        }
+        catch
+        {
+            icon.Dispose();
+            throw;
+        }
+
+        if (isColorizedIcon)
+        {
+            _colorizedToolIconColors[kind] = color.ToArgb();
+        }
+
+        return imageKey;
     }
 
     private static int GetToolIconSizeForDpi(int dpi)
@@ -795,20 +864,6 @@ public sealed class EditorForm : Form
             <= 30 => 28,
             _ => 32,
         };
-    }
-
-    private static ImageList GetOrCreateToolIconImageList(int iconSize)
-    {
-        lock (ToolIconCacheSync)
-        {
-            if (!ToolIconImageLists.TryGetValue(iconSize, out var imageList))
-            {
-                imageList = CreateToolIconImageList(iconSize);
-                ToolIconImageLists[iconSize] = imageList;
-            }
-
-            return imageList;
-        }
     }
 
     private static ImageList CreateToolIconImageList(int iconSize)
@@ -939,6 +994,8 @@ public sealed class EditorForm : Form
             ToolIconKind.Highlight => "Aprint.Resources.Icons.highlight.png",
             ToolIconKind.Text => "Aprint.Resources.Icons.text.png",
             ToolIconKind.Crop => "Aprint.Resources.Icons.crop.png",
+            ToolIconKind.Confirm => "Aprint.Resources.Icons.confirm.png",
+            ToolIconKind.Cancel => "Aprint.Resources.Icons.cancel.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
             ToolIconKind.Undo => "Aprint.Resources.Icons.undo.png",
@@ -1000,6 +1057,8 @@ public sealed class EditorForm : Form
         _btnHighlight.Checked = tool == EditTool.Highlight;
         _btnText.Checked = tool == EditTool.Text;
         _btnCrop.Checked = tool == EditTool.Crop;
+        _btnConfirmCrop.Visible = tool == EditTool.Crop;
+        _btnCancelCrop.Visible = tool == EditTool.Crop;
         _btnBorrar.Checked = tool is EditTool.Blur or EditTool.Pixelated;
         UpdateBorrarToolAppearance();
         _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;
@@ -1014,7 +1073,7 @@ public sealed class EditorForm : Form
 
         _btnBorrar.Text = localizedMode;
         _btnBorrar.ImageKey = iconKey;
-        _btnBorrar.ToolTipText = localizedMode;
+        _btnBorrar.ToolTipText = $"{localizedMode} (F8)";
         _btnBorrarModeDropdown.ImageKey = iconKey;
         _btnBorrarModeDropdown.ToolTipText = AppLocalization.Translate("Editor.PixelatedSize");
         _filledModeMenuItem.Checked = isFilled;
@@ -1709,6 +1768,19 @@ public sealed class EditorForm : Form
         }
     }
 
+    internal static void ClearCounterFontCache()
+    {
+        lock (CounterFontSync)
+        {
+            foreach (var font in CounterFonts.Values)
+            {
+                font.Dispose();
+            }
+
+            CounterFonts.Clear();
+        }
+    }
+
     private static Rectangle InflateRectangle(Rectangle rectangle, int amount)
     {
         if (rectangle.IsEmpty)
@@ -1812,6 +1884,11 @@ public sealed class EditorForm : Form
         }
         catch (Exception ex)
         {
+            if (Debugger.IsAttached)
+            {
+                throw;
+            }
+
             MessageBox.Show(this, ex.Message, AppLocalization.Translate("App.Name"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -1913,19 +1990,35 @@ public sealed class EditorForm : Form
 
         if (keyData == Keys.F7)
         {
-            SetActiveTool(EditTool.Blur);
+            SetActiveTool(EditTool.Highlight);
             return true;
         }
 
         if (keyData == Keys.F8)
         {
-            SetActiveTool(EditTool.Counter);
+            var borrarToolIsActive = _currentTool is EditTool.Blur or EditTool.Pixelated;
+            var tool = borrarToolIsActive
+                ? (_currentTool == EditTool.Blur ? EditTool.Pixelated : EditTool.Blur)
+                : (_borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
+            SetActiveTool(tool);
             return true;
         }
 
         if (keyData == Keys.F9)
         {
-            SetActiveTool(_currentTool == EditTool.Pixelated ? EditTool.Blur : EditTool.Pixelated);
+            SetActiveTool(EditTool.Counter);
+            return true;
+        }
+
+        if (keyData == Keys.F10)
+        {
+            SetActiveTool(EditTool.Text);
+            return true;
+        }
+
+        if (keyData == Keys.F11)
+        {
+            SetActiveTool(EditTool.Crop);
             return true;
         }
 
@@ -1983,6 +2076,13 @@ public sealed class EditorForm : Form
             }
 
             _textFormatToolTip.Dispose();
+            _toolIconImageList.Dispose();
+            foreach (var icon in _toolIconBitmaps.Values)
+            {
+                icon.Dispose();
+            }
+
+            _toolIconBitmaps.Clear();
             _editHistory.Dispose();
             _workingBitmap.Dispose();
         }

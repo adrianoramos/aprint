@@ -132,6 +132,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception ex)
         {
+            if (Debugger.IsAttached)
+            {
+                throw;
+            }
+
             _notifyIcon.ShowBalloonTip(4000, AppLocalization.Translate("Tray.CaptureError"), ex.Message, ToolTipIcon.Error);
         }
     }
@@ -270,6 +275,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception ex)
         {
+            if (Debugger.IsAttached)
+            {
+                throw;
+            }
+
             _notifyIcon.ShowBalloonTip(4000, AppLocalization.Translate("Tray.OpenError"), ex.Message, ToolTipIcon.Error);
         }
     }
@@ -317,6 +327,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         _lastCapturedBitmap?.Dispose();
         _hotkeyManager.Dispose();
         _settingsForm?.Close();
+        EditorForm.ClearCounterFontCache();
         _contextMenu.Dispose();
         _notifyIcon.Dispose();
         System.Windows.Forms.Application.Exit();
