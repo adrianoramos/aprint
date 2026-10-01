@@ -5,8 +5,9 @@ public sealed class EditHistory : IDisposable
     private const int MaxHistoryStates = 20;
     private const long HistoryMemoryBudgetBytes = 256L * 1024 * 1024;
 
-    private readonly Stack<HistoryEntry> _undoStack = new();
-    private readonly Stack<HistoryEntry> _redoStack = new();
+    private readonly LinkedList<HistoryEntry> _undoStack = new();
+    private readonly LinkedList<HistoryEntry> _redoStack = new();
+    private long _totalMemoryBytes;
 
     public EditHistory(Bitmap initialBitmap, int initialNextCounterValue = 1)
     {
@@ -53,10 +54,12 @@ public sealed class EditHistory : IDisposable
         DisposeAll(_redoStack);
     }
 
-    private static void PushSnapshot(Stack<HistoryEntry> stack, Bitmap bitmap, int nextCounterValue)
+    private void PushSnapshot(LinkedList<HistoryEntry> stack, Bitmap bitmap, int nextCounterValue)
     {
         var snapshot = (Bitmap)bitmap.Clone();
-        stack.Push(new HistoryEntry(snapshot, nextCounterValue, EstimateMemoryBytes(snapshot)));
+        var entry = new HistoryEntry(snapshot, nextCounterValue, EstimateMemoryBytes(snapshot));
+        stack.AddLast(entry);
+        _totalMemoryBytes += entry.MemoryBytes;
     }
 
     private void TrimToBudget()
@@ -79,21 +82,17 @@ public sealed class EditHistory : IDisposable
         }
     }
 
-    private static void TrimOldestEntry(Stack<HistoryEntry> stack)
+    private void TrimOldestEntry(LinkedList<HistoryEntry> stack)
     {
-        var entries = stack.ToArray();
-        entries[^1].Bitmap.Dispose();
-        stack.Clear();
-        for (var i = entries.Length - 2; i >= 0; i--)
-        {
-            stack.Push(entries[i]);
-        }
+        var entry = stack.First!.Value;
+        stack.RemoveFirst();
+        entry.Bitmap.Dispose();
+        _totalMemoryBytes -= entry.MemoryBytes;
     }
 
     private int GetTotalStateCount() => _undoStack.Count + _redoStack.Count;
 
-    private long GetTotalMemoryBytes() => _undoStack.Sum(entry => entry.MemoryBytes) +
-        _redoStack.Sum(entry => entry.MemoryBytes);
+    private long GetTotalMemoryBytes() => _totalMemoryBytes;
 
     private static long EstimateMemoryBytes(Bitmap bitmap)
     {
@@ -102,17 +101,23 @@ public sealed class EditHistory : IDisposable
         return (long)bitmap.Width * bitmap.Height * bytesPerPixel;
     }
 
-    private static (Bitmap Bitmap, int NextCounterValue) TakeSnapshot(Stack<HistoryEntry> stack)
+    private (Bitmap Bitmap, int NextCounterValue) TakeSnapshot(LinkedList<HistoryEntry> stack)
     {
-        var snapshot = stack.Pop();
+        var node = stack.Last!;
+        var snapshot = node.Value;
+        stack.RemoveLast();
+        _totalMemoryBytes -= snapshot.MemoryBytes;
         return (snapshot.Bitmap, snapshot.NextCounterValue);
     }
 
-    private static void DisposeAll(Stack<HistoryEntry> stack)
+    private void DisposeAll(LinkedList<HistoryEntry> stack)
     {
-        while (stack.TryPop(out var entry))
+        while (stack.Last is { } node)
         {
+            var entry = node.Value;
+            stack.RemoveLast();
             entry.Bitmap.Dispose();
+            _totalMemoryBytes -= entry.MemoryBytes;
         }
     }
 
