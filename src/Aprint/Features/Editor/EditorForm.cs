@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using Aprint.Features.Settings;
@@ -112,6 +113,7 @@ public sealed class EditorForm : Form
     private readonly string _automaticSavePath;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
+    private readonly Dictionary<string, Bitmap> _toolIconBitmaps = [];
     private readonly Dictionary<ToolIconKind, int> _colorizedToolIconColors = [];
     private readonly PictureBox _pictureBox;
     private readonly ToolStripButton _btnFreehand;
@@ -823,13 +825,27 @@ public sealed class EditorForm : Form
             return imageKey;
         }
 
-        using var icon = RenderToolIcon(kind, color, _toolIconSize);
+        var icon = RenderToolIcon(kind, color, _toolIconSize);
         if (_toolIconImageList.Images.ContainsKey(imageKey))
         {
             _toolIconImageList.Images.RemoveByKey(imageKey);
+            if (_toolIconBitmaps.Remove(imageKey, out var previousIcon))
+            {
+                previousIcon.Dispose();
+            }
         }
 
-        _toolIconImageList.Images.Add(imageKey, icon);
+        try
+        {
+            _toolIconImageList.Images.Add(imageKey, icon);
+            _toolIconBitmaps[imageKey] = icon;
+        }
+        catch
+        {
+            icon.Dispose();
+            throw;
+        }
+
         if (isColorizedIcon)
         {
             _colorizedToolIconColors[kind] = color.ToArgb();
@@ -1855,6 +1871,11 @@ public sealed class EditorForm : Form
         }
         catch (Exception ex)
         {
+            if (Debugger.IsAttached)
+            {
+                throw;
+            }
+
             MessageBox.Show(this, ex.Message, AppLocalization.Translate("App.Name"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -2043,6 +2064,12 @@ public sealed class EditorForm : Form
 
             _textFormatToolTip.Dispose();
             _toolIconImageList.Dispose();
+            foreach (var icon in _toolIconBitmaps.Values)
+            {
+                icon.Dispose();
+            }
+
+            _toolIconBitmaps.Clear();
             _editHistory.Dispose();
             _workingBitmap.Dispose();
         }

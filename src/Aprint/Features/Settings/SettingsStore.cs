@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Aprint.Features.Settings;
@@ -30,7 +31,7 @@ public sealed class SettingsStore
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        catch (Exception ex) when (!Debugger.IsAttached && ex is IOException or JsonException or UnauthorizedAccessException)
         {
             // Usa os valores padrão quando o arquivo está corrompido ou inacessível.
         }

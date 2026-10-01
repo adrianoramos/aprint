@@ -159,7 +159,10 @@ public static class ImageEditingService
 
         try
         {
-            bitmapData = bitmap.LockBits(rectangle, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            bitmapData = bitmap.LockBits(
+                new Rectangle(Point.Empty, bitmap.Size),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format32bppArgb);
 
             unsafe
             {
@@ -180,10 +183,10 @@ public static class ImageEditingService
 
                         for (var y = 0; y < blockHeight; y++)
                         {
-                            var row = scan0 + (y * bitmapData.Stride);
+                            var row = scan0 + ((rectangle.Top + blockTop + y) * bitmapData.Stride);
                             for (var x = 0; x < blockWidth; x++)
                             {
-                                var pixel = row + ((blockLeft + x) * 4);
+                                var pixel = row + ((rectangle.Left + blockLeft + x) * 4);
                                 blue += pixel[0];
                                 green += pixel[1];
                                 red += pixel[2];
