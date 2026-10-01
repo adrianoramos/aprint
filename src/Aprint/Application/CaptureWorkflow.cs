@@ -85,7 +85,15 @@ public sealed class CaptureWorkflow
             return null;
         }
 
-        return fullBitmap.Clone(region, fullBitmap.PixelFormat);
+        var bitmapBounds = new Rectangle(Point.Empty, fullBitmap.Size);
+        var boundedRegion = Rectangle.Intersect(region, bitmapBounds);
+        if (boundedRegion.Width <= 0 || boundedRegion.Height <= 0)
+        {
+            wasCancelled = true;
+            return null;
+        }
+
+        return fullBitmap.Clone(boundedRegion, fullBitmap.PixelFormat);
     }
 }
 
