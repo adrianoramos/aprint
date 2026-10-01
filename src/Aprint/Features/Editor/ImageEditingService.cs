@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace Aprint.Features.Editor;
 
@@ -151,41 +152,74 @@ public static class ImageEditingService
     private static void PixelateArea(Bitmap bitmap, Graphics graphics, Rectangle rectangle, int blockSize)
     {
         blockSize = Math.Max(4, blockSize);
+        var blocksWide = (rectangle.Width + blockSize - 1) / blockSize;
+        var blocksHigh = (rectangle.Height + blockSize - 1) / blockSize;
+        var blockColors = new int[blocksWide * blocksHigh];
+        BitmapData? bitmapData = null;
 
-        for (var y = rectangle.Top; y < rectangle.Bottom; y += blockSize)
+        try
         {
-            for (var x = rectangle.Left; x < rectangle.Right; x += blockSize)
+            bitmapData = bitmap.LockBits(rectangle, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+            unsafe
             {
-                var blockWidth = Math.Min(blockSize, rectangle.Right - x);
-                var blockHeight = Math.Min(blockSize, rectangle.Bottom - y);
-                var averageColor = GetAverageColor(bitmap, new Rectangle(x, y, blockWidth, blockHeight));
-                using var brush = new SolidBrush(averageColor);
-                graphics.FillRectangle(brush, x, y, blockWidth, blockHeight);
+                var scan0 = (byte*)bitmapData.Scan0;
+
+                for (var blockY = 0; blockY < blocksHigh; blockY++)
+                {
+                    var blockTop = blockY * blockSize;
+                    var blockHeight = Math.Min(blockSize, rectangle.Height - blockTop);
+
+                    for (var blockX = 0; blockX < blocksWide; blockX++)
+                    {
+                        var blockLeft = blockX * blockSize;
+                        var blockWidth = Math.Min(blockSize, rectangle.Width - blockLeft);
+                        long red = 0;
+                        long green = 0;
+                        long blue = 0;
+
+                        for (var y = 0; y < blockHeight; y++)
+                        {
+                            var row = scan0 + (y * bitmapData.Stride);
+                            for (var x = 0; x < blockWidth; x++)
+                            {
+                                var pixel = row + ((blockLeft + x) * 4);
+                                blue += pixel[0];
+                                green += pixel[1];
+                                red += pixel[2];
+                            }
+                        }
+
+                        var pixelCount = blockWidth * blockHeight;
+                        blockColors[(blockY * blocksWide) + blockX] = Color.FromArgb(
+                            (int)(red / pixelCount),
+                            (int)(green / pixelCount),
+                            (int)(blue / pixelCount)).ToArgb();
+                    }
+                }
             }
         }
-    }
-
-    private static Color GetAverageColor(Bitmap bitmap, Rectangle area)
-    {
-        long red = 0;
-        long green = 0;
-        long blue = 0;
-        long count = 0;
-
-        for (var y = area.Top; y < area.Bottom; y++)
+        finally
         {
-            for (var x = area.Left; x < area.Right; x++)
+            if (bitmapData is not null)
             {
-                var pixel = bitmap.GetPixel(x, y);
-                red += pixel.R;
-                green += pixel.G;
-                blue += pixel.B;
-                count++;
+                bitmap.UnlockBits(bitmapData);
             }
         }
 
-        return count == 0
-            ? Color.Black
-            : Color.FromArgb((int)(red / count), (int)(green / count), (int)(blue / count));
+        for (var blockY = 0; blockY < blocksHigh; blockY++)
+        {
+            var blockTop = blockY * blockSize;
+            var blockHeight = Math.Min(blockSize, rectangle.Height - blockTop);
+
+            for (var blockX = 0; blockX < blocksWide; blockX++)
+            {
+                var blockLeft = blockX * blockSize;
+                var blockWidth = Math.Min(blockSize, rectangle.Width - blockLeft);
+                var color = Color.FromArgb(blockColors[(blockY * blocksWide) + blockX]);
+                using var brush = new SolidBrush(color);
+                graphics.FillRectangle(brush, rectangle.Left + blockLeft, rectangle.Top + blockTop, blockWidth, blockHeight);
+            }
+        }
     }
 }
