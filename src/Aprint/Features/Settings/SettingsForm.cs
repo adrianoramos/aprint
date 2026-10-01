@@ -33,6 +33,7 @@ public sealed partial class SettingsForm : Form
             CaptureAction = currentSettings.CaptureAction,
             NotificationClickAction = currentSettings.NotificationClickAction,
             CaptureMode = currentSettings.CaptureMode,
+            OutsideCaptureClickAction = currentSettings.OutsideCaptureClickAction,
             OpenEditorAfterCapture = currentSettings.OpenEditorAfterCapture,
             PlaySoundOnCapture = currentSettings.PlaySoundOnCapture,
             EditorStartState = currentSettings.EditorStartState,
@@ -184,6 +185,18 @@ public sealed partial class SettingsForm : Form
         });
         cmbCaptureAction.SelectedIndex = (int)_workingSettings.CaptureAction;
 
+        cmbOutsideCaptureClickAction.Items.Clear();
+        cmbOutsideCaptureClickAction.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.OutsideClickSelectNewArea"),
+            AppLocalization.Translate("Settings.OutsideClickExit"),
+            AppLocalization.Translate("Settings.OutsideClickNone"),
+        });
+        var outsideClickActionIndex = (int)_workingSettings.OutsideCaptureClickAction;
+        cmbOutsideCaptureClickAction.SelectedIndex = Enum.IsDefined(_workingSettings.OutsideCaptureClickAction)
+            ? outsideClickActionIndex
+            : (int)OutsideCaptureClickAction.SelectNewArea;
+
         cmbNotificationClick.Items.Clear();
         cmbNotificationClick.Items.AddRange(new object[]
         {
@@ -253,6 +266,7 @@ public sealed partial class SettingsForm : Form
         grpCaptureMode.Text = AppLocalization.Translate("Settings.CaptureGroup");
         lblCaptureMode.Text = AppLocalization.Translate("Settings.CaptureModeLabel");
         lblCaptureAction.Text = AppLocalization.Translate("Settings.ActionGroup");
+        lblOutsideCaptureClickAction.Text = AppLocalization.Translate("Settings.OutsideCaptureClickActionLabel");
         lblSavePath.Text = AppLocalization.Translate("Settings.SavePathLabel");
         btnBrowse.Text = AppLocalization.Translate("Settings.Browse");
         lblNotificationClick.Text = AppLocalization.Translate("Settings.NotificationClickLabel");
@@ -355,6 +369,7 @@ public sealed partial class SettingsForm : Form
             _workingSettings.HotkeyWin = false;
         }
         _workingSettings.CaptureMode = (CaptureMode)Math.Max(cmbCaptureMode.SelectedIndex, 0);
+        _workingSettings.OutsideCaptureClickAction = (OutsideCaptureClickAction)Math.Max(cmbOutsideCaptureClickAction.SelectedIndex, 0);
 
         SettingsSaved?.Invoke(_workingSettings);
         Close();

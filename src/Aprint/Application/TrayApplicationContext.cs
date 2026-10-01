@@ -105,7 +105,7 @@ public sealed class TrayApplicationContext : ApplicationContext
                     ? (Bitmap)result.Bitmap.Clone()
                     : null;
 
-            if (_settings.OpenEditorAfterCapture)
+            if (result.OpenEditor)
             {
                 if (_settings.ShowNotificationAfterCapture)
                 {
@@ -120,12 +120,17 @@ public sealed class TrayApplicationContext : ApplicationContext
 
             if (_settings.ShowNotificationAfterCapture)
             {
-                var message = _settings.CaptureAction switch
+                var message = result.SelectionAction switch
                 {
-                    CaptureAction.ClipboardOnly => AppLocalization.Translate("Tray.ClipboardOnly"),
-                    CaptureAction.SaveToDiskOnly => AppLocalization.Format("Tray.SavedTo", result.SavedFilePath ?? string.Empty),
-                    CaptureAction.Both => AppLocalization.Format("Tray.BothSavedAndClipboard", result.SavedFilePath ?? string.Empty),
-                    _ => AppLocalization.Translate("Tray.CapturedFallback"),
+                    RegionSelectionAction.Copy => AppLocalization.Translate("Tray.ClipboardOnly"),
+                    RegionSelectionAction.Save => AppLocalization.Format("Tray.SavedTo", result.SavedFilePath ?? string.Empty),
+                    _ => _settings.CaptureAction switch
+                    {
+                        CaptureAction.ClipboardOnly => AppLocalization.Translate("Tray.ClipboardOnly"),
+                        CaptureAction.SaveToDiskOnly => AppLocalization.Format("Tray.SavedTo", result.SavedFilePath ?? string.Empty),
+                        CaptureAction.Both => AppLocalization.Format("Tray.BothSavedAndClipboard", result.SavedFilePath ?? string.Empty),
+                        _ => AppLocalization.Translate("Tray.CapturedFallback"),
+                    },
                 };
                 _notifyIcon.ShowBalloonTip(3000, AppLocalization.Translate("Tray.ScreenshotCaptured"), message, ToolTipIcon.Info);
             }

@@ -129,6 +129,15 @@
   <data name="Tray.SelectArea" xml:space="preserve">
     <value>Select area</value>
   </data>
+  <data name="Capture.Region.Capture" xml:space="preserve">
+    <value>Capture</value>
+  </data>
+  <data name="Capture.Region.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Capture.Region.Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
   <data name="Tray.CaptureFullScreen" xml:space="preserve">
     <value>Capture full screen</value>
   </data>
@@ -251,6 +260,18 @@
   </data>
   <data name="Settings.OpenEditorAfterCapture" xml:space="preserve">
     <value>Open editor after capture</value>
+  </data>
+  <data name="Settings.OutsideCaptureClickActionLabel" xml:space="preserve">
+    <value>When clicking outside the capture area:</value>
+  </data>
+  <data name="Settings.OutsideClickSelectNewArea" xml:space="preserve">
+    <value>Select a new area</value>
+  </data>
+  <data name="Settings.OutsideClickExit" xml:space="preserve">
+    <value>Exit selection mode</value>
+  </data>
+  <data name="Settings.OutsideClickNone" xml:space="preserve">
+    <value>No action</value>
   </data>
   <data name="Settings.ShowToolLabels" xml:space="preserve">
     <value>Show button labels on the editor toolbar</value>
