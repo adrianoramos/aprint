@@ -105,8 +105,6 @@ public sealed class EditorForm : Form
     private static readonly Dictionary<float, Font> CounterFonts = [];
     private static readonly object CounterFontSync = new();
 
-    private readonly record struct ToolIconCacheKey(ToolIconKind Kind, int ColorArgb);
-
     private Bitmap _workingBitmap;
     private string _initialFolder;
     private readonly bool _closeAfterCopyOrSave;
