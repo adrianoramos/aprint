@@ -15,12 +15,13 @@ public sealed class CaptureWorkflow
             : selectedMode;
         Bitmap? fullBitmap = ScreenshotService.CaptureScreen(captureMode);
         Bitmap? selectedRegionBitmap = null;
+        RegionSelectionAction? regionAction = null;
         var transferFullBitmap = false;
         var transferSelectedRegionBitmap = false;
 
         try
         {
-            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, out var wasCancelled);
+            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, out var wasCancelled, out regionAction);
             if (wasCancelled)
             {
                 return null;
@@ -33,25 +34,45 @@ public sealed class CaptureWorkflow
             }
 
             var bitmap = selectedRegionBitmap ?? fullBitmap!;
+            var openEditor = regionAction switch
+            {
+                RegionSelectionAction.Capture => true,
+                RegionSelectionAction.Save or RegionSelectionAction.Copy => false,
+                _ => settings.OpenEditorAfterCapture,
+            };
 
             if (settings.PlaySoundOnCapture)
             {
                 NotificationSound.Play();
             }
 
-            if (settings.CaptureAction is CaptureAction.ClipboardOnly or CaptureAction.Both)
+            var copyToClipboard = regionAction == RegionSelectionAction.Copy ||
+                (regionAction is null && settings.CaptureAction is CaptureAction.ClipboardOnly or CaptureAction.Both);
+            if (copyToClipboard)
             {
                 Clipboard.SetImage(bitmap);
             }
 
             string? filePath = null;
-            if (!settings.OpenEditorAfterCapture &&
-                settings.CaptureAction is CaptureAction.SaveToDiskOnly or CaptureAction.Both)
+            var saveToDisk = regionAction == RegionSelectionAction.Save ||
+                (regionAction is null && !openEditor && settings.CaptureAction is CaptureAction.SaveToDiskOnly or CaptureAction.Both);
+            if (saveToDisk)
             {
-                filePath = ScreenshotService.SaveToDisk(bitmap, settings.SaveFolder);
+                if (regionAction == RegionSelectionAction.Save && !settings.SaveEditorImageWithoutPrompt)
+                {
+                    filePath = ScreenshotService.SaveToDiskWithPrompt(bitmap, settings.SaveFolder);
+                    if (filePath is null)
+                    {
+                        return null;
+                    }
+                }
+                else
+                {
+                    filePath = ScreenshotService.SaveToDisk(bitmap, settings.SaveFolder);
+                }
             }
 
-            var result = new CaptureResult(bitmap, filePath);
+            var result = new CaptureResult(bitmap, filePath, openEditor, regionAction);
             transferSelectedRegionBitmap = selectedRegionBitmap is not null;
             transferFullBitmap = selectedRegionBitmap is null;
             return result;
@@ -70,20 +91,23 @@ public sealed class CaptureWorkflow
         }
     }
 
-    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, out bool wasCancelled)
+    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, out bool wasCancelled, out RegionSelectionAction? selectedAction)
     {
         wasCancelled = false;
+        selectedAction = null;
         if (captureMode != CaptureMode.SelectArea)
         {
             return null;
         }
 
-        using var selector = new RegionSelectorForm(fullBitmap);
-        if (selector.ShowDialog() != DialogResult.OK || selector.SelectedRegion is not { } region)
+        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction);
+        if (selector.ShowDialog() != DialogResult.OK || selector.SelectedRegion is not { } region || selector.SelectedAction is not { } action)
         {
             wasCancelled = true;
             return null;
         }
+
+        selectedAction = action;
 
         var bitmapBounds = new Rectangle(Point.Empty, fullBitmap.Size);
         var boundedRegion = Rectangle.Intersect(region, bitmapBounds);
@@ -97,11 +121,15 @@ public sealed class CaptureWorkflow
     }
 }
 
-public sealed class CaptureResult(Bitmap bitmap, string? savedFilePath) : IDisposable
+public sealed class CaptureResult(Bitmap bitmap, string? savedFilePath, bool openEditor, RegionSelectionAction? selectionAction) : IDisposable
 {
     public Bitmap Bitmap { get; } = bitmap;
 
     public string? SavedFilePath { get; } = savedFilePath;
+
+    public bool OpenEditor { get; } = openEditor;
+
+    public RegionSelectionAction? SelectionAction { get; } = selectionAction;
 
     public void Dispose() => Bitmap.Dispose();
 }

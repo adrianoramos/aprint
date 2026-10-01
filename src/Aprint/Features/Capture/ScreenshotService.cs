@@ -1,4 +1,5 @@
 using System.Drawing.Imaging;
+using Aprint.Features.Settings;
 
 namespace Aprint.Features.Capture;
 
@@ -31,5 +32,32 @@ public static class ScreenshotService
         bitmap.Save(filePath, ImageFormat.Png);
 
         return filePath;
+    }
+
+    /// <summary>Exibe o diálogo de gravação e salva a imagem no formato escolhido. Retorna null se cancelado.</summary>
+    public static string? SaveToDiskWithPrompt(Bitmap bitmap, string initialFolder)
+    {
+        using var dialog = new SaveFileDialog
+        {
+            Filter = AppLocalization.Translate("Editor.SaveFilter"),
+            FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+            InitialDirectory = Directory.Exists(initialFolder) ? initialFolder : string.Empty,
+        };
+
+        if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            return null;
+        }
+
+        var format = Path.GetExtension(dialog.FileName).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => ImageFormat.Jpeg,
+            ".bmp" => ImageFormat.Bmp,
+            _ => ImageFormat.Png,
+        };
+
+        Directory.CreateDirectory(Path.GetDirectoryName(dialog.FileName)!);
+        bitmap.Save(dialog.FileName, format);
+        return dialog.FileName;
     }
 }

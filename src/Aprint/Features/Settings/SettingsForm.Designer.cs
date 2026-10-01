@@ -13,6 +13,8 @@ partial class SettingsForm
     private GroupBox grpCaptureMode = null!;
     private Label lblCaptureMode = null!;
     private ComboBox cmbCaptureMode = null!;
+    private Label lblOutsideCaptureClickAction = null!;
+    private ComboBox cmbOutsideCaptureClickAction = null!;
     private Label lblCaptureAction = null!;
     private ComboBox cmbCaptureAction = null!;
     private ComboBox cmbNotificationClick = null!;
@@ -61,6 +63,8 @@ partial class SettingsForm
         grpCaptureMode = new GroupBox();
         lblCaptureMode = new Label();
         cmbCaptureMode = new ComboBox();
+        lblOutsideCaptureClickAction = new Label();
+        cmbOutsideCaptureClickAction = new ComboBox();
         lblCaptureAction = new Label();
         cmbCaptureAction = new ComboBox();
         lblSavePath = new Label();
@@ -168,12 +172,14 @@ partial class SettingsForm
         grpCaptureMode.Controls.Add(cmbCaptureMode);
         grpCaptureMode.Controls.Add(lblCaptureAction);
         grpCaptureMode.Controls.Add(cmbCaptureAction);
+        grpCaptureMode.Controls.Add(lblOutsideCaptureClickAction);
+        grpCaptureMode.Controls.Add(cmbOutsideCaptureClickAction);
         grpCaptureMode.Controls.Add(lblSavePath);
         grpCaptureMode.Controls.Add(txtSaveFolder);
         grpCaptureMode.Controls.Add(btnBrowse);
         grpCaptureMode.Location = new Point(12, 92);
         grpCaptureMode.Name = "grpCaptureMode";
-        grpCaptureMode.Size = new Size(436, 187);
+        grpCaptureMode.Size = new Size(436, 202);
         grpCaptureMode.TabIndex = 1;
         grpCaptureMode.TabStop = false;
         grpCaptureMode.Text = "Captura";
@@ -198,7 +204,7 @@ partial class SettingsForm
         // lblCaptureAction
         // 
         lblCaptureAction.AutoSize = true;
-        lblCaptureAction.Location = new Point(15, 77);
+        lblCaptureAction.Location = new Point(15, 73);
         lblCaptureAction.Name = "lblCaptureAction";
         lblCaptureAction.Size = new Size(115, 15);
         lblCaptureAction.TabIndex = 8;
@@ -207,7 +213,7 @@ partial class SettingsForm
         // cmbCaptureAction
         // 
         cmbCaptureAction.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbCaptureAction.Location = new Point(15, 96);
+        cmbCaptureAction.Location = new Point(15, 92);
         cmbCaptureAction.Name = "cmbCaptureAction";
         cmbCaptureAction.Size = new Size(406, 23);
         cmbCaptureAction.TabIndex = 9;
@@ -216,7 +222,7 @@ partial class SettingsForm
         // lblSavePath
         // 
         lblSavePath.AutoSize = true;
-        lblSavePath.Location = new Point(15, 131);
+        lblSavePath.Location = new Point(15, 123);
         lblSavePath.Name = "lblSavePath";
         lblSavePath.Size = new Size(136, 15);
         lblSavePath.TabIndex = 8;
@@ -224,19 +230,36 @@ partial class SettingsForm
         // 
         // txtSaveFolder
         // 
-        txtSaveFolder.Location = new Point(15, 150);
+        txtSaveFolder.Location = new Point(15, 142);
         txtSaveFolder.Name = "txtSaveFolder";
-        txtSaveFolder.Size = new Size(325, 23);
+        txtSaveFolder.Size = new Size(329, 23);
         txtSaveFolder.TabIndex = 9;
         // 
         // btnBrowse
         // 
-        btnBrowse.Location = new Point(348, 150);
+        btnBrowse.Location = new Point(348, 142);
         btnBrowse.Name = "btnBrowse";
         btnBrowse.Size = new Size(73, 25);
         btnBrowse.TabIndex = 10;
         btnBrowse.Text = "&Procurar...";
         btnBrowse.Click += btnBrowse_Click;
+        // 
+        // lblOutsideCaptureClickAction
+        // 
+        lblOutsideCaptureClickAction.Location = new Point(15, 173);
+        lblOutsideCaptureClickAction.Name = "lblOutsideCaptureClickAction";
+        lblOutsideCaptureClickAction.Size = new Size(184, 19);
+        lblOutsideCaptureClickAction.TabIndex = 11;
+        lblOutsideCaptureClickAction.Text = "Ao clicar fora da área de captura:";
+        lblOutsideCaptureClickAction.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // cmbOutsideCaptureClickAction
+        // 
+        cmbOutsideCaptureClickAction.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbOutsideCaptureClickAction.Location = new Point(203, 169);
+        cmbOutsideCaptureClickAction.Name = "cmbOutsideCaptureClickAction";
+        cmbOutsideCaptureClickAction.Size = new Size(218, 23);
+        cmbOutsideCaptureClickAction.TabIndex = 12;
         // 
         // cmbNotificationClick
         // 
@@ -267,7 +290,7 @@ partial class SettingsForm
         grpEditor.Controls.Add(chkShowToolLabels);
         grpEditor.Controls.Add(lblDefaultEditorTool);
         grpEditor.Controls.Add(cmbDefaultEditorTool);
-        grpEditor.Location = new Point(12, 283);
+        grpEditor.Location = new Point(12, 298);
         grpEditor.Name = "grpEditor";
         grpEditor.Size = new Size(436, 215);
         grpEditor.TabIndex = 2;
@@ -373,7 +396,7 @@ partial class SettingsForm
         grpGeneral.Controls.Add(chkStartWithWindows);
         grpGeneral.Controls.Add(lblLanguage);
         grpGeneral.Controls.Add(cmbLanguage);
-        grpGeneral.Location = new Point(12, 502);
+        grpGeneral.Location = new Point(12, 517);
         grpGeneral.Name = "grpGeneral";
         grpGeneral.Size = new Size(436, 167);
         grpGeneral.TabIndex = 3;
@@ -429,7 +452,7 @@ partial class SettingsForm
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(282, 675);
+        btnSave.Location = new Point(282, 690);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -439,7 +462,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 675);
+        btnCancel.Location = new Point(368, 690);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -452,7 +475,7 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(460, 714);
+        ClientSize = new Size(460, 729);
         Controls.Add(grpHotkey);
         Controls.Add(grpCaptureMode);
         Controls.Add(grpEditor);

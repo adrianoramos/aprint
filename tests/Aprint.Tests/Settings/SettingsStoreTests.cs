@@ -20,6 +20,7 @@ public sealed class SettingsStoreTests : IDisposable
             CaptureAction = CaptureAction.Both,
             NotificationClickAction = NotificationClickAction.OpenEditor,
             CaptureMode = CaptureMode.SelectArea,
+            OutsideCaptureClickAction = OutsideCaptureClickAction.ExitCaptureMode,
             OpenEditorAfterCapture = true,
             PlaySoundOnCapture = true,
             BorrarMode = BorrarMode.Solid,

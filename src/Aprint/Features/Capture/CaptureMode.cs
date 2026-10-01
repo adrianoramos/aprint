@@ -7,3 +7,10 @@ public enum CaptureMode
     ScreenWithCursor,
     SelectArea,
 }
+
+public enum OutsideCaptureClickAction
+{
+    SelectNewArea,
+    ExitCaptureMode,
+    None,
+}

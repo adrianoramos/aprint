@@ -23,6 +23,8 @@ public sealed class AppSettings
 
     public CaptureMode CaptureMode { get; set; } = CaptureMode.AllScreens;
 
+    public OutsideCaptureClickAction OutsideCaptureClickAction { get; set; } = OutsideCaptureClickAction.SelectNewArea;
+
     public bool OpenEditorAfterCapture { get; set; }
 
     public bool PlaySoundOnCapture { get; set; }

@@ -1,22 +1,40 @@
+using Aprint.Features.Settings;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+
 namespace Aprint.Features.Capture;
 
 /// <summary>Overlay em tela cheia (todas as telas) que permite ao usuário arrastar o mouse para selecionar uma área a capturar.</summary>
 public sealed class RegionSelectorForm : Form
 {
     private const int SelectionBorderWidth = 2;
+    private const int HandleSize = 10;
+    private const int MinimumSelectionSize = 3;
 
     private readonly Bitmap _background;
+    private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
     private readonly SolidBrush _overlayBrush = new(Color.FromArgb(120, 0, 0, 0));
-    private readonly Pen _borderPen = new(Color.DeepSkyBlue, SelectionBorderWidth);
+    private readonly Pen _borderPen = new(Color.White, SelectionBorderWidth);
+    private readonly SolidBrush _handleBrush = new(Color.White);
+    private readonly List<Image> _actionImages = [];
+    private readonly Panel _actionBar;
     private Point _startPoint;
+    private Point _dragOrigin;
     private Rectangle _selection;
+    private Rectangle _originalSelection;
+    private ResizeEdges _resizeEdges;
     private bool _isSelecting;
+    private bool _isMoving;
+    private bool _isResizing;
 
     public Rectangle? SelectedRegion { get; private set; }
 
-    public RegionSelectorForm(Bitmap background)
+    public RegionSelectionAction? SelectedAction { get; private set; }
+
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea)
     {
         _background = background;
+        _outsideCaptureClickAction = outsideCaptureClickAction;
 
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -27,6 +45,10 @@ public sealed class RegionSelectorForm : Form
         DoubleBuffered = true;
         Cursor = Cursors.Cross;
         BackColor = Color.Black;
+
+        _actionBar = CreateActionBar();
+        Controls.Add(_actionBar);
+        _actionBar.Visible = false;
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -39,6 +61,7 @@ public sealed class RegionSelectorForm : Form
             // Revela o conteúdo original (sem escurecer) dentro da área selecionada.
             e.Graphics.DrawImage(_background, _selection, _selection, GraphicsUnit.Pixel);
             e.Graphics.DrawRectangle(_borderPen, _selection);
+            DrawHandles(e.Graphics);
         }
     }
 
@@ -46,45 +69,112 @@ public sealed class RegionSelectorForm : Form
     {
         if (e.Button == MouseButtons.Left)
         {
+            if (_selection.Width > 0 && _selection.Height > 0)
+            {
+                _resizeEdges = GetResizeEdges(e.Location);
+                if (_resizeEdges != ResizeEdges.None)
+                {
+                    _isResizing = true;
+                    Cursor = GetResizeCursor(_resizeEdges);
+                    _dragOrigin = e.Location;
+                    _originalSelection = _selection;
+                    return;
+                }
+
+                if (_selection.Contains(e.Location))
+                {
+                    _isMoving = true;
+                    Cursor = Cursors.SizeAll;
+                    _dragOrigin = e.Location;
+                    _originalSelection = _selection;
+                    return;
+                }
+
+                if (_outsideCaptureClickAction == OutsideCaptureClickAction.ExitCaptureMode)
+                {
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                    return;
+                }
+
+                if (_outsideCaptureClickAction == OutsideCaptureClickAction.None)
+                {
+                    return;
+                }
+            }
+
+            _actionBar.Visible = false;
             _isSelecting = true;
+            Cursor = Cursors.Cross;
             _startPoint = e.Location;
             _selection = new Rectangle(e.Location, Size.Empty);
+            Invalidate();
         }
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (_isSelecting)
+        if (_isSelecting || _isResizing || _isMoving)
         {
-            var nextSelection = GetRectangle(_startPoint, e.Location);
+            var nextSelection = _isSelecting
+                ? GetRectangle(_startPoint, e.Location)
+                : _isResizing
+                    ? ResizeSelection(e.Location)
+                    : MoveSelection(e.Location);
             if (nextSelection == _selection)
             {
                 return;
             }
 
-            using var invalidRegion = GetInvalidRegion(_selection, nextSelection);
+            var invalidRectangle = Rectangle.Union(_selection, nextSelection);
+            invalidRectangle.Inflate(HandleSize, HandleSize);
             _selection = nextSelection;
-            Invalidate(invalidRegion);
+            Invalidate(invalidRectangle);
+            UpdateActionBarLocation();
+        }
+
+        if (!_isSelecting && !_isResizing && !_isMoving)
+        {
+            Cursor = GetResizeCursor(GetResizeEdges(e.Location));
         }
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
-        if (e.Button != MouseButtons.Left || !_isSelecting)
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        if (_isResizing || _isMoving)
+        {
+            _isResizing = false;
+            _isMoving = false;
+            Cursor = Cursors.Default;
+            return;
+        }
+
+        if (!_isSelecting)
         {
             return;
         }
 
         _isSelecting = false;
+    Cursor = Cursors.Default;
         _selection = GetRectangle(_startPoint, e.Location);
 
-        if (_selection.Width > 2 && _selection.Height > 2)
+        if (_selection.Width >= MinimumSelectionSize && _selection.Height >= MinimumSelectionSize)
         {
-            SelectedRegion = _selection;
-            DialogResult = DialogResult.OK;
-        }
+            if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
+            {
+                CompleteSelection(RegionSelectionAction.Capture);
+                return;
+            }
 
-        Close();
+            _actionBar.Visible = true;
+            UpdateActionBarLocation();
+            Invalidate();
+        }
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -96,6 +186,23 @@ public sealed class RegionSelectorForm : Form
             return true;
         }
 
+        if (_actionBar.Visible)
+        {
+            var action = keyData switch
+            {
+                Keys.Enter => RegionSelectionAction.Capture,
+                Keys.Control | Keys.S => RegionSelectionAction.Save,
+                Keys.Control | Keys.C => RegionSelectionAction.Copy,
+                _ => (RegionSelectionAction?)null,
+            };
+
+            if (action is { } selectedAction)
+            {
+                CompleteSelection(selectedAction);
+                return true;
+            }
+        }
+
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
@@ -105,41 +212,14 @@ public sealed class RegionSelectorForm : Form
         {
             _overlayBrush.Dispose();
             _borderPen.Dispose();
+            _handleBrush.Dispose();
+            foreach (var image in _actionImages)
+            {
+                image.Dispose();
+            }
         }
 
         base.Dispose(disposing);
-    }
-
-    private static Region GetInvalidRegion(Rectangle previous, Rectangle current)
-    {
-        var changedRegion = new Region(previous);
-        changedRegion.Xor(current);
-
-        AddBorderToRegion(changedRegion, previous);
-        AddBorderToRegion(changedRegion, current);
-        return changedRegion;
-    }
-
-    private static void AddBorderToRegion(Region region, Rectangle rectangle)
-    {
-        if (rectangle.Width <= 0 || rectangle.Height <= 0)
-        {
-            return;
-        }
-
-        var borderMargin = SelectionBorderWidth + 1;
-        var outerRectangle = rectangle;
-        outerRectangle.Inflate(borderMargin, borderMargin);
-
-        using var borderRegion = new Region(outerRectangle);
-        var innerRectangle = rectangle;
-        innerRectangle.Inflate(-borderMargin, -borderMargin);
-        if (innerRectangle.Width > 0 && innerRectangle.Height > 0)
-        {
-            borderRegion.Exclude(innerRectangle);
-        }
-
-        region.Union(borderRegion);
     }
 
     private static Rectangle GetRectangle(Point p1, Point p2) => new(
@@ -147,4 +227,244 @@ public sealed class RegionSelectorForm : Form
         Math.Min(p1.Y, p2.Y),
         Math.Abs(p1.X - p2.X),
         Math.Abs(p1.Y - p2.Y));
+
+    private Panel CreateActionBar()
+    {
+        var panel = new Panel
+        {
+            BackColor = Color.FromArgb(246, 247, 249),
+            BorderStyle = BorderStyle.FixedSingle,
+            Size = new Size(318, 50),
+            Padding = new Padding(6),
+        };
+
+        var captureButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Capture"), true, LoadActionIcon("capture.png", Color.White));
+        var saveButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Save"), false, LoadActionIcon("save.png", Color.FromArgb(45, 49, 54)));
+        var copyButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Copy"), false, LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)));
+
+        captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
+        saveButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
+        copyButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Copy);
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 1,
+            BackColor = panel.BackColor,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+        };
+        for (var column = 0; column < 3; column++)
+        {
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+        }
+
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layout.Controls.Add(captureButton, 0, 0);
+        layout.Controls.Add(saveButton, 1, 0);
+        layout.Controls.Add(copyButton, 2, 0);
+        panel.Controls.Add(layout);
+        return panel;
+    }
+
+    private Button CreateActionButton(string text, bool isPrimary, Image image)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Image = image,
+            ImageAlign = ContentAlignment.MiddleCenter,
+            TextAlign = ContentAlignment.MiddleCenter,
+            TextImageRelation = TextImageRelation.ImageBeforeText,
+            Dock = DockStyle.Fill,
+            Height = 34,
+            Margin = new Padding(3),
+            Padding = Padding.Empty,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = isPrimary ? Color.FromArgb(0, 103, 192) : Color.White,
+            ForeColor = isPrimary ? Color.White : Color.FromArgb(45, 49, 54),
+            UseVisualStyleBackColor = false,
+            TabStop = false,
+        };
+
+        button.FlatAppearance.BorderSize = isPrimary ? 0 : 1;
+        button.FlatAppearance.BorderColor = Color.FromArgb(214, 219, 225);
+        button.FlatAppearance.MouseOverBackColor = isPrimary
+            ? Color.FromArgb(0, 90, 158)
+            : Color.FromArgb(241, 244, 247);
+        button.FlatAppearance.MouseDownBackColor = isPrimary
+            ? Color.FromArgb(0, 75, 132)
+            : Color.FromArgb(230, 235, 240);
+        return button;
+    }
+
+    private Bitmap LoadActionIcon(string fileName, Color color)
+    {
+        var resourceName = $"Aprint.Resources.Icons.{fileName}";
+        using var stream = typeof(RegionSelectorForm).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Recurso incorporado '{resourceName}' não encontrado.");
+        using var sourceImage = Image.FromStream(stream);
+
+        var icon = new Bitmap(18, 18, PixelFormat.Format32bppArgb);
+        using (var graphics = Graphics.FromImage(icon))
+        {
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.DrawImage(sourceImage, new Rectangle(0, 0, icon.Width, icon.Height));
+        }
+
+        for (var y = 0; y < icon.Height; y++)
+        {
+            for (var x = 0; x < icon.Width; x++)
+            {
+                var pixel = icon.GetPixel(x, y);
+                if (pixel.A > 0)
+                {
+                    icon.SetPixel(x, y, Color.FromArgb(pixel.A, color));
+                }
+            }
+        }
+
+        _actionImages.Add(icon);
+        return icon;
+    }
+
+    private void CompleteSelection(RegionSelectionAction action)
+    {
+        SelectedRegion = _selection;
+        SelectedAction = action;
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    private void UpdateActionBarLocation()
+    {
+        var left = Math.Clamp(_selection.Left + (_selection.Width - _actionBar.Width) / 2, 0, Math.Max(0, ClientSize.Width - _actionBar.Width));
+        var top = _selection.Bottom + 18;
+        if (top + _actionBar.Height > ClientSize.Height)
+        {
+            top = _selection.Top - _actionBar.Height - 18;
+        }
+
+        _actionBar.Location = new Point(left, Math.Clamp(top, 0, Math.Max(0, ClientSize.Height - _actionBar.Height)));
+    }
+
+    private void DrawHandles(Graphics graphics)
+    {
+        foreach (var handle in GetHandleRectangles(_selection))
+        {
+            graphics.FillRectangle(_handleBrush, handle);
+        }
+    }
+
+    private ResizeEdges GetResizeEdges(Point point)
+    {
+        if (_selection.Width <= 0 || _selection.Height <= 0)
+        {
+            return ResizeEdges.None;
+        }
+
+        var handles = GetHandleRectangles(_selection);
+        var edges = new[]
+        {
+            ResizeEdges.NorthWest, ResizeEdges.North, ResizeEdges.NorthEast,
+            ResizeEdges.West, ResizeEdges.None, ResizeEdges.East,
+            ResizeEdges.SouthWest, ResizeEdges.South, ResizeEdges.SouthEast,
+        };
+
+        for (var index = 0; index < handles.Length; index++)
+        {
+            if (handles[index].Contains(point))
+            {
+                return edges[index];
+            }
+        }
+
+        return ResizeEdges.None;
+    }
+
+    private static Cursor GetResizeCursor(ResizeEdges edges) => edges switch
+    {
+        ResizeEdges.North or ResizeEdges.South => Cursors.SizeNS,
+        ResizeEdges.East or ResizeEdges.West => Cursors.SizeWE,
+        ResizeEdges.NorthEast or ResizeEdges.SouthWest => Cursors.SizeNESW,
+        ResizeEdges.NorthWest or ResizeEdges.SouthEast => Cursors.SizeNWSE,
+        _ => Cursors.Default,
+    };
+
+    private static Rectangle[] GetHandleRectangles(Rectangle rectangle)
+    {
+        var half = HandleSize / 2;
+        var middleX = rectangle.Left + rectangle.Width / 2;
+        var middleY = rectangle.Top + rectangle.Height / 2;
+        return
+        [
+            new Rectangle(rectangle.Left - half, rectangle.Top - half, HandleSize, HandleSize),
+            new Rectangle(middleX - half, rectangle.Top - half, HandleSize, HandleSize),
+            new Rectangle(rectangle.Right - half, rectangle.Top - half, HandleSize, HandleSize),
+            new Rectangle(rectangle.Left - half, middleY - half, HandleSize, HandleSize),
+            Rectangle.Empty,
+            new Rectangle(rectangle.Right - half, middleY - half, HandleSize, HandleSize),
+            new Rectangle(rectangle.Left - half, rectangle.Bottom - half, HandleSize, HandleSize),
+            new Rectangle(middleX - half, rectangle.Bottom - half, HandleSize, HandleSize),
+            new Rectangle(rectangle.Right - half, rectangle.Bottom - half, HandleSize, HandleSize),
+        ];
+    }
+
+    private Rectangle ResizeSelection(Point point)
+    {
+        var deltaX = point.X - _dragOrigin.X;
+        var deltaY = point.Y - _dragOrigin.Y;
+        var left = _originalSelection.Left;
+        var top = _originalSelection.Top;
+        var right = _originalSelection.Right;
+        var bottom = _originalSelection.Bottom;
+
+        if (_resizeEdges.HasFlag(ResizeEdges.West))
+        {
+            left = Math.Clamp(left + deltaX, 0, right - MinimumSelectionSize);
+        }
+        if (_resizeEdges.HasFlag(ResizeEdges.East))
+        {
+            right = Math.Clamp(right + deltaX, left + MinimumSelectionSize, ClientSize.Width);
+        }
+        if (_resizeEdges.HasFlag(ResizeEdges.North))
+        {
+            top = Math.Clamp(top + deltaY, 0, bottom - MinimumSelectionSize);
+        }
+        if (_resizeEdges.HasFlag(ResizeEdges.South))
+        {
+            bottom = Math.Clamp(bottom + deltaY, top + MinimumSelectionSize, ClientSize.Height);
+        }
+
+        return Rectangle.FromLTRB(left, top, right, bottom);
+    }
+
+    private Rectangle MoveSelection(Point point)
+    {
+        var left = Math.Clamp(_originalSelection.Left + point.X - _dragOrigin.X, 0, ClientSize.Width - _originalSelection.Width);
+        var top = Math.Clamp(_originalSelection.Top + point.Y - _dragOrigin.Y, 0, ClientSize.Height - _originalSelection.Height);
+        return new Rectangle(left, top, _originalSelection.Width, _originalSelection.Height);
+    }
+
+    [Flags]
+    private enum ResizeEdges
+    {
+        None = 0,
+        North = 1,
+        South = 2,
+        East = 4,
+        West = 8,
+        NorthEast = North | East,
+        NorthWest = North | West,
+        SouthEast = South | East,
+        SouthWest = South | West,
+    }
+}
+
+public enum RegionSelectionAction
+{
+    Capture,
+    Save,
+    Copy,
 }
