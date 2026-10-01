@@ -1768,6 +1768,19 @@ public sealed class EditorForm : Form
         }
     }
 
+    internal static void ClearCounterFontCache()
+    {
+        lock (CounterFontSync)
+        {
+            foreach (var font in CounterFonts.Values)
+            {
+                font.Dispose();
+            }
+
+            CounterFonts.Clear();
+        }
+    }
+
     private static Rectangle InflateRectangle(Rectangle rectangle, int amount)
     {
         if (rectangle.IsEmpty)
