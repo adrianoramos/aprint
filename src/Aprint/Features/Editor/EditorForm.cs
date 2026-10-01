@@ -102,8 +102,6 @@ public sealed class EditorForm : Form
     [Flags]
     private enum CropEdge { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
 
-    private static readonly object ToolIconCacheSync = new();
-    private static readonly Dictionary<int, ImageList> ToolIconImageLists = [];
     private static readonly Dictionary<float, Font> CounterFonts = [];
     private static readonly object CounterFontSync = new();
 
@@ -116,6 +114,7 @@ public sealed class EditorForm : Form
     private readonly string _automaticSavePath;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
+    private readonly Dictionary<ToolIconKind, int> _colorizedToolIconColors = [];
     private readonly PictureBox _pictureBox;
     private readonly ToolStripButton _btnFreehand;
     private readonly ToolStripButton _btnLine;
@@ -239,7 +238,7 @@ public sealed class EditorForm : Form
         _automaticSavePath = Path.Combine(saveFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         _borrarMode = borrarMode;
         _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
-        _toolIconImageList = GetOrCreateToolIconImageList(_toolIconSize);
+        _toolIconImageList = CreateToolIconImageList(_toolIconSize);
 
         Text = AppLocalization.Translate("Editor.FormTitle");
         Icon = Program.AppIcon;
@@ -813,18 +812,32 @@ public sealed class EditorForm : Form
 
     private string EnsureToolIconKey(ToolIconKind kind, Color color)
     {
-        var key = new ToolIconCacheKey(kind, color.ToArgb());
-        var imageKey = $"{_toolIconSize}:{(int)key.Kind}:{key.ColorArgb}";
+        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor;
+        var imageKey = $"{_toolIconSize}:{(int)kind}";
 
-        lock (ToolIconCacheSync)
+        if (!isColorizedIcon && _toolIconImageList.Images.ContainsKey(imageKey))
         {
-            if (!_toolIconImageList.Images.ContainsKey(imageKey))
-            {
-                _toolIconImageList.Images.Add(imageKey, RenderToolIcon(kind, color, _toolIconSize));
-            }
-
             return imageKey;
         }
+
+        if (isColorizedIcon && _colorizedToolIconColors.TryGetValue(kind, out var currentColor) && currentColor == color.ToArgb())
+        {
+            return imageKey;
+        }
+
+        using var icon = RenderToolIcon(kind, color, _toolIconSize);
+        if (_toolIconImageList.Images.ContainsKey(imageKey))
+        {
+            _toolIconImageList.Images.RemoveByKey(imageKey);
+        }
+
+        _toolIconImageList.Images.Add(imageKey, icon);
+        if (isColorizedIcon)
+        {
+            _colorizedToolIconColors[kind] = color.ToArgb();
+        }
+
+        return imageKey;
     }
 
     private static int GetToolIconSizeForDpi(int dpi)
@@ -837,20 +850,6 @@ public sealed class EditorForm : Form
             <= 30 => 28,
             _ => 32,
         };
-    }
-
-    private static ImageList GetOrCreateToolIconImageList(int iconSize)
-    {
-        lock (ToolIconCacheSync)
-        {
-            if (!ToolIconImageLists.TryGetValue(iconSize, out var imageList))
-            {
-                imageList = CreateToolIconImageList(iconSize);
-                ToolIconImageLists[iconSize] = imageList;
-            }
-
-            return imageList;
-        }
     }
 
     private static ImageList CreateToolIconImageList(int iconSize)
@@ -2045,6 +2044,7 @@ public sealed class EditorForm : Form
             }
 
             _textFormatToolTip.Dispose();
+            _toolIconImageList.Dispose();
             _editHistory.Dispose();
             _workingBitmap.Dispose();
         }
