@@ -7,23 +7,18 @@ public sealed class EditHistory : IDisposable
 
     private readonly Stack<HistoryEntry> _undoStack = new();
     private readonly Stack<HistoryEntry> _redoStack = new();
-    private readonly int _maxHistoryStates;
 
     public EditHistory(Bitmap initialBitmap, int initialNextCounterValue = 1)
     {
-        var bytesPerSnapshot = (long)initialBitmap.Width * initialBitmap.Height *
-            Math.Max(1, Image.GetPixelFormatSize(initialBitmap.PixelFormat) / 8);
-        _maxHistoryStates = (int)Math.Clamp(
-            HistoryMemoryBudgetBytes / bytesPerSnapshot,
-            2,
-            MaxHistoryStates);
-        PushWithLimit(_undoStack, new HistoryEntry((Bitmap)initialBitmap.Clone(), initialNextCounterValue), _maxHistoryStates);
+        PushSnapshot(_undoStack, initialBitmap, initialNextCounterValue);
+        TrimToBudget();
     }
 
     public void Capture(Bitmap bitmap, int nextCounterValue)
     {
-        PushWithLimit(_undoStack, new HistoryEntry((Bitmap)bitmap.Clone(), nextCounterValue), _maxHistoryStates);
+        PushSnapshot(_undoStack, bitmap, nextCounterValue);
         DisposeAll(_redoStack);
+        TrimToBudget();
     }
 
     public (Bitmap Bitmap, int NextCounterValue)? Undo(Bitmap currentBitmap, int currentNextCounterValue)
@@ -33,8 +28,10 @@ public sealed class EditHistory : IDisposable
             return null;
         }
 
-        PushWithLimit(_redoStack, new HistoryEntry((Bitmap)currentBitmap.Clone(), currentNextCounterValue), _maxHistoryStates);
-        return TakeSnapshot(_undoStack);
+        PushSnapshot(_redoStack, currentBitmap, currentNextCounterValue);
+        var snapshot = TakeSnapshot(_undoStack);
+        TrimToBudget();
+        return snapshot;
     }
 
     public (Bitmap Bitmap, int NextCounterValue)? Redo(Bitmap currentBitmap, int currentNextCounterValue)
@@ -44,8 +41,10 @@ public sealed class EditHistory : IDisposable
             return null;
         }
 
-        PushWithLimit(_undoStack, new HistoryEntry((Bitmap)currentBitmap.Clone(), currentNextCounterValue), _maxHistoryStates);
-        return TakeSnapshot(_redoStack);
+        PushSnapshot(_undoStack, currentBitmap, currentNextCounterValue);
+        var snapshot = TakeSnapshot(_redoStack);
+        TrimToBudget();
+        return snapshot;
     }
 
     public void Dispose()
@@ -54,31 +53,53 @@ public sealed class EditHistory : IDisposable
         DisposeAll(_redoStack);
     }
 
-    private static void PushWithLimit(Stack<HistoryEntry> stack, HistoryEntry entry, int maxStates)
+    private static void PushSnapshot(Stack<HistoryEntry> stack, Bitmap bitmap, int nextCounterValue)
     {
-        stack.Push(entry);
-        TrimOldestEntries(stack, maxStates);
+        var snapshot = (Bitmap)bitmap.Clone();
+        stack.Push(new HistoryEntry(snapshot, nextCounterValue, EstimateMemoryBytes(snapshot)));
     }
 
-    private static void TrimOldestEntries(Stack<HistoryEntry> stack, int maxStates)
+    private void TrimToBudget()
     {
-        if (stack.Count <= maxStates)
+        while ((GetTotalStateCount() > MaxHistoryStates || GetTotalMemoryBytes() > HistoryMemoryBudgetBytes) &&
+            GetTotalStateCount() > 1)
         {
-            return;
+            if (_redoStack.Count > 0)
+            {
+                TrimOldestEntry(_redoStack);
+            }
+            else if (_undoStack.Count > 1)
+            {
+                TrimOldestEntry(_undoStack);
+            }
+            else
+            {
+                break;
+            }
         }
+    }
 
+    private static void TrimOldestEntry(Stack<HistoryEntry> stack)
+    {
         var entries = stack.ToArray();
-
-        for (var i = maxStates; i < entries.Length; i++)
-        {
-            entries[i].Bitmap.Dispose();
-        }
-
+        entries[^1].Bitmap.Dispose();
         stack.Clear();
-        for (var i = maxStates - 1; i >= 0; i--)
+        for (var i = entries.Length - 2; i >= 0; i--)
         {
             stack.Push(entries[i]);
         }
+    }
+
+    private int GetTotalStateCount() => _undoStack.Count + _redoStack.Count;
+
+    private long GetTotalMemoryBytes() => _undoStack.Sum(entry => entry.MemoryBytes) +
+        _redoStack.Sum(entry => entry.MemoryBytes);
+
+    private static long EstimateMemoryBytes(Bitmap bitmap)
+    {
+        var bitsPerPixel = Image.GetPixelFormatSize(bitmap.PixelFormat);
+        var bytesPerPixel = Math.Max(1, (bitsPerPixel + 7) / 8);
+        return (long)bitmap.Width * bitmap.Height * bytesPerPixel;
     }
 
     private static (Bitmap Bitmap, int NextCounterValue) TakeSnapshot(Stack<HistoryEntry> stack)
@@ -95,5 +116,5 @@ public sealed class EditHistory : IDisposable
         }
     }
 
-    private sealed record HistoryEntry(Bitmap Bitmap, int NextCounterValue);
+    private sealed record HistoryEntry(Bitmap Bitmap, int NextCounterValue, long MemoryBytes);
 }
