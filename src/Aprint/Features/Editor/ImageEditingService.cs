@@ -207,6 +207,7 @@ public static class ImageEditingService
             }
         }
 
+        using var brush = new SolidBrush(Color.Empty);
         for (var blockY = 0; blockY < blocksHigh; blockY++)
         {
             var blockTop = blockY * blockSize;
@@ -216,8 +217,7 @@ public static class ImageEditingService
             {
                 var blockLeft = blockX * blockSize;
                 var blockWidth = Math.Min(blockSize, rectangle.Width - blockLeft);
-                var color = Color.FromArgb(blockColors[(blockY * blocksWide) + blockX]);
-                using var brush = new SolidBrush(color);
+                brush.Color = Color.FromArgb(blockColors[(blockY * blocksWide) + blockX]);
                 graphics.FillRectangle(brush, rectangle.Left + blockLeft, rectangle.Top + blockTop, blockWidth, blockHeight);
             }
         }
