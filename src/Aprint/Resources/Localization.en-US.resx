@@ -138,6 +138,9 @@
   <data name="Capture.Region.Line" xml:space="preserve">
     <value>Line</value>
   </data>
+  <data name="Capture.Region.Arrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
   <data name="Capture.Region.Save" xml:space="preserve">
     <value>Save</value>
   </data>

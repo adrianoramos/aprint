@@ -12,6 +12,7 @@ public sealed class RegionSelectorForm : Form
         None,
         Freehand,
         Line,
+        Arrow,
     }
 
     private const int SelectionBorderWidth = 2;
@@ -26,7 +27,7 @@ public sealed class RegionSelectorForm : Form
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
     private readonly List<List<Point>> _freehandStrokes = [];
-    private readonly List<(Point Start, Point End)> _lines = [];
+    private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
     private readonly Panel _actionBar;
     private Point _startPoint;
     private Point _dragOrigin;
@@ -106,7 +107,7 @@ public sealed class RegionSelectorForm : Form
                     return;
                 }
 
-                if (_annotationTool == AnnotationTool.Line && _selection.Contains(e.Location))
+                if (_annotationTool is AnnotationTool.Line or AnnotationTool.Arrow && _selection.Contains(e.Location))
                 {
                     _isDrawingLine = true;
                     _lineStart = ClampToSelection(e.Location);
@@ -139,7 +140,7 @@ public sealed class RegionSelectorForm : Form
 
             _actionBar.Visible = false;
             _freehandStrokes.Clear();
-            _lines.Clear();
+            _lineAnnotations.Clear();
             _isSelecting = true;
             Cursor = Cursors.Cross;
             _startPoint = e.Location;
@@ -207,7 +208,7 @@ public sealed class RegionSelectorForm : Form
         {
             var previousEnd = _lineEnd;
             _lineEnd = ClampToSelection(e.Location);
-            _lines.Add((_lineStart, _lineEnd));
+            _lineAnnotations.Add((_lineStart, _lineEnd, _annotationTool == AnnotationTool.Arrow));
             _isDrawingLine = false;
             Capture = false;
             InvalidateLine(previousEnd, _lineEnd);
@@ -303,18 +304,20 @@ public sealed class RegionSelectorForm : Form
         {
             BackColor = Color.FromArgb(246, 247, 249),
             BorderStyle = BorderStyle.FixedSingle,
-            Size = new Size(500, 50),
+            Size = new Size(600, 50),
             Padding = new Padding(6),
         };
 
         var freehandButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Freehand"), false, LoadActionIcon("freehand.png", Color.FromArgb(45, 49, 54)));
         var lineButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Line"), false, LoadActionIcon("line.png", Color.FromArgb(45, 49, 54)));
+        var arrowButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Arrow"), false, LoadActionIcon("arrow.png", Color.FromArgb(45, 49, 54)));
         var captureButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Capture"), true, LoadActionIcon("capture.png", Color.White));
         var saveButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Save"), false, LoadActionIcon("save.png", Color.FromArgb(45, 49, 54)));
         var copyButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Copy"), false, LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)));
 
-        freehandButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Freehand, freehandButton, lineButton);
-        lineButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Line, freehandButton, lineButton);
+        freehandButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Freehand, freehandButton, lineButton, arrowButton);
+        lineButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Line, freehandButton, lineButton, arrowButton);
+        arrowButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Arrow, freehandButton, lineButton, arrowButton);
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
         saveButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
         copyButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Copy);
@@ -322,23 +325,24 @@ public sealed class RegionSelectorForm : Form
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 5,
+            ColumnCount = 6,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        for (var column = 0; column < 5; column++)
+        for (var column = 0; column < 6; column++)
         {
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.667F));
         }
 
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         layout.Controls.Add(freehandButton, 0, 0);
         layout.Controls.Add(lineButton, 1, 0);
-        layout.Controls.Add(captureButton, 2, 0);
-        layout.Controls.Add(saveButton, 3, 0);
-        layout.Controls.Add(copyButton, 4, 0);
+        layout.Controls.Add(arrowButton, 2, 0);
+        layout.Controls.Add(captureButton, 3, 0);
+        layout.Controls.Add(saveButton, 4, 0);
+        layout.Controls.Add(copyButton, 5, 0);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -406,7 +410,7 @@ public sealed class RegionSelectorForm : Form
 
     private void CompleteSelection(RegionSelectionAction action)
     {
-        if (_freehandStrokes.Count > 0 || _lines.Count > 0 || _isDrawingLine)
+        if (_freehandStrokes.Count > 0 || _lineAnnotations.Count > 0 || _isDrawingLine)
         {
             using var graphics = Graphics.FromImage(_background);
             DrawFreehandStrokes(graphics);
@@ -459,11 +463,12 @@ public sealed class RegionSelectorForm : Form
             Math.Max(start.X, end.X) + 1,
             Math.Max(start.Y, end.Y) + 1);
 
-    private void SelectAnnotationTool(AnnotationTool tool, Button freehandButton, Button lineButton)
+    private void SelectAnnotationTool(AnnotationTool tool, Button freehandButton, Button lineButton, Button arrowButton)
     {
         _annotationTool = _annotationTool == tool ? AnnotationTool.None : tool;
         UpdateAnnotationButton(freehandButton, _annotationTool == AnnotationTool.Freehand);
         UpdateAnnotationButton(lineButton, _annotationTool == AnnotationTool.Line);
+        UpdateAnnotationButton(arrowButton, _annotationTool == AnnotationTool.Arrow);
     }
 
     private static void UpdateAnnotationButton(Button button, bool isActive)
@@ -517,17 +522,31 @@ public sealed class RegionSelectorForm : Form
             EndCap = LineCap.Round,
         };
 
-        foreach (var line in _lines)
+        foreach (var annotation in _lineAnnotations)
         {
-            graphics.DrawLine(pen, line.Start, line.End);
+            DrawLineOrArrow(graphics, pen, annotation.Start, annotation.End, annotation.IsArrow);
         }
 
         if (_isDrawingLine)
         {
-            graphics.DrawLine(pen, _lineStart, _lineEnd);
+            DrawLineOrArrow(graphics, pen, _lineStart, _lineEnd, _annotationTool == AnnotationTool.Arrow);
         }
 
         graphics.Restore(state);
+    }
+
+    private static void DrawLineOrArrow(Graphics graphics, Pen pen, Point start, Point end, bool isArrow)
+    {
+        if (!isArrow)
+        {
+            graphics.DrawLine(pen, start, end);
+            return;
+        }
+
+        using var arrowPen = (Pen)pen.Clone();
+        using var arrowCap = new AdjustableArrowCap(5, 7, true);
+        arrowPen.CustomEndCap = arrowCap;
+        graphics.DrawLine(arrowPen, start, end);
     }
 
     private void UpdateActionBarLocation()
