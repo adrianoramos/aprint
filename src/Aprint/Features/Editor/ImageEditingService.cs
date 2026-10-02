@@ -7,6 +7,24 @@ public static class ImageEditingService
 {
     private const int HighlighterAlpha = 105;
 
+    public static void DrawCounterMarker(Graphics graphics, Rectangle bounds, string text, Font font, Color lineColor, Color? fillColor)
+    {
+        if (fillColor is Color markerFillColor)
+        {
+            using var fillBrush = new SolidBrush(markerFillColor);
+            graphics.FillEllipse(fillBrush, bounds);
+        }
+
+        using var borderPen = new Pen(lineColor, 2);
+        graphics.DrawEllipse(borderPen, bounds);
+
+        var textBackgroundColor = fillColor ?? lineColor;
+        var textColor = GetContrastingTextColor(textBackgroundColor);
+        using var textBrush = new SolidBrush(textColor);
+        using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        graphics.DrawString(text, font, textBrush, bounds, format);
+    }
+
     public static void DrawShape(Graphics graphics, Pen pen, Point start, Point end, EditTool tool, Color? fillColor = null)
     {
         var rectangle = CreateSelectionRectangle(start, end);
@@ -224,5 +242,11 @@ public static class ImageEditingService
                 graphics.FillRectangle(brush, rectangle.Left + blockLeft, rectangle.Top + blockTop, blockWidth, blockHeight);
             }
         }
+    }
+
+    private static Color GetContrastingTextColor(Color background)
+    {
+        var luminance = (0.299 * background.R) + (0.587 * background.G) + (0.114 * background.B);
+        return luminance > 140 ? Color.Black : Color.White;
     }
 }
