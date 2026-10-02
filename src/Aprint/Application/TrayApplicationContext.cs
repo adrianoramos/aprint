@@ -24,6 +24,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private SettingsForm? _settingsForm;
     private string? _lastSavedFilePath;
     private Bitmap? _lastCapturedBitmap;
+    private bool _isCaptureInProgress;
 
     public TrayApplicationContext(AppSettings settings, SettingsStore settingsStore)
     {
@@ -91,6 +92,12 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void CaptureScreenshot(CaptureMode? captureModeOverride)
     {
+        if (_isCaptureInProgress)
+        {
+            return;
+        }
+
+        _isCaptureInProgress = true;
         try
         {
             using var result = _captureWorkflow.Execute(_settings, captureModeOverride);
@@ -143,6 +150,10 @@ public sealed class TrayApplicationContext : ApplicationContext
             }
 
             _notifyIcon.ShowBalloonTip(4000, AppLocalization.Translate("Tray.CaptureError"), ex.Message, ToolTipIcon.Error);
+        }
+        finally
+        {
+            _isCaptureInProgress = false;
         }
     }
 
