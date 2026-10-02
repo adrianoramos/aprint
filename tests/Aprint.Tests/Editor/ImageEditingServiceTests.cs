@@ -4,6 +4,35 @@ namespace Aprint.Tests.Editor;
 
 public sealed class ImageEditingServiceTests
 {
+    [Fact]
+    public void DrawCounterMarkerUsesLineAndFillColorsIndependently()
+    {
+        using var bitmap = new Bitmap(40, 40);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+        using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
+
+        ImageEditingService.DrawCounterMarker(graphics, new Rectangle(5, 5, 30, 30), "1", font, Color.Red, Color.Blue);
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(10, 20).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 5).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Fact]
+    public void DrawCounterMarkerLeavesFillTransparentWhenNoFillColorIsSelected()
+    {
+        using var bitmap = new Bitmap(40, 40);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+        using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
+
+        ImageEditingService.DrawCounterMarker(graphics, new Rectangle(5, 5, 30, 30), "1", font, Color.Red, null);
+
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(10, 20).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 5).ToArgb());
+    }
+
     [Theory]
     [InlineData(EditTool.Rectangle)]
     [InlineData(EditTool.Circle)]

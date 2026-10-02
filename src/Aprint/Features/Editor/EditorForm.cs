@@ -1715,11 +1715,6 @@ public sealed class EditorForm : Form
         using var graphics = Graphics.FromImage(_workingBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        using var fillBrush = new SolidBrush(_selectedColor);
-        using var borderPen = new Pen(Color.White, 2);
-        graphics.FillEllipse(fillBrush, markerArea);
-        graphics.DrawEllipse(borderPen, markerArea);
-
         var fontSize = diameter switch
         {
             >= 38 => 12F,
@@ -1728,19 +1723,11 @@ public sealed class EditorForm : Form
         };
 
         var font = GetOrCreateCounterFont(fontSize);
-        using var textBrush = new SolidBrush(GetContrastingTextColor(_selectedColor));
-        using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        graphics.DrawString(text, font, textBrush, markerArea, format);
+        ImageEditingService.DrawCounterMarker(graphics, markerArea, text, font, _selectedColor, _selectedFillColor);
 
         _nextCounterValue++;
         _pictureBox.Image = _workingBitmap;
         InvalidatePictureBoxRegion(InflateRectangle(markerArea, 2));
-    }
-
-    private static Color GetContrastingTextColor(Color background)
-    {
-        var luminance = (0.299 * background.R) + (0.587 * background.G) + (0.114 * background.B);
-        return luminance > 140 ? Color.Black : Color.White;
     }
 
     private void CopyToClipboard()
