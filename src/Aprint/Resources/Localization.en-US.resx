@@ -141,6 +141,9 @@
   <data name="Capture.Region.Arrow" xml:space="preserve">
     <value>Arrow</value>
   </data>
+  <data name="Capture.Region.Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
   <data name="Capture.Region.Save" xml:space="preserve">
     <value>Save</value>
   </data>
