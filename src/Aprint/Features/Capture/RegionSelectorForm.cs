@@ -7,6 +7,13 @@ namespace Aprint.Features.Capture;
 /// <summary>Overlay em tela cheia (todas as telas) que permite ao usuário arrastar o mouse para selecionar uma área a capturar.</summary>
 public sealed class RegionSelectorForm : Form
 {
+    private enum AnnotationTool
+    {
+        None,
+        Freehand,
+        Line,
+    }
+
     private const int SelectionBorderWidth = 2;
     private const int HandleSize = 10;
     private const int MinimumSelectionSize = 3;
@@ -19,6 +26,7 @@ public sealed class RegionSelectorForm : Form
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
     private readonly List<List<Point>> _freehandStrokes = [];
+    private readonly List<(Point Start, Point End)> _lines = [];
     private readonly Panel _actionBar;
     private Point _startPoint;
     private Point _dragOrigin;
@@ -28,8 +36,11 @@ public sealed class RegionSelectorForm : Form
     private bool _isSelecting;
     private bool _isMoving;
     private bool _isResizing;
-    private bool _isFreehandMode;
+    private AnnotationTool _annotationTool;
     private bool _isDrawingFreehand;
+    private bool _isDrawingLine;
+    private Point _lineStart;
+    private Point _lineEnd;
 
     public Rectangle? SelectedRegion { get; private set; }
 
@@ -65,6 +76,7 @@ public sealed class RegionSelectorForm : Form
             // Revela o conteúdo original (sem escurecer) dentro da área selecionada.
             e.Graphics.DrawImage(_background, _selection, _selection, GraphicsUnit.Pixel);
             DrawFreehandStrokes(e.Graphics);
+            DrawLines(e.Graphics);
             e.Graphics.DrawRectangle(_borderPen, _selection);
             DrawHandles(e.Graphics);
         }
@@ -86,10 +98,19 @@ public sealed class RegionSelectorForm : Form
                     return;
                 }
 
-                if (_isFreehandMode && _selection.Contains(e.Location))
+                if (_annotationTool == AnnotationTool.Freehand && _selection.Contains(e.Location))
                 {
                     _isDrawingFreehand = true;
                     _freehandStrokes.Add([ClampToSelection(e.Location)]);
+                    Capture = true;
+                    return;
+                }
+
+                if (_annotationTool == AnnotationTool.Line && _selection.Contains(e.Location))
+                {
+                    _isDrawingLine = true;
+                    _lineStart = ClampToSelection(e.Location);
+                    _lineEnd = _lineStart;
                     Capture = true;
                     return;
                 }
@@ -118,6 +139,7 @@ public sealed class RegionSelectorForm : Form
 
             _actionBar.Visible = false;
             _freehandStrokes.Clear();
+            _lines.Clear();
             _isSelecting = true;
             Cursor = Cursors.Cross;
             _startPoint = e.Location;
@@ -131,6 +153,14 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingFreehand)
         {
             AddFreehandPoint(e.Location);
+            return;
+        }
+
+        if (_isDrawingLine)
+        {
+            var previousEnd = _lineEnd;
+            _lineEnd = ClampToSelection(e.Location);
+            InvalidateLine(previousEnd, _lineEnd);
             return;
         }
 
@@ -170,6 +200,17 @@ public sealed class RegionSelectorForm : Form
             AddFreehandPoint(e.Location);
             _isDrawingFreehand = false;
             Capture = false;
+            return;
+        }
+
+        if (_isDrawingLine)
+        {
+            var previousEnd = _lineEnd;
+            _lineEnd = ClampToSelection(e.Location);
+            _lines.Add((_lineStart, _lineEnd));
+            _isDrawingLine = false;
+            Capture = false;
+            InvalidateLine(previousEnd, _lineEnd);
             return;
         }
 
@@ -262,22 +303,18 @@ public sealed class RegionSelectorForm : Form
         {
             BackColor = Color.FromArgb(246, 247, 249),
             BorderStyle = BorderStyle.FixedSingle,
-            Size = new Size(410, 50),
+            Size = new Size(500, 50),
             Padding = new Padding(6),
         };
 
         var freehandButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Freehand"), false, LoadActionIcon("freehand.png", Color.FromArgb(45, 49, 54)));
+        var lineButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Line"), false, LoadActionIcon("line.png", Color.FromArgb(45, 49, 54)));
         var captureButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Capture"), true, LoadActionIcon("capture.png", Color.White));
         var saveButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Save"), false, LoadActionIcon("save.png", Color.FromArgb(45, 49, 54)));
         var copyButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Copy"), false, LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)));
 
-        freehandButton.Click += (_, _) =>
-        {
-            _isFreehandMode = !_isFreehandMode;
-            freehandButton.BackColor = _isFreehandMode ? Color.FromArgb(0, 103, 192) : Color.White;
-            freehandButton.ForeColor = _isFreehandMode ? Color.White : Color.FromArgb(45, 49, 54);
-            freehandButton.FlatAppearance.BorderSize = _isFreehandMode ? 0 : 1;
-        };
+        freehandButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Freehand, freehandButton, lineButton);
+        lineButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Line, freehandButton, lineButton);
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
         saveButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
         copyButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Copy);
@@ -285,22 +322,23 @@ public sealed class RegionSelectorForm : Form
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 4,
+            ColumnCount = 5,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        for (var column = 0; column < 4; column++)
+        for (var column = 0; column < 5; column++)
         {
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
         }
 
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         layout.Controls.Add(freehandButton, 0, 0);
-        layout.Controls.Add(captureButton, 1, 0);
-        layout.Controls.Add(saveButton, 2, 0);
-        layout.Controls.Add(copyButton, 3, 0);
+        layout.Controls.Add(lineButton, 1, 0);
+        layout.Controls.Add(captureButton, 2, 0);
+        layout.Controls.Add(saveButton, 3, 0);
+        layout.Controls.Add(copyButton, 4, 0);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -368,10 +406,11 @@ public sealed class RegionSelectorForm : Form
 
     private void CompleteSelection(RegionSelectionAction action)
     {
-        if (_freehandStrokes.Count > 0)
+        if (_freehandStrokes.Count > 0 || _lines.Count > 0 || _isDrawingLine)
         {
             using var graphics = Graphics.FromImage(_background);
             DrawFreehandStrokes(graphics);
+            DrawLines(graphics);
         }
 
         SelectedRegion = _selection;
@@ -405,6 +444,41 @@ public sealed class RegionSelectorForm : Form
         Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
     }
 
+    private void InvalidateLine(Point start, Point end)
+    {
+        var dirtyRectangle = Rectangle.Union(
+            CreateLineRectangle(_lineStart, start),
+            CreateLineRectangle(_lineStart, end));
+        dirtyRectangle.Inflate(FreehandPenWidth + 2, FreehandPenWidth + 2);
+        Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
+    }
+
+    private static Rectangle CreateLineRectangle(Point start, Point end) => Rectangle.FromLTRB(
+            Math.Min(start.X, end.X),
+            Math.Min(start.Y, end.Y),
+            Math.Max(start.X, end.X) + 1,
+            Math.Max(start.Y, end.Y) + 1);
+
+    private void SelectAnnotationTool(AnnotationTool tool, Button freehandButton, Button lineButton)
+    {
+        _annotationTool = _annotationTool == tool ? AnnotationTool.None : tool;
+        UpdateAnnotationButton(freehandButton, _annotationTool == AnnotationTool.Freehand);
+        UpdateAnnotationButton(lineButton, _annotationTool == AnnotationTool.Line);
+    }
+
+    private static void UpdateAnnotationButton(Button button, bool isActive)
+    {
+        button.BackColor = isActive ? Color.FromArgb(0, 103, 192) : Color.White;
+        button.ForeColor = isActive ? Color.White : Color.FromArgb(45, 49, 54);
+        button.FlatAppearance.BorderSize = isActive ? 0 : 1;
+        button.FlatAppearance.MouseOverBackColor = isActive
+            ? Color.FromArgb(0, 90, 158)
+            : Color.FromArgb(241, 244, 247);
+        button.FlatAppearance.MouseDownBackColor = isActive
+            ? Color.FromArgb(0, 75, 132)
+            : Color.FromArgb(230, 235, 240);
+    }
+
     private Point ClampToSelection(Point point) => new(
         Math.Clamp(point.X, _selection.Left, _selection.Right - 1),
         Math.Clamp(point.Y, _selection.Top, _selection.Bottom - 1));
@@ -427,6 +501,30 @@ public sealed class RegionSelectorForm : Form
             {
                 graphics.DrawLines(pen, stroke.ToArray());
             }
+        }
+
+        graphics.Restore(state);
+    }
+
+    private void DrawLines(Graphics graphics)
+    {
+        var state = graphics.Save();
+        graphics.SetClip(_selection);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = new Pen(Color.Red, FreehandPenWidth)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+        };
+
+        foreach (var line in _lines)
+        {
+            graphics.DrawLine(pen, line.Start, line.End);
+        }
+
+        if (_isDrawingLine)
+        {
+            graphics.DrawLine(pen, _lineStart, _lineEnd);
         }
 
         graphics.Restore(state);

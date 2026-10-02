@@ -135,6 +135,9 @@
   <data name="Capture.Region.Freehand" xml:space="preserve">
     <value>Livre</value>
   </data>
+  <data name="Capture.Region.Line" xml:space="preserve">
+    <value>Linha</value>
+  </data>
   <data name="Capture.Region.Save" xml:space="preserve">
     <value>Salvar</value>
   </data>
