@@ -144,6 +144,9 @@
   <data name="Capture.Region.Rectangle" xml:space="preserve">
     <value>Retângulo</value>
   </data>
+  <data name="Capture.Region.Circle" xml:space="preserve">
+    <value>Círculo</value>
+  </data>
   <data name="Capture.Region.Save" xml:space="preserve">
     <value>Salvar</value>
   </data>
