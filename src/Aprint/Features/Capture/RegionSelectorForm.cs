@@ -1,4 +1,5 @@
 using Aprint.Features.Settings;
+using Aprint.Features.Editor;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
@@ -29,11 +30,19 @@ public sealed class RegionSelectorForm : Form
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
     private readonly ContextMenuStrip _drawingMenu = new();
+    private readonly ContextMenuStrip _borrarMenu = new();
     private readonly List<List<Point>> _freehandStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
     private readonly Panel _actionBar;
+    private Button? _drawingButton;
+    private Button? _borrarButton;
+    private Image? _pixelatedIcon;
+    private Image? _filledIcon;
+    private BorrarMode _borrarMode = BorrarMode.Pixelate;
+    private Color _borrarColor = Color.Red;
+    private int _borrarPixelSize = 6;
     private Point _startPoint;
     private Point _dragOrigin;
     private Rectangle _selection;
@@ -47,21 +56,28 @@ public sealed class RegionSelectorForm : Form
     private bool _isDrawingLine;
     private bool _isDrawingRectangle;
     private bool _isDrawingCircle;
+    private bool _isBorrarModeActive;
+    private bool _isDrawingBorrarRegion;
     private Point _lineStart;
     private Point _lineEnd;
     private Point _rectangleStart;
     private Point _rectangleEnd;
     private Point _circleStart;
     private Point _circleEnd;
+    private Point _borrarStart;
+    private Point _borrarEnd;
 
     public Rectangle? SelectedRegion { get; private set; }
 
     public RegionSelectionAction? SelectedAction { get; private set; }
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int borrarColorArgb = -65536)
     {
         _background = background;
         _outsideCaptureClickAction = outsideCaptureClickAction;
+        _borrarMode = borrarMode;
+        _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
+        _borrarColor = Color.FromArgb(borrarColorArgb);
 
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -91,6 +107,11 @@ public sealed class RegionSelectorForm : Form
             DrawLines(e.Graphics);
             DrawRectangles(e.Graphics);
             DrawCircles(e.Graphics);
+            if (_isDrawingBorrarRegion)
+            {
+                using var previewPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
+                e.Graphics.DrawRectangle(previewPen, GetRectangle(_borrarStart, _borrarEnd));
+            }
             e.Graphics.DrawRectangle(_borderPen, _selection);
             DrawHandles(e.Graphics);
         }
@@ -143,6 +164,15 @@ public sealed class RegionSelectorForm : Form
                     _isDrawingCircle = true;
                     _circleStart = ClampToSelection(e.Location);
                     _circleEnd = _circleStart;
+                    Capture = true;
+                    return;
+                }
+
+                if (_isBorrarModeActive && _selection.Contains(e.Location))
+                {
+                    _isDrawingBorrarRegion = true;
+                    _borrarStart = ClampToSelection(e.Location);
+                    _borrarEnd = _borrarStart;
                     Capture = true;
                     return;
                 }
@@ -211,6 +241,14 @@ public sealed class RegionSelectorForm : Form
             var previousEnd = _circleEnd;
             _circleEnd = ClampToSelection(e.Location);
             InvalidateShapePreview(_circleStart, previousEnd, _circleEnd);
+            return;
+        }
+
+        if (_isDrawingBorrarRegion)
+        {
+            var previousEnd = _borrarEnd;
+            _borrarEnd = ClampToSelection(e.Location);
+            InvalidateShapePreview(_borrarStart, previousEnd, _borrarEnd);
             return;
         }
 
@@ -286,6 +324,22 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
+        if (_isDrawingBorrarRegion)
+        {
+            var previousEnd = _borrarEnd;
+            _borrarEnd = ClampToSelection(e.Location);
+            var area = GetRectangle(_borrarStart, _borrarEnd);
+            _isDrawingBorrarRegion = false;
+            Capture = false;
+            if (area.Width > 0 && area.Height > 0)
+            {
+                ImageEditingService.ApplyBorrar(_background, area, _borrarMode, _borrarColor, _borrarPixelSize);
+            }
+
+            InvalidateShapePreview(_borrarStart, previousEnd, _borrarEnd);
+            return;
+        }
+
         if (_isResizing || _isMoving)
         {
             _isResizing = false;
@@ -355,6 +409,7 @@ public sealed class RegionSelectorForm : Form
             _borderPen.Dispose();
             _handleBrush.Dispose();
             _drawingMenu.Dispose();
+            _borrarMenu.Dispose();
             foreach (var image in _actionImages)
             {
                 image.Dispose();
@@ -385,9 +440,19 @@ public sealed class RegionSelectorForm : Form
         var copyButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Copy"), false, LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)));
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
         var drawingButton = CreateActionButton($"{drawingLabel} \u25BE", false, null);
+        _drawingButton = drawingButton;
         drawingButton.AccessibleName = drawingLabel;
         drawingButton.ContextMenuStrip = _drawingMenu;
         drawingButton.Click += (_, _) => _drawingMenu.Show(drawingButton, new Point(0, drawingButton.Height));
+
+        _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
+        _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
+        var borrarLabel = AppLocalization.Translate("Editor.Blur");
+        var borrarButton = CreateActionButton($"{borrarLabel} \u25BE", false, _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
+        _borrarButton = borrarButton;
+        borrarButton.AccessibleName = borrarLabel;
+        borrarButton.ContextMenuStrip = _borrarMenu;
+        borrarButton.Click += (_, _) => _borrarMenu.Show(borrarButton, new Point(0, borrarButton.Height));
 
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
         saveButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
@@ -398,6 +463,8 @@ public sealed class RegionSelectorForm : Form
         AddAnnotationMenuItem(drawingButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
         AddAnnotationMenuItem(drawingButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
         AddAnnotationMenuItem(drawingButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
+        AddBorrarMenuItem(BorrarMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
+        AddBorrarMenuItem(BorrarMode.Solid, "Editor.Filled", _filledIcon);
 
         var layout = new TableLayoutPanel
         {
@@ -415,15 +482,14 @@ public sealed class RegionSelectorForm : Form
         var toolsLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 2,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
-        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
-        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
 
         var actionsLayout = new TableLayoutPanel
         {
@@ -440,7 +506,8 @@ public sealed class RegionSelectorForm : Form
         }
 
         toolsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        toolsLayout.Controls.Add(drawingButton, 1, 0);
+        toolsLayout.Controls.Add(drawingButton, 0, 0);
+        toolsLayout.Controls.Add(borrarButton, 1, 0);
         actionsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         actionsLayout.Controls.Add(captureButton, 0, 0);
         actionsLayout.Controls.Add(saveButton, 1, 0);
@@ -457,6 +524,16 @@ public sealed class RegionSelectorForm : Form
         var menuItem = new ToolStripMenuItem(AppLocalization.Translate(localizationKey), icon);
         menuItem.Click += (_, _) => SelectAnnotationTool(tool, drawingButton, menuItem, icon);
         _drawingMenu.Items.Add(menuItem);
+    }
+
+    private void AddBorrarMenuItem(BorrarMode mode, string localizationKey, Image icon)
+    {
+        var menuItem = new ToolStripMenuItem(AppLocalization.Translate(localizationKey), icon)
+        {
+            Checked = mode == _borrarMode,
+        };
+        menuItem.Click += (_, _) => SelectBorrarMode(mode, menuItem, icon);
+        _borrarMenu.Items.Add(menuItem);
     }
 
     private Button CreateActionButton(string text, bool isPrimary, Image? image)
@@ -580,12 +657,61 @@ public sealed class RegionSelectorForm : Form
     private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem selectedMenuItem, Image selectedIcon)
     {
         _annotationTool = _annotationTool == tool ? AnnotationTool.None : tool;
+        _isBorrarModeActive = false;
+        UpdateBorrarButtonAppearance();
         foreach (ToolStripMenuItem menuItem in _drawingMenu.Items)
         {
             menuItem.Checked = _annotationTool != AnnotationTool.None && menuItem == selectedMenuItem && _annotationTool == tool;
         }
 
         drawingButton.Image = _annotationTool == AnnotationTool.None ? null : selectedIcon;
+    }
+
+    private void SelectBorrarMode(BorrarMode mode, ToolStripMenuItem selectedMenuItem, Image selectedIcon)
+    {
+        var isTogglingOff = _isBorrarModeActive && _borrarMode == mode;
+        _annotationTool = AnnotationTool.None;
+        foreach (ToolStripMenuItem menuItem in _drawingMenu.Items)
+        {
+            menuItem.Checked = false;
+        }
+
+        if (_drawingButton is not null)
+        {
+            _drawingButton.Image = null;
+        }
+
+        _borrarMode = mode;
+        _isBorrarModeActive = !isTogglingOff;
+        foreach (ToolStripMenuItem menuItem in _borrarMenu.Items)
+        {
+            menuItem.Checked = _isBorrarModeActive && menuItem == selectedMenuItem;
+        }
+
+        if (_borrarButton is not null)
+        {
+            _borrarButton.Image = selectedIcon;
+        }
+
+        UpdateBorrarButtonAppearance();
+    }
+
+    private void UpdateBorrarButtonAppearance()
+    {
+        if (_borrarButton is null)
+        {
+            return;
+        }
+
+        _borrarButton.BackColor = _isBorrarModeActive ? Color.FromArgb(0, 103, 192) : Color.White;
+        _borrarButton.ForeColor = _isBorrarModeActive ? Color.White : Color.FromArgb(45, 49, 54);
+        _borrarButton.FlatAppearance.BorderSize = _isBorrarModeActive ? 0 : 1;
+        _borrarButton.FlatAppearance.MouseOverBackColor = _isBorrarModeActive
+            ? Color.FromArgb(0, 90, 158)
+            : Color.FromArgb(241, 244, 247);
+        _borrarButton.FlatAppearance.MouseDownBackColor = _isBorrarModeActive
+            ? Color.FromArgb(0, 75, 132)
+            : Color.FromArgb(230, 235, 240);
     }
 
     private Point ClampToSelection(Point point) => new(
