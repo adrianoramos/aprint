@@ -10,6 +10,7 @@ public sealed class RegionSelectorForm : Form
     private const int SelectionBorderWidth = 2;
     private const int HandleSize = 10;
     private const int MinimumSelectionSize = 3;
+    private const int FreehandPenWidth = 3;
 
     private readonly Bitmap _background;
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
@@ -17,6 +18,7 @@ public sealed class RegionSelectorForm : Form
     private readonly Pen _borderPen = new(Color.White, SelectionBorderWidth);
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
+    private readonly List<List<Point>> _freehandStrokes = [];
     private readonly Panel _actionBar;
     private Point _startPoint;
     private Point _dragOrigin;
@@ -26,6 +28,8 @@ public sealed class RegionSelectorForm : Form
     private bool _isSelecting;
     private bool _isMoving;
     private bool _isResizing;
+    private bool _isFreehandMode;
+    private bool _isDrawingFreehand;
 
     public Rectangle? SelectedRegion { get; private set; }
 
@@ -60,6 +64,7 @@ public sealed class RegionSelectorForm : Form
         {
             // Revela o conteúdo original (sem escurecer) dentro da área selecionada.
             e.Graphics.DrawImage(_background, _selection, _selection, GraphicsUnit.Pixel);
+            DrawFreehandStrokes(e.Graphics);
             e.Graphics.DrawRectangle(_borderPen, _selection);
             DrawHandles(e.Graphics);
         }
@@ -78,6 +83,14 @@ public sealed class RegionSelectorForm : Form
                     Cursor = GetResizeCursor(_resizeEdges);
                     _dragOrigin = e.Location;
                     _originalSelection = _selection;
+                    return;
+                }
+
+                if (_isFreehandMode && _selection.Contains(e.Location))
+                {
+                    _isDrawingFreehand = true;
+                    _freehandStrokes.Add([ClampToSelection(e.Location)]);
+                    Capture = true;
                     return;
                 }
 
@@ -104,6 +117,7 @@ public sealed class RegionSelectorForm : Form
             }
 
             _actionBar.Visible = false;
+            _freehandStrokes.Clear();
             _isSelecting = true;
             Cursor = Cursors.Cross;
             _startPoint = e.Location;
@@ -114,6 +128,12 @@ public sealed class RegionSelectorForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (_isDrawingFreehand)
+        {
+            AddFreehandPoint(e.Location);
+            return;
+        }
+
         if (_isSelecting || _isResizing || _isMoving)
         {
             var nextSelection = _isSelecting
@@ -142,6 +162,14 @@ public sealed class RegionSelectorForm : Form
     {
         if (e.Button != MouseButtons.Left)
         {
+            return;
+        }
+
+        if (_isDrawingFreehand)
+        {
+            AddFreehandPoint(e.Location);
+            _isDrawingFreehand = false;
+            Capture = false;
             return;
         }
 
@@ -234,14 +262,22 @@ public sealed class RegionSelectorForm : Form
         {
             BackColor = Color.FromArgb(246, 247, 249),
             BorderStyle = BorderStyle.FixedSingle,
-            Size = new Size(318, 50),
+            Size = new Size(410, 50),
             Padding = new Padding(6),
         };
 
+        var freehandButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Freehand"), false, LoadActionIcon("freehand.png", Color.FromArgb(45, 49, 54)));
         var captureButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Capture"), true, LoadActionIcon("capture.png", Color.White));
         var saveButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Save"), false, LoadActionIcon("save.png", Color.FromArgb(45, 49, 54)));
         var copyButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Copy"), false, LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)));
 
+        freehandButton.Click += (_, _) =>
+        {
+            _isFreehandMode = !_isFreehandMode;
+            freehandButton.BackColor = _isFreehandMode ? Color.FromArgb(0, 103, 192) : Color.White;
+            freehandButton.ForeColor = _isFreehandMode ? Color.White : Color.FromArgb(45, 49, 54);
+            freehandButton.FlatAppearance.BorderSize = _isFreehandMode ? 0 : 1;
+        };
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
         saveButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
         copyButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Copy);
@@ -249,21 +285,22 @@ public sealed class RegionSelectorForm : Form
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 4,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        for (var column = 0; column < 3; column++)
+        for (var column = 0; column < 4; column++)
         {
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
         }
 
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.Controls.Add(captureButton, 0, 0);
-        layout.Controls.Add(saveButton, 1, 0);
-        layout.Controls.Add(copyButton, 2, 0);
+        layout.Controls.Add(freehandButton, 0, 0);
+        layout.Controls.Add(captureButton, 1, 0);
+        layout.Controls.Add(saveButton, 2, 0);
+        layout.Controls.Add(copyButton, 3, 0);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -331,10 +368,68 @@ public sealed class RegionSelectorForm : Form
 
     private void CompleteSelection(RegionSelectionAction action)
     {
+        if (_freehandStrokes.Count > 0)
+        {
+            using var graphics = Graphics.FromImage(_background);
+            DrawFreehandStrokes(graphics);
+        }
+
         SelectedRegion = _selection;
         SelectedAction = action;
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private void AddFreehandPoint(Point location)
+    {
+        if (_freehandStrokes.Count == 0)
+        {
+            return;
+        }
+
+        var point = ClampToSelection(location);
+        var stroke = _freehandStrokes[^1];
+        var previousPoint = stroke[^1];
+        if (point == previousPoint)
+        {
+            return;
+        }
+
+        stroke.Add(point);
+        var dirtyRectangle = Rectangle.FromLTRB(
+            Math.Min(previousPoint.X, point.X),
+            Math.Min(previousPoint.Y, point.Y),
+            Math.Max(previousPoint.X, point.X) + 1,
+            Math.Max(previousPoint.Y, point.Y) + 1);
+        dirtyRectangle.Inflate(FreehandPenWidth + 2, FreehandPenWidth + 2);
+        Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
+    }
+
+    private Point ClampToSelection(Point point) => new(
+        Math.Clamp(point.X, _selection.Left, _selection.Right - 1),
+        Math.Clamp(point.Y, _selection.Top, _selection.Bottom - 1));
+
+    private void DrawFreehandStrokes(Graphics graphics)
+    {
+        var state = graphics.Save();
+        graphics.SetClip(_selection);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = new Pen(Color.Red, FreehandPenWidth)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round,
+        };
+
+        foreach (var stroke in _freehandStrokes)
+        {
+            if (stroke.Count > 1)
+            {
+                graphics.DrawLines(pen, stroke.ToArray());
+            }
+        }
+
+        graphics.Restore(state);
     }
 
     private void UpdateActionBarLocation()
