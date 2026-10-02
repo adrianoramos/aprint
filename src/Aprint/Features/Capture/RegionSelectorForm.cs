@@ -28,6 +28,7 @@ public sealed class RegionSelectorForm : Form
     private readonly Pen _borderPen = new(Color.White, SelectionBorderWidth);
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
+    private readonly ContextMenuStrip _drawingMenu = new();
     private readonly List<List<Point>> _freehandStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
     private readonly List<Rectangle> _rectangles = [];
@@ -353,6 +354,7 @@ public sealed class RegionSelectorForm : Form
             _overlayBrush.Dispose();
             _borderPen.Dispose();
             _handleBrush.Dispose();
+            _drawingMenu.Dispose();
             foreach (var image in _actionImages)
             {
                 image.Dispose();
@@ -378,23 +380,24 @@ public sealed class RegionSelectorForm : Form
             Padding = new Padding(6),
         };
 
-        var freehandButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Freehand"), false, LoadActionIcon("freehand.png", Color.FromArgb(45, 49, 54)));
-        var lineButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Line"), false, LoadActionIcon("line.png", Color.FromArgb(45, 49, 54)));
-        var arrowButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Arrow"), false, LoadActionIcon("arrow.png", Color.FromArgb(45, 49, 54)));
-        var rectangleButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Rectangle"), false, LoadActionIcon("square.png", Color.FromArgb(45, 49, 54)));
-        var circleButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Circle"), false, LoadActionIcon("circle.png", Color.FromArgb(45, 49, 54)));
         var captureButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Capture"), true, LoadActionIcon("capture.png", Color.White));
         var saveButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Save"), false, LoadActionIcon("save.png", Color.FromArgb(45, 49, 54)));
         var copyButton = CreateActionButton(AppLocalization.Translate("Capture.Region.Copy"), false, LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)));
+        var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
+        var drawingButton = CreateActionButton($"{drawingLabel} \u25BE", false, null);
+        drawingButton.AccessibleName = drawingLabel;
+        drawingButton.ContextMenuStrip = _drawingMenu;
+        drawingButton.Click += (_, _) => _drawingMenu.Show(drawingButton, new Point(0, drawingButton.Height));
 
-        freehandButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Freehand, freehandButton, lineButton, arrowButton, rectangleButton, circleButton);
-        lineButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Line, freehandButton, lineButton, arrowButton, rectangleButton, circleButton);
-        arrowButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Arrow, freehandButton, lineButton, arrowButton, rectangleButton, circleButton);
-        rectangleButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Rectangle, freehandButton, lineButton, arrowButton, rectangleButton, circleButton);
-        circleButton.Click += (_, _) => SelectAnnotationTool(AnnotationTool.Circle, freehandButton, lineButton, arrowButton, rectangleButton, circleButton);
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
         saveButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
         copyButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Copy);
+
+        AddAnnotationMenuItem(drawingButton, AnnotationTool.Freehand, "Capture.Region.Freehand", "freehand.png");
+        AddAnnotationMenuItem(drawingButton, AnnotationTool.Line, "Capture.Region.Line", "line.png");
+        AddAnnotationMenuItem(drawingButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
+        AddAnnotationMenuItem(drawingButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
+        AddAnnotationMenuItem(drawingButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
 
         var layout = new TableLayoutPanel
         {
@@ -412,16 +415,15 @@ public sealed class RegionSelectorForm : Form
         var toolsLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 5,
+            ColumnCount = 3,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        for (var column = 0; column < 5; column++)
-        {
-            toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
-        }
+        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+        toolsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
 
         var actionsLayout = new TableLayoutPanel
         {
@@ -438,11 +440,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         toolsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        toolsLayout.Controls.Add(freehandButton, 0, 0);
-        toolsLayout.Controls.Add(lineButton, 1, 0);
-        toolsLayout.Controls.Add(arrowButton, 2, 0);
-        toolsLayout.Controls.Add(rectangleButton, 3, 0);
-        toolsLayout.Controls.Add(circleButton, 4, 0);
+        toolsLayout.Controls.Add(drawingButton, 1, 0);
         actionsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         actionsLayout.Controls.Add(captureButton, 0, 0);
         actionsLayout.Controls.Add(saveButton, 1, 0);
@@ -453,7 +451,15 @@ public sealed class RegionSelectorForm : Form
         return panel;
     }
 
-    private Button CreateActionButton(string text, bool isPrimary, Image image)
+    private void AddAnnotationMenuItem(Button drawingButton, AnnotationTool tool, string localizationKey, string iconFileName)
+    {
+        var icon = LoadActionIcon(iconFileName, Color.FromArgb(45, 49, 54));
+        var menuItem = new ToolStripMenuItem(AppLocalization.Translate(localizationKey), icon);
+        menuItem.Click += (_, _) => SelectAnnotationTool(tool, drawingButton, menuItem, icon);
+        _drawingMenu.Items.Add(menuItem);
+    }
+
+    private Button CreateActionButton(string text, bool isPrimary, Image? image)
     {
         var button = new Button
         {
@@ -571,27 +577,15 @@ public sealed class RegionSelectorForm : Form
             Math.Max(start.X, end.X) + 1,
             Math.Max(start.Y, end.Y) + 1);
 
-    private void SelectAnnotationTool(AnnotationTool tool, Button freehandButton, Button lineButton, Button arrowButton, Button rectangleButton, Button circleButton)
+    private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem selectedMenuItem, Image selectedIcon)
     {
         _annotationTool = _annotationTool == tool ? AnnotationTool.None : tool;
-        UpdateAnnotationButton(freehandButton, _annotationTool == AnnotationTool.Freehand);
-        UpdateAnnotationButton(lineButton, _annotationTool == AnnotationTool.Line);
-        UpdateAnnotationButton(arrowButton, _annotationTool == AnnotationTool.Arrow);
-        UpdateAnnotationButton(rectangleButton, _annotationTool == AnnotationTool.Rectangle);
-        UpdateAnnotationButton(circleButton, _annotationTool == AnnotationTool.Circle);
-    }
+        foreach (ToolStripMenuItem menuItem in _drawingMenu.Items)
+        {
+            menuItem.Checked = _annotationTool != AnnotationTool.None && menuItem == selectedMenuItem && _annotationTool == tool;
+        }
 
-    private static void UpdateAnnotationButton(Button button, bool isActive)
-    {
-        button.BackColor = isActive ? Color.FromArgb(0, 103, 192) : Color.White;
-        button.ForeColor = isActive ? Color.White : Color.FromArgb(45, 49, 54);
-        button.FlatAppearance.BorderSize = isActive ? 0 : 1;
-        button.FlatAppearance.MouseOverBackColor = isActive
-            ? Color.FromArgb(0, 90, 158)
-            : Color.FromArgb(241, 244, 247);
-        button.FlatAppearance.MouseDownBackColor = isActive
-            ? Color.FromArgb(0, 75, 132)
-            : Color.FromArgb(230, 235, 240);
+        drawingButton.Image = _annotationTool == AnnotationTool.None ? null : selectedIcon;
     }
 
     private Point ClampToSelection(Point point) => new(

@@ -132,6 +132,9 @@
   <data name="Capture.Region.Capture" xml:space="preserve">
     <value>Capture</value>
   </data>
+  <data name="Capture.Region.Drawing" xml:space="preserve">
+    <value>Drawing</value>
+  </data>
   <data name="Capture.Region.Freehand" xml:space="preserve">
     <value>Freehand</value>
   </data>
