@@ -17,6 +17,7 @@ public sealed class RegionSelectorForm : Form
         Rectangle,
         Circle,
         Highlight,
+        Counter,
     }
 
     private const int SelectionBorderWidth = 2;
@@ -37,6 +38,7 @@ public sealed class RegionSelectorForm : Form
     private readonly List<List<Point>> _freehandStrokes = [];
     private readonly List<List<Point>> _highlightStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
+    private readonly List<(Point Center, int Value, int Diameter)> _counterMarkers = [];
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
     private readonly Panel _actionBar;
@@ -44,6 +46,7 @@ public sealed class RegionSelectorForm : Form
     private Button? _drawingDropdownButton;
     private Button? _highlightButton;
     private Image? _highlightIcon;
+    private Button? _counterButton;
     private Button? _borrarButton;
     private Button? _borrarDropdownButton;
     private Image? _pixelatedIcon;
@@ -52,6 +55,8 @@ public sealed class RegionSelectorForm : Form
     private Color _borrarColor = Color.Red;
     private int _borrarPixelSize = 6;
     private int _highlightWidth = 18;
+    private Color? _counterFillColor;
+    private int _nextCounterValue = 1;
     private AnnotationTool _selectedAnnotationTool;
     private ToolStripMenuItem? _selectedDrawingMenuItem;
     private Image? _selectedDrawingIcon;
@@ -85,7 +90,7 @@ public sealed class RegionSelectorForm : Form
 
     public RegionSelectionAction? SelectedAction { get; private set; }
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int borrarColorArgb = -65536, int highlightWidth = 18)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int borrarColorArgb = -65536, int highlightWidth = 18, int? counterFillColorArgb = null)
     {
         _background = background;
         _outsideCaptureClickAction = outsideCaptureClickAction;
@@ -93,6 +98,7 @@ public sealed class RegionSelectorForm : Form
         _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
         _borrarColor = Color.FromArgb(borrarColorArgb);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
+        _counterFillColor = counterFillColorArgb is int fillColorArgb ? Color.FromArgb(fillColorArgb) : null;
 
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -123,6 +129,7 @@ public sealed class RegionSelectorForm : Form
             DrawLines(e.Graphics);
             DrawRectangles(e.Graphics);
             DrawCircles(e.Graphics);
+            DrawCounterMarkers(e.Graphics);
             if (_isDrawingBorrarRegion)
             {
                 using var previewPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
@@ -146,6 +153,12 @@ public sealed class RegionSelectorForm : Form
                     Cursor = GetResizeCursor(_resizeEdges);
                     _dragOrigin = e.Location;
                     _originalSelection = _selection;
+                    return;
+                }
+
+                if (_annotationTool == AnnotationTool.Counter && _selection.Contains(e.Location))
+                {
+                    AddCounterMarker(ClampToSelection(e.Location));
                     return;
                 }
 
@@ -231,6 +244,8 @@ public sealed class RegionSelectorForm : Form
             _lineAnnotations.Clear();
             _rectangles.Clear();
             _circles.Clear();
+            _counterMarkers.Clear();
+            _nextCounterValue = 1;
             _isSelecting = true;
             Cursor = Cursors.Cross;
             _startPoint = e.Location;
@@ -564,7 +579,14 @@ public sealed class RegionSelectorForm : Form
         var highlightButton = CreateActionButton(highlightLabel, false, _highlightIcon);
         _highlightButton = highlightButton;
         highlightButton.AccessibleName = highlightLabel;
-        highlightButton.Click += (_, _) => ToggleHighlightTool();
+        highlightButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Highlight);
+
+        var counterLabel = AppLocalization.Translate("Editor.Counter");
+        var counterIcon = LoadActionIcon("counter.png", Color.FromArgb(45, 49, 54));
+        var counterButton = CreateActionButton(counterLabel, false, counterIcon);
+        _counterButton = counterButton;
+        counterButton.AccessibleName = counterLabel;
+        counterButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Counter);
 
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
@@ -613,22 +635,23 @@ public sealed class RegionSelectorForm : Form
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 4,
+            ColumnCount = 5,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        for (var column = 0; column < 4; column++)
+        for (var column = 0; column < 5; column++)
         {
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
         }
 
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         layout.Controls.Add(drawingActionsPanel, 0, 0);
         layout.Controls.Add(highlightButton, 1, 0);
-        layout.Controls.Add(borrarActionsPanel, 2, 0);
-        layout.Controls.Add(captureActionsPanel, 3, 0);
+        layout.Controls.Add(counterButton, 2, 0);
+        layout.Controls.Add(borrarActionsPanel, 3, 0);
+        layout.Controls.Add(captureActionsPanel, 4, 0);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -729,7 +752,7 @@ public sealed class RegionSelectorForm : Form
 
     private void CompleteSelection(RegionSelectionAction action)
     {
-        if (_freehandStrokes.Count > 0 || _highlightStrokes.Count > 0 || _lineAnnotations.Count > 0 || _rectangles.Count > 0 || _circles.Count > 0 || _isDrawingLine || _isDrawingRectangle || _isDrawingCircle)
+        if (_freehandStrokes.Count > 0 || _highlightStrokes.Count > 0 || _lineAnnotations.Count > 0 || _counterMarkers.Count > 0 || _rectangles.Count > 0 || _circles.Count > 0 || _isDrawingLine || _isDrawingRectangle || _isDrawingCircle)
         {
             using var graphics = Graphics.FromImage(_background);
             DrawFreehandStrokes(graphics);
@@ -737,6 +760,7 @@ public sealed class RegionSelectorForm : Form
             DrawLines(graphics);
             DrawRectangles(graphics);
             DrawCircles(graphics);
+            DrawCounterMarkers(graphics);
         }
 
         SelectedRegion = _selection;
@@ -813,9 +837,9 @@ public sealed class RegionSelectorForm : Form
 
     private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon, string label)
     {
-        if (tool == AnnotationTool.Highlight)
+        if (tool is AnnotationTool.Highlight or AnnotationTool.Counter)
         {
-            ToggleHighlightTool();
+            ToggleStandaloneTool(tool);
             return;
         }
 
@@ -839,11 +863,11 @@ public sealed class RegionSelectorForm : Form
         UpdateDrawingButtonAppearance();
     }
 
-    private void ToggleHighlightTool()
+    private void ToggleStandaloneTool(AnnotationTool tool)
     {
-        _annotationTool = _annotationTool == AnnotationTool.Highlight
+        _annotationTool = _annotationTool == tool
             ? AnnotationTool.None
-            : AnnotationTool.Highlight;
+            : tool;
         _isBorrarModeActive = false;
         UpdateBorrarButtonAppearance();
         UpdateDrawingButtonAppearance();
@@ -913,6 +937,19 @@ public sealed class RegionSelectorForm : Form
                 ? Color.FromArgb(0, 90, 158)
                 : Color.FromArgb(241, 244, 247);
             _highlightButton.FlatAppearance.MouseDownBackColor = _annotationTool == AnnotationTool.Highlight
+                ? Color.FromArgb(0, 75, 132)
+                : Color.FromArgb(230, 235, 240);
+        }
+
+        if (_counterButton is not null)
+        {
+            _counterButton.BackColor = _annotationTool == AnnotationTool.Counter ? Color.FromArgb(0, 103, 192) : Color.White;
+            _counterButton.ForeColor = _annotationTool == AnnotationTool.Counter ? Color.White : Color.FromArgb(45, 49, 54);
+            _counterButton.FlatAppearance.BorderSize = 0;
+            _counterButton.FlatAppearance.MouseOverBackColor = _annotationTool == AnnotationTool.Counter
+                ? Color.FromArgb(0, 90, 158)
+                : Color.FromArgb(241, 244, 247);
+            _counterButton.FlatAppearance.MouseDownBackColor = _annotationTool == AnnotationTool.Counter
                 ? Color.FromArgb(0, 75, 132)
                 : Color.FromArgb(230, 235, 240);
         }
@@ -1023,6 +1060,32 @@ public sealed class RegionSelectorForm : Form
         foreach (var stroke in _highlightStrokes)
         {
             ImageEditingService.DrawHighlighter(graphics, stroke, _borrarColor, _highlightWidth);
+        }
+
+        graphics.Restore(state);
+    }
+
+    private void AddCounterMarker(Point location)
+    {
+        var diameter = ImageEditingService.GetCounterMarkerDiameter(_selection.Size);
+        var center = ImageEditingService.ClampCounterMarkerCenter(location, _selection, diameter);
+        var value = _nextCounterValue++;
+        _counterMarkers.Add((center, value, diameter));
+        Invalidate(Rectangle.Intersect(ImageEditingService.GetCounterMarkerBounds(center, diameter), _selection));
+    }
+
+    private void DrawCounterMarkers(Graphics graphics)
+    {
+        var state = graphics.Save();
+        graphics.SetClip(_selection);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        foreach (var marker in _counterMarkers)
+        {
+            var text = marker.Value.ToString();
+            var bounds = ImageEditingService.GetCounterMarkerBounds(marker.Center, marker.Diameter);
+            var fontSize = ImageEditingService.GetCounterMarkerFontSize(marker.Diameter);
+            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
+            ImageEditingService.DrawCounterMarker(graphics, bounds, text, font, _borrarColor, _counterFillColor);
         }
 
         graphics.Restore(state);

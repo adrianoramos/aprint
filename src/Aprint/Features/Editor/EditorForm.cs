@@ -1699,30 +1699,15 @@ public sealed class EditorForm : Form
     {
         var value = _nextCounterValue;
         var text = value.ToString();
-        var diameter = text.Length switch
-        {
-            >= 3 => 38,
-            2 => 34,
-            _ => 30,
-        };
-
-        var markerArea = new Rectangle(
-            location.X - (diameter / 2),
-            location.Y - (diameter / 2),
-            diameter,
-            diameter);
+        var imageArea = new Rectangle(Point.Empty, _workingBitmap.Size);
+        var diameter = ImageEditingService.GetCounterMarkerDiameter(_workingBitmap.Size);
+        var center = ImageEditingService.ClampCounterMarkerCenter(location, imageArea, diameter);
+        var markerArea = ImageEditingService.GetCounterMarkerBounds(center, diameter);
 
         using var graphics = Graphics.FromImage(_workingBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        var fontSize = diameter switch
-        {
-            >= 38 => 12F,
-            >= 34 => 11F,
-            _ => 10F,
-        };
-
-        var font = GetOrCreateCounterFont(fontSize);
+        var font = GetOrCreateCounterFont(ImageEditingService.GetCounterMarkerFontSize(diameter));
         ImageEditingService.DrawCounterMarker(graphics, markerArea, text, font, _selectedColor, _selectedFillColor);
 
         _nextCounterValue++;

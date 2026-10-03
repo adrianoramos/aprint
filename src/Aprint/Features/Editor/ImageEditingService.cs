@@ -5,7 +5,50 @@ namespace Aprint.Features.Editor;
 
 public static class ImageEditingService
 {
+    public const int CounterMarkerDiameter = 40;
+    public const float CounterMarkerFontSize = 12F;
     private const int HighlighterAlpha = 105;
+
+    public static int GetCounterMarkerDiameter(Size availableSize)
+    {
+        if (availableSize.Width <= 0 || availableSize.Height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(availableSize));
+        }
+
+        return Math.Min(CounterMarkerDiameter, Math.Min(availableSize.Width, availableSize.Height));
+    }
+
+    public static Point ClampCounterMarkerCenter(Point center, Rectangle availableArea, int diameter)
+    {
+        if (availableArea.Width <= 0 || availableArea.Height <= 0 || diameter <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(availableArea));
+        }
+
+        diameter = Math.Min(diameter, Math.Min(availableArea.Width, availableArea.Height));
+        var halfDiameter = diameter / 2;
+        var rightInset = diameter - halfDiameter;
+        var minimumX = availableArea.Left + halfDiameter;
+        var maximumX = availableArea.Right - rightInset;
+        var minimumY = availableArea.Top + halfDiameter;
+        var maximumY = availableArea.Bottom - rightInset;
+
+        return new Point(
+            Math.Clamp(center.X, minimumX, maximumX),
+            Math.Clamp(center.Y, minimumY, maximumY));
+    }
+
+    public static Rectangle GetCounterMarkerBounds(Point center, int diameter) => new(
+        center.X - (diameter / 2),
+        center.Y - (diameter / 2),
+        diameter,
+        diameter);
+
+    public static float GetCounterMarkerFontSize(int diameter) => Math.Clamp(
+        CounterMarkerFontSize * diameter / CounterMarkerDiameter,
+        6F,
+        CounterMarkerFontSize);
 
     public static void DrawCounterMarker(Graphics graphics, Rectangle bounds, string text, Font font, Color lineColor, Color? fillColor)
     {
@@ -16,7 +59,7 @@ public static class ImageEditingService
         }
 
         using var borderPen = new Pen(lineColor, 2);
-        graphics.DrawEllipse(borderPen, bounds);
+        graphics.DrawEllipse(borderPen, Rectangle.Inflate(bounds, -2, -2));
 
         var textBackgroundColor = fillColor ?? lineColor;
         var textColor = GetContrastingTextColor(textBackgroundColor);

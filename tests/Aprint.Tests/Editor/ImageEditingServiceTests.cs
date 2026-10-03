@@ -5,6 +5,26 @@ namespace Aprint.Tests.Editor;
 public sealed class ImageEditingServiceTests
 {
     [Fact]
+    public void CounterMarkerUsesFixedSizeAndFontThatFitTwoDigits()
+    {
+        Assert.Equal(40, ImageEditingService.CounterMarkerDiameter);
+        Assert.Equal(12F, ImageEditingService.GetCounterMarkerFontSize(ImageEditingService.CounterMarkerDiameter));
+        Assert.Equal(new Rectangle(30, 30, 40, 40), ImageEditingService.GetCounterMarkerBounds(new Point(50, 50), ImageEditingService.CounterMarkerDiameter));
+    }
+
+    [Fact]
+    public void CounterMarkerCenterIsClampedSoTheCircleStaysInsideTheArea()
+    {
+        var area = new Rectangle(10, 20, 100, 80);
+        var diameter = ImageEditingService.GetCounterMarkerDiameter(area.Size);
+        var center = ImageEditingService.ClampCounterMarkerCenter(Point.Empty, area, diameter);
+        var bounds = ImageEditingService.GetCounterMarkerBounds(center, diameter);
+
+        Assert.Equal(new Point(30, 40), center);
+        Assert.True(area.Contains(bounds));
+    }
+
+    [Fact]
     public void DrawCounterMarkerUsesLineAndFillColorsIndependently()
     {
         using var bitmap = new Bitmap(40, 40);
@@ -15,7 +35,7 @@ public sealed class ImageEditingServiceTests
         ImageEditingService.DrawCounterMarker(graphics, new Rectangle(5, 5, 30, 30), "1", font, Color.Red, Color.Blue);
 
         Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(10, 20).ToArgb());
-        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 5).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 7).ToArgb());
         Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
     }
 
@@ -30,7 +50,24 @@ public sealed class ImageEditingServiceTests
         ImageEditingService.DrawCounterMarker(graphics, new Rectangle(5, 5, 30, 30), "1", font, Color.Red, null);
 
         Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(10, 20).ToArgb());
-        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 5).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 7).ToArgb());
+    }
+
+    [Fact]
+    public void DrawCounterMarkerKeepsTheWholeOutlineInsideItsClippedBounds()
+    {
+        using var bitmap = new Bitmap(40, 40);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+        graphics.SetClip(new Rectangle(0, 0, 40, 40));
+        using var font = new Font("Segoe UI", 12F, FontStyle.Bold);
+
+        ImageEditingService.DrawCounterMarker(graphics, new Rectangle(0, 0, 40, 40), "99", font, Color.Red, null);
+
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 2).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(38, 20).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 38).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(2, 20).ToArgb());
     }
 
     [Theory]
