@@ -16,6 +16,7 @@ public sealed class RegionSelectorForm : Form
         Arrow,
         Rectangle,
         Circle,
+        Highlight,
     }
 
     private const int SelectionBorderWidth = 2;
@@ -34,12 +35,15 @@ public sealed class RegionSelectorForm : Form
     private readonly ContextMenuStrip _borrarMenu = new();
     private readonly ContextMenuStrip _captureActionsMenu = new();
     private readonly List<List<Point>> _freehandStrokes = [];
+    private readonly List<List<Point>> _highlightStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
     private readonly Panel _actionBar;
     private Button? _drawingButton;
     private Button? _drawingDropdownButton;
+    private Button? _highlightButton;
+    private Image? _highlightIcon;
     private Button? _borrarButton;
     private Button? _borrarDropdownButton;
     private Image? _pixelatedIcon;
@@ -47,6 +51,7 @@ public sealed class RegionSelectorForm : Form
     private BorrarMode _borrarMode = BorrarMode.Pixelate;
     private Color _borrarColor = Color.Red;
     private int _borrarPixelSize = 6;
+    private int _highlightWidth = 18;
     private AnnotationTool _selectedAnnotationTool;
     private ToolStripMenuItem? _selectedDrawingMenuItem;
     private Image? _selectedDrawingIcon;
@@ -61,6 +66,7 @@ public sealed class RegionSelectorForm : Form
     private bool _isResizing;
     private AnnotationTool _annotationTool;
     private bool _isDrawingFreehand;
+    private bool _isDrawingHighlight;
     private bool _isDrawingLine;
     private bool _isDrawingRectangle;
     private bool _isDrawingCircle;
@@ -79,13 +85,14 @@ public sealed class RegionSelectorForm : Form
 
     public RegionSelectionAction? SelectedAction { get; private set; }
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int borrarColorArgb = -65536)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int borrarColorArgb = -65536, int highlightWidth = 18)
     {
         _background = background;
         _outsideCaptureClickAction = outsideCaptureClickAction;
         _borrarMode = borrarMode;
         _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
         _borrarColor = Color.FromArgb(borrarColorArgb);
+        _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
 
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -112,6 +119,7 @@ public sealed class RegionSelectorForm : Form
             // Revela o conteúdo original (sem escurecer) dentro da área selecionada.
             e.Graphics.DrawImage(_background, _selection, _selection, GraphicsUnit.Pixel);
             DrawFreehandStrokes(e.Graphics);
+            DrawHighlightStrokes(e.Graphics);
             DrawLines(e.Graphics);
             DrawRectangles(e.Graphics);
             DrawCircles(e.Graphics);
@@ -146,6 +154,16 @@ public sealed class RegionSelectorForm : Form
                     _isDrawingFreehand = true;
                     _freehandStrokes.Add([ClampToSelection(e.Location)]);
                     Capture = true;
+                    return;
+                }
+
+                if (_annotationTool == AnnotationTool.Highlight && _selection.Contains(e.Location))
+                {
+                    var point = ClampToSelection(e.Location);
+                    _isDrawingHighlight = true;
+                    _highlightStrokes.Add([point]);
+                    Capture = true;
+                    Invalidate(GetHighlightDirtyRectangle(point, point));
                     return;
                 }
 
@@ -209,6 +227,7 @@ public sealed class RegionSelectorForm : Form
 
             _actionBar.Visible = false;
             _freehandStrokes.Clear();
+            _highlightStrokes.Clear();
             _lineAnnotations.Clear();
             _rectangles.Clear();
             _circles.Clear();
@@ -225,6 +244,12 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingFreehand)
         {
             AddFreehandPoint(e.Location);
+            return;
+        }
+
+        if (_isDrawingHighlight)
+        {
+            AddHighlightPoint(e.Location);
             return;
         }
 
@@ -295,6 +320,14 @@ public sealed class RegionSelectorForm : Form
         {
             AddFreehandPoint(e.Location);
             _isDrawingFreehand = false;
+            Capture = false;
+            return;
+        }
+
+        if (_isDrawingHighlight)
+        {
+            AddHighlightPoint(e.Location);
+            _isDrawingHighlight = false;
             Capture = false;
             return;
         }
@@ -526,6 +559,13 @@ public sealed class RegionSelectorForm : Form
         drawingActionsPanel.Controls.Add(drawingButton);
         drawingActionsPanel.Controls.Add(drawingDropdownButton);
 
+        var highlightLabel = AppLocalization.Translate("Editor.Highlight");
+        _highlightIcon = LoadActionIcon("highlight.png", Color.FromArgb(45, 49, 54));
+        var highlightButton = CreateActionButton(highlightLabel, false, _highlightIcon);
+        _highlightButton = highlightButton;
+        highlightButton.AccessibleName = highlightLabel;
+        highlightButton.Click += (_, _) => ToggleHighlightTool();
+
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
         var borrarLabel = GetBorrarModeLabel(_borrarMode);
@@ -573,21 +613,22 @@ public sealed class RegionSelectorForm : Form
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 4,
             RowCount = 1,
             BackColor = panel.BackColor,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
         };
-        for (var column = 0; column < 3; column++)
+        for (var column = 0; column < 4; column++)
         {
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
         }
 
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         layout.Controls.Add(drawingActionsPanel, 0, 0);
-        layout.Controls.Add(borrarActionsPanel, 1, 0);
-        layout.Controls.Add(captureActionsPanel, 2, 0);
+        layout.Controls.Add(highlightButton, 1, 0);
+        layout.Controls.Add(borrarActionsPanel, 2, 0);
+        layout.Controls.Add(captureActionsPanel, 3, 0);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -688,10 +729,11 @@ public sealed class RegionSelectorForm : Form
 
     private void CompleteSelection(RegionSelectionAction action)
     {
-        if (_freehandStrokes.Count > 0 || _lineAnnotations.Count > 0 || _rectangles.Count > 0 || _circles.Count > 0 || _isDrawingLine || _isDrawingRectangle || _isDrawingCircle)
+        if (_freehandStrokes.Count > 0 || _highlightStrokes.Count > 0 || _lineAnnotations.Count > 0 || _rectangles.Count > 0 || _circles.Count > 0 || _isDrawingLine || _isDrawingRectangle || _isDrawingCircle)
         {
             using var graphics = Graphics.FromImage(_background);
             DrawFreehandStrokes(graphics);
+            DrawHighlightStrokes(graphics);
             DrawLines(graphics);
             DrawRectangles(graphics);
             DrawCircles(graphics);
@@ -728,6 +770,32 @@ public sealed class RegionSelectorForm : Form
         Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
     }
 
+    private void AddHighlightPoint(Point location)
+    {
+        if (_highlightStrokes.Count == 0)
+        {
+            return;
+        }
+
+        var point = ClampToSelection(location);
+        var stroke = _highlightStrokes[^1];
+        var previousPoint = stroke[^1];
+        if (point == previousPoint)
+        {
+            return;
+        }
+
+        stroke.Add(point);
+        Invalidate(Rectangle.Intersect(GetHighlightDirtyRectangle(previousPoint, point), _selection));
+    }
+
+    private Rectangle GetHighlightDirtyRectangle(Point start, Point end)
+    {
+        var dirtyRectangle = CreateLineRectangle(start, end);
+        dirtyRectangle.Inflate((_highlightWidth / 2) + 2, (_highlightWidth / 2) + 2);
+        return dirtyRectangle;
+    }
+
     private void InvalidateLine(Point start, Point end)
     {
         var dirtyRectangle = Rectangle.Union(
@@ -743,8 +811,14 @@ public sealed class RegionSelectorForm : Form
             Math.Max(start.X, end.X) + 1,
             Math.Max(start.Y, end.Y) + 1);
 
-    private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem selectedMenuItem, Image selectedIcon, string label)
+    private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon, string label)
     {
+        if (tool == AnnotationTool.Highlight)
+        {
+            ToggleHighlightTool();
+            return;
+        }
+
         var isTogglingOff = _annotationTool == tool && _selectedAnnotationTool == tool;
         _lastSelectedAnnotationTool = tool;
         _selectedAnnotationTool = tool;
@@ -762,6 +836,16 @@ public sealed class RegionSelectorForm : Form
         drawingButton.Text = _selectedDrawingLabel;
         drawingButton.Image = _selectedDrawingIcon;
         drawingButton.AccessibleName = _selectedDrawingLabel;
+        UpdateDrawingButtonAppearance();
+    }
+
+    private void ToggleHighlightTool()
+    {
+        _annotationTool = _annotationTool == AnnotationTool.Highlight
+            ? AnnotationTool.None
+            : AnnotationTool.Highlight;
+        _isBorrarModeActive = false;
+        UpdateBorrarButtonAppearance();
         UpdateDrawingButtonAppearance();
     }
 
@@ -793,7 +877,7 @@ public sealed class RegionSelectorForm : Form
 
     private void UpdateDrawingButtonAppearance()
     {
-        var isActive = _annotationTool != AnnotationTool.None;
+        var isActive = _annotationTool is AnnotationTool.Freehand or AnnotationTool.Line or AnnotationTool.Arrow or AnnotationTool.Rectangle or AnnotationTool.Circle;
         if (_drawingButton is not null)
         {
             _drawingButton.BackColor = isActive ? Color.FromArgb(0, 103, 192) : Color.White;
@@ -816,6 +900,19 @@ public sealed class RegionSelectorForm : Form
                 ? Color.FromArgb(0, 90, 158)
                 : Color.FromArgb(241, 244, 247);
             _drawingDropdownButton.FlatAppearance.MouseDownBackColor = isActive
+                ? Color.FromArgb(0, 75, 132)
+                : Color.FromArgb(230, 235, 240);
+        }
+
+        if (_highlightButton is not null)
+        {
+            _highlightButton.BackColor = _annotationTool == AnnotationTool.Highlight ? Color.FromArgb(0, 103, 192) : Color.White;
+            _highlightButton.ForeColor = _annotationTool == AnnotationTool.Highlight ? Color.White : Color.FromArgb(45, 49, 54);
+            _highlightButton.FlatAppearance.BorderSize = 0;
+            _highlightButton.FlatAppearance.MouseOverBackColor = _annotationTool == AnnotationTool.Highlight
+                ? Color.FromArgb(0, 90, 158)
+                : Color.FromArgb(241, 244, 247);
+            _highlightButton.FlatAppearance.MouseDownBackColor = _annotationTool == AnnotationTool.Highlight
                 ? Color.FromArgb(0, 75, 132)
                 : Color.FromArgb(230, 235, 240);
         }
@@ -914,6 +1011,18 @@ public sealed class RegionSelectorForm : Form
             {
                 graphics.DrawLines(pen, stroke.ToArray());
             }
+        }
+
+        graphics.Restore(state);
+    }
+
+    private void DrawHighlightStrokes(Graphics graphics)
+    {
+        var state = graphics.Save();
+        graphics.SetClip(_selection);
+        foreach (var stroke in _highlightStrokes)
+        {
+            ImageEditingService.DrawHighlighter(graphics, stroke, _borrarColor, _highlightWidth);
         }
 
         graphics.Restore(state);
