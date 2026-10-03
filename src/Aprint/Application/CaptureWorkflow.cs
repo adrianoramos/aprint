@@ -22,7 +22,7 @@ public sealed class CaptureWorkflow
 
         try
         {
-            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.BorrarMode, settings.LastBorrarPixelSize, settings.LastLineColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, out var wasCancelled, out regionAction);
+            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.BorrarMode, settings.LastBorrarPixelSize, settings.LastLineColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, out var wasCancelled, out regionAction);
             if (wasCancelled)
             {
                 return null;
@@ -92,7 +92,7 @@ public sealed class CaptureWorkflow
         }
     }
 
-    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, BorrarMode borrarMode, int borrarPixelSize, int borrarColorArgb, int highlightWidth, int? counterFillColorArgb, out bool wasCancelled, out RegionSelectionAction? selectedAction)
+    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, BorrarMode borrarMode, int borrarPixelSize, int borrarColorArgb, int highlightWidth, int? counterFillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, out bool wasCancelled, out RegionSelectionAction? selectedAction)
     {
         wasCancelled = false;
         selectedAction = null;
@@ -101,7 +101,7 @@ public sealed class CaptureWorkflow
             return null;
         }
 
-        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, borrarMode, borrarPixelSize, borrarColorArgb, highlightWidth, counterFillColorArgb);
+        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, borrarMode, borrarPixelSize, borrarColorArgb, highlightWidth, counterFillColorArgb, textFontFamily, textFontSize, textFontStyle, textColorArgb);
         if (selector.ShowDialog() != DialogResult.OK || selector.SelectedRegion is not { } region || selector.SelectedAction is not { } action)
         {
             wasCancelled = true;
