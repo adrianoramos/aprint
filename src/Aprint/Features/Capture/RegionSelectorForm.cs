@@ -26,6 +26,8 @@ public sealed class RegionSelectorForm : Form
     private const int MinimumSelectionSize = 3;
     private const int FreehandPenWidth = 3;
     private const int TextMinimumWidth = 100;
+    private const int ActionControlHeight = 34;
+    private const int SplitDropdownWidth = 30;
     private static AnnotationTool _lastSelectedAnnotationTool = AnnotationTool.Freehand;
 
     private readonly Bitmap _background;
@@ -123,7 +125,7 @@ public sealed class RegionSelectorForm : Form
         ShowInTaskbar = false;
         KeyPreview = true;
         DoubleBuffered = true;
-        Cursor = Cursors.Cross;
+        Cursor = Cursors.Default;
         BackColor = Color.Black;
 
         _actionBar = CreateActionBar();
@@ -360,9 +362,7 @@ public sealed class RegionSelectorForm : Form
 
         if (!_isSelecting && !_isResizing && !_isMoving)
         {
-            Cursor = _annotationTool == AnnotationTool.Text && _selection.Contains(e.Location)
-                ? Cursors.IBeam
-                : GetResizeCursor(GetResizeEdges(e.Location));
+            Cursor = GetCursorForLocation(e.Location);
         }
     }
 
@@ -589,12 +589,15 @@ public sealed class RegionSelectorForm : Form
         {
             BackColor = Color.FromArgb(246, 247, 249),
             BorderStyle = BorderStyle.FixedSingle,
-            Size = new Size(900, 56),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            MinimumSize = new Size(0, 52),
             Padding = new Padding(6),
         };
 
         var captureLabel = AppLocalization.Translate("Capture.Region.Capture");
         var captureButton = CreateActionButton(captureLabel, true, LoadActionIcon("capture.png", Color.White));
+        SetSplitMainButtonSize(captureButton);
         captureButton.Margin = Padding.Empty;
         captureButton.FlatAppearance.BorderSize = 0;
         captureButton.AccessibleName = captureLabel;
@@ -602,8 +605,8 @@ public sealed class RegionSelectorForm : Form
 
         var captureDropdownButton = CreateActionButton("\u25BE", true, null);
         captureDropdownButton.AutoSize = false;
-        captureDropdownButton.MinimumSize = new Size(30, 34);
-        captureDropdownButton.Size = new Size(30, 34);
+        captureDropdownButton.MinimumSize = new Size(SplitDropdownWidth, ActionControlHeight);
+        captureDropdownButton.Size = new Size(SplitDropdownWidth, ActionControlHeight);
         captureDropdownButton.Margin = Padding.Empty;
         captureDropdownButton.Padding = Padding.Empty;
         captureDropdownButton.FlatAppearance.BorderSize = 0;
@@ -617,7 +620,7 @@ public sealed class RegionSelectorForm : Form
             Anchor = AnchorStyles.None,
             BackColor = panel.BackColor,
             FlowDirection = FlowDirection.LeftToRight,
-            Margin = Padding.Empty,
+            Margin = new Padding(3),
             Padding = Padding.Empty,
             WrapContents = false,
         };
@@ -643,6 +646,7 @@ public sealed class RegionSelectorForm : Form
 
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
         var drawingButton = CreateActionButton(drawingLabel, false, null);
+        SetSplitMainButtonSize(drawingButton);
         _drawingButton = drawingButton;
         _selectedDrawingLabel = drawingLabel;
         drawingButton.AccessibleName = drawingLabel;
@@ -653,8 +657,8 @@ public sealed class RegionSelectorForm : Form
         var drawingDropdownButton = CreateActionButton("\u25BE", false, null);
         _drawingDropdownButton = drawingDropdownButton;
         drawingDropdownButton.AutoSize = false;
-        drawingDropdownButton.MinimumSize = new Size(30, 34);
-        drawingDropdownButton.Size = new Size(30, 34);
+        drawingDropdownButton.MinimumSize = new Size(SplitDropdownWidth, ActionControlHeight);
+        drawingDropdownButton.Size = new Size(SplitDropdownWidth, ActionControlHeight);
         drawingDropdownButton.Margin = Padding.Empty;
         drawingDropdownButton.Padding = Padding.Empty;
         drawingDropdownButton.FlatAppearance.BorderSize = 0;
@@ -668,7 +672,7 @@ public sealed class RegionSelectorForm : Form
             Anchor = AnchorStyles.None,
             BackColor = panel.BackColor,
             FlowDirection = FlowDirection.LeftToRight,
-            Margin = Padding.Empty,
+            Margin = new Padding(3),
             Padding = Padding.Empty,
             WrapContents = false,
         };
@@ -699,6 +703,7 @@ public sealed class RegionSelectorForm : Form
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
         var borrarLabel = GetBorrarModeLabel(_borrarMode);
         var borrarButton = CreateActionButton(borrarLabel, false, _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
+        SetSplitMainButtonSize(borrarButton);
         _borrarButton = borrarButton;
         borrarButton.AccessibleName = borrarLabel;
         borrarButton.Margin = Padding.Empty;
@@ -708,8 +713,8 @@ public sealed class RegionSelectorForm : Form
         var borrarDropdownButton = CreateActionButton("\u25BE", false, null);
         _borrarDropdownButton = borrarDropdownButton;
         borrarDropdownButton.AutoSize = false;
-        borrarDropdownButton.MinimumSize = new Size(30, 34);
-        borrarDropdownButton.Size = new Size(30, 34);
+        borrarDropdownButton.MinimumSize = new Size(SplitDropdownWidth, ActionControlHeight);
+        borrarDropdownButton.Size = new Size(SplitDropdownWidth, ActionControlHeight);
         borrarDropdownButton.Margin = Padding.Empty;
         borrarDropdownButton.Padding = Padding.Empty;
         borrarDropdownButton.FlatAppearance.BorderSize = 0;
@@ -723,7 +728,7 @@ public sealed class RegionSelectorForm : Form
             Anchor = AnchorStyles.None,
             BackColor = panel.BackColor,
             FlowDirection = FlowDirection.LeftToRight,
-            Margin = Padding.Empty,
+            Margin = new Padding(3),
             Padding = Padding.Empty,
             WrapContents = false,
         };
@@ -739,27 +744,23 @@ public sealed class RegionSelectorForm : Form
         AddBorrarMenuItem(BorrarMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
         AddBorrarMenuItem(BorrarMode.Solid, "Editor.Filled", _filledIcon);
 
-        var layout = new TableLayoutPanel
+        var layout = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 6,
-            RowCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = panel.BackColor,
+            FlowDirection = FlowDirection.LeftToRight,
             Margin = Padding.Empty,
             Padding = Padding.Empty,
+            WrapContents = false,
         };
-        for (var column = 0; column < 6; column++)
-        {
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.667F));
-        }
-
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.Controls.Add(drawingActionsPanel, 0, 0);
-        layout.Controls.Add(highlightButton, 1, 0);
-        layout.Controls.Add(counterButton, 2, 0);
-        layout.Controls.Add(textButton, 3, 0);
-        layout.Controls.Add(borrarActionsPanel, 4, 0);
-        layout.Controls.Add(captureActionsPanel, 5, 0);
+        layout.Controls.Add(drawingActionsPanel);
+        layout.Controls.Add(highlightButton);
+        layout.Controls.Add(borrarActionsPanel);
+        layout.Controls.Add(counterButton);
+        layout.Controls.Add(textButton);
+        layout.Controls.Add(captureActionsPanel);
+        layout.Location = new Point(panel.Padding.Left, panel.Padding.Top);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -807,9 +808,9 @@ public sealed class RegionSelectorForm : Form
             TextImageRelation = TextImageRelation.ImageBeforeText,
             AutoSize = true,
             Anchor = AnchorStyles.None,
-            MinimumSize = new Size(82, 34),
-            Margin = new Padding(5, 3, 5, 3),
-            Padding = new Padding(8, 3, 8, 3),
+            MinimumSize = new Size(0, ActionControlHeight),
+            Margin = new Padding(3),
+            Padding = new Padding(6, 3, 6, 3),
             FlatStyle = FlatStyle.Flat,
             BackColor = isPrimary ? Color.FromArgb(0, 103, 192) : Color.White,
             ForeColor = isPrimary ? Color.White : Color.FromArgb(45, 49, 54),
@@ -826,6 +827,12 @@ public sealed class RegionSelectorForm : Form
             ? Color.FromArgb(0, 75, 132)
             : Color.FromArgb(230, 235, 240);
         return button;
+    }
+
+    private static void SetSplitMainButtonSize(Button button)
+    {
+        button.AutoSize = true;
+        button.MinimumSize = new Size(0, ActionControlHeight);
     }
 
     private Bitmap LoadActionIcon(string fileName, Color color)
@@ -1098,9 +1105,27 @@ public sealed class RegionSelectorForm : Form
             ? AnnotationTool.None
             : tool;
         _isBorrarModeActive = false;
-        Cursor = _annotationTool == AnnotationTool.Text ? Cursors.IBeam : Cursors.Cross;
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateBorrarButtonAppearance();
         UpdateDrawingButtonAppearance();
+    }
+
+    private Cursor GetCursorForLocation(Point location)
+    {
+        if (_selection.Contains(location))
+        {
+            if (_annotationTool == AnnotationTool.Text)
+            {
+                return Cursors.IBeam;
+            }
+
+            if (_annotationTool != AnnotationTool.None || _isBorrarModeActive)
+            {
+                return Cursors.Cross;
+            }
+        }
+
+        return GetResizeCursor(GetResizeEdges(location));
     }
 
     private void ToggleDrawingTool()
