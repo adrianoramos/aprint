@@ -136,7 +136,7 @@
     <value>Capture actions</value>
   </data>
   <data name="Capture.Region.Drawing" xml:space="preserve">
-    <value>Drawing</value>
+    <value>Draw</value>
   </data>
   <data name="Capture.Region.Freehand" xml:space="preserve">
     <value>Freehand</value>

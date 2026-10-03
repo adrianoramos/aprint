@@ -136,7 +136,7 @@
     <value>Ações da captura</value>
   </data>
   <data name="Capture.Region.Drawing" xml:space="preserve">
-    <value>Desenho</value>
+    <value>Desenhar</value>
   </data>
   <data name="Capture.Region.Freehand" xml:space="preserve">
     <value>Livre</value>
