@@ -1,4 +1,5 @@
 using Aprint.Features.Capture;
+using Aprint.Features.Editor;
 using Aprint.Features.Settings;
 using Aprint.Infrastructure.Windows;
 
@@ -21,7 +22,7 @@ public sealed class CaptureWorkflow
 
         try
         {
-            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, out var wasCancelled, out regionAction);
+            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.BorrarMode, settings.LastBorrarPixelSize, settings.LastLineColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, settings.ShowCaptureToolLabels, out var wasCancelled, out regionAction);
             if (wasCancelled)
             {
                 return null;
@@ -91,7 +92,7 @@ public sealed class CaptureWorkflow
         }
     }
 
-    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, out bool wasCancelled, out RegionSelectionAction? selectedAction)
+    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, BorrarMode borrarMode, int borrarPixelSize, int lineColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showCaptureToolLabels, out bool wasCancelled, out RegionSelectionAction? selectedAction)
     {
         wasCancelled = false;
         selectedAction = null;
@@ -100,7 +101,7 @@ public sealed class CaptureWorkflow
             return null;
         }
 
-        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction);
+        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, borrarMode, borrarPixelSize, lineColorArgb, highlightWidth, fillColorArgb, textFontFamily, textFontSize, textFontStyle, textColorArgb, showCaptureToolLabels);
         if (selector.ShowDialog() != DialogResult.OK || selector.SelectedRegion is not { } region || selector.SelectedAction is not { } action)
         {
             wasCancelled = true;

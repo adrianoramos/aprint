@@ -35,6 +35,8 @@ public sealed class AppSettings
 
     public bool ShowToolLabels { get; set; } = true;
 
+    public bool ShowCaptureToolLabels { get; set; } = true;
+
     public bool SaveEditorImageWithoutPrompt { get; set; }
 
     public bool CloseEditorOnCopyOrSave { get; set; }

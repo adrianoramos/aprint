@@ -132,6 +132,27 @@
   <data name="Capture.Region.Capture" xml:space="preserve">
     <value>Capture</value>
   </data>
+  <data name="Capture.Region.Actions" xml:space="preserve">
+    <value>Capture actions</value>
+  </data>
+  <data name="Capture.Region.Drawing" xml:space="preserve">
+    <value>Draw</value>
+  </data>
+  <data name="Capture.Region.Freehand" xml:space="preserve">
+    <value>Freehand</value>
+  </data>
+  <data name="Capture.Region.Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="Capture.Region.Arrow" xml:space="preserve">
+    <value>Arrow</value>
+  </data>
+  <data name="Capture.Region.Rectangle" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="Capture.Region.Circle" xml:space="preserve">
+    <value>Circle</value>
+  </data>
   <data name="Capture.Region.Save" xml:space="preserve">
     <value>Save</value>
   </data>
@@ -276,6 +297,9 @@
   <data name="Settings.ShowToolLabels" xml:space="preserve">
     <value>Show button labels on the editor toolbar</value>
   </data>
+  <data name="Settings.ShowCaptureToolLabels" xml:space="preserve">
+    <value>Show button labels on the capture toolbar</value>
+  </data>
   <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
     <value>Save without asking</value>
   </data>
@@ -369,11 +393,11 @@
   <data name="Editor.Counter" xml:space="preserve">
     <value>Counter</value>
   </data>
-  <data name="Editor.Blur" xml:space="preserve">
-    <value>Blur</value>
+  <data name="Editor.Mask" xml:space="preserve">
+    <value>Mask</value>
   </data>
-  <data name="Editor.BlurOptions" xml:space="preserve">
-    <value>Blur options</value>
+  <data name="Editor.MaskOptions" xml:space="preserve">
+    <value>Mask options</value>
   </data>
   <data name="Editor.Highlight" xml:space="preserve">
     <value>Highlight</value>
@@ -409,10 +433,10 @@
     <value>Strikethrough</value>
   </data>
   <data name="Editor.Filled" xml:space="preserve">
-    <value>Filled</value>
+    <value>Cover</value>
   </data>
   <data name="Editor.Pixelated" xml:space="preserve">
-    <value>Pixelated</value>
+    <value>Pixelate</value>
   </data>
   <data name="Editor.PixelatedSize" xml:space="preserve">
     <value>Pixel size</value>

@@ -343,7 +343,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         _lastCapturedBitmap?.Dispose();
         _hotkeyManager.Dispose();
         _settingsForm?.Close();
-        EditorForm.ClearCounterFontCache();
+        ImageEditingService.ClearCounterMarkerFontCache();
         _contextMenu.Dispose();
         _notifyIcon.Dispose();
         System.Windows.Forms.Application.Exit();

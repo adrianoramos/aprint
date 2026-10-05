@@ -90,8 +90,7 @@ public sealed class EditorForm : Form
         NewCapture,
     }
 
-    private const int PenWidth = 3;
-    private const int TextMinimumWidth = 100;
+    private const int PenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ToolPanelHeight = 50;
     private const int ToolIconBaseSize = 24;
     private const int ToolButtonPadding = 4;
@@ -102,9 +101,6 @@ public sealed class EditorForm : Form
 
     [Flags]
     private enum CropEdge { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
-
-    private static readonly Dictionary<float, Font> CounterFonts = [];
-    private static readonly object CounterFontSync = new();
 
     private Bitmap _workingBitmap;
     private string _initialFolder;
@@ -1073,7 +1069,7 @@ public sealed class EditorForm : Form
 
         _btnBorrar.Text = localizedMode;
         _btnBorrar.ImageKey = iconKey;
-        _btnBorrar.ToolTipText = $"{localizedMode} (F8)";
+        _btnBorrar.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {localizedMode} (F8)";
         _btnBorrarModeDropdown.ImageKey = iconKey;
         _btnBorrarModeDropdown.ToolTipText = AppLocalization.Translate("Editor.PixelatedSize");
         _filledModeMenuItem.Checked = isFilled;
@@ -1275,8 +1271,6 @@ public sealed class EditorForm : Form
             return;
         }
 
-        using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-
         if (_currentTool == EditTool.Highlight)
         {
             if (_highlighterPoints[^1] != e.Location)
@@ -1301,7 +1295,7 @@ public sealed class EditorForm : Form
         {
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
-                graphics.DrawLine(pen, _lastFreehandPoint, e.Location);
+                ImageEditingService.DrawFreehandSegment(graphics, _lastFreehandPoint, e.Location, _selectedColor, PenWidth);
             }
 
             var dirtyRect = CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, PenWidth + 2);
@@ -1351,9 +1345,12 @@ public sealed class EditorForm : Form
         }
         else if (_currentTool == EditTool.Text)
         {
-            var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
-            _textMinimumWidth = Math.Max(TextMinimumWidth, selection.Width);
-            _textBounds = new Rectangle(_dragStart.X, e.Location.Y, _textMinimumWidth, _textFont.Height + 2);
+            _textBounds = ImageEditingService.CreateTextBounds(
+                _dragStart,
+                e.Location,
+                new Rectangle(Point.Empty, _workingBitmap.Size),
+                _textFont,
+                out _textMinimumWidth);
             _textBuffer = string.Empty;
             _isTextSelected = false;
             ResizeTextBoundsToContent();
@@ -1384,9 +1381,7 @@ public sealed class EditorForm : Form
                 : Rectangle.Union(_lastPreviewDirtyRect, dirtyRect);
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-                ImageEditingService.DrawShape(graphics, pen, _dragStart, e.Location, _currentTool, _selectedFillColor);
+                ImageEditingService.DrawAnnotation(graphics, _dragStart, e.Location, _currentTool, _selectedColor, _selectedFillColor);
             }
 
             _pictureBox.Image = _workingBitmap;
@@ -1406,7 +1401,12 @@ public sealed class EditorForm : Form
 
         if (_currentTool == EditTool.Highlight && _isDrawing)
         {
-            ImageEditingService.DrawHighlighter(e.Graphics, _highlighterPoints, _selectedColor, _highlightWidth);
+            ImageEditingService.DrawHighlighter(
+                e.Graphics,
+                _highlighterPoints,
+                _selectedColor,
+                _highlightWidth,
+                new Rectangle(Point.Empty, _workingBitmap.Size));
             return;
         }
 
@@ -1444,7 +1444,6 @@ public sealed class EditorForm : Form
             return;
         }
 
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         if (_currentTool is EditTool.Blur or EditTool.Pixelated)
         {
             using var selectionPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
@@ -1453,8 +1452,7 @@ public sealed class EditorForm : Form
             return;
         }
 
-        using var pen = new Pen(_selectedColor, PenWidth) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-        ImageEditingService.DrawShape(e.Graphics, pen, _dragStart, _shapePreviewEnd, _currentTool, _selectedFillColor);
+        ImageEditingService.DrawAnnotation(e.Graphics, _dragStart, _shapePreviewEnd, _currentTool, _selectedColor, _selectedFillColor);
     }
 
     private CropEdge HitTestCropEdge(Point location)
@@ -1649,12 +1647,12 @@ public sealed class EditorForm : Form
     private void ResizeTextBoundsToContent()
     {
         var previousBounds = _textBounds;
-        var contentSize = ImageEditingService.MeasureTextContent(_textBuffer, _textFont);
-        var availableWidth = _workingBitmap.Width - _textBounds.Left;
-        var availableHeight = _workingBitmap.Height - _textBounds.Top;
-        var width = Math.Min(Math.Max(_textMinimumWidth, contentSize.Width + 3), availableWidth);
-        var height = Math.Min(Math.Max(_textFont.Height, contentSize.Height) + 2, availableHeight);
-        _textBounds = new Rectangle(_textBounds.X, _textBounds.Y, Math.Max(1, width), Math.Max(1, height));
+        _textBounds = ImageEditingService.ResizeTextBounds(
+            _textBounds,
+            _textMinimumWidth,
+            _textBuffer,
+            _textFont,
+            new Rectangle(Point.Empty, _workingBitmap.Size));
         _pictureBox.Invalidate(Rectangle.Union(previousBounds, _textBounds));
     }
 
@@ -1697,37 +1695,17 @@ public sealed class EditorForm : Form
 
     private void AddCounterMarker(Point location)
     {
-        var value = _nextCounterValue;
-        var text = value.ToString();
-        var diameter = text.Length switch
-        {
-            >= 3 => 38,
-            2 => 34,
-            _ => 30,
-        };
-
-        var markerArea = new Rectangle(
-            location.X - (diameter / 2),
-            location.Y - (diameter / 2),
-            diameter,
-            diameter);
+        var imageArea = new Rectangle(Point.Empty, _workingBitmap.Size);
+        var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue, imageArea);
 
         using var graphics = Graphics.FromImage(_workingBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        var fontSize = diameter switch
-        {
-            >= 38 => 12F,
-            >= 34 => 11F,
-            _ => 10F,
-        };
-
-        var font = GetOrCreateCounterFont(fontSize);
-        ImageEditingService.DrawCounterMarker(graphics, markerArea, text, font, _selectedColor, _selectedFillColor);
+        ImageEditingService.DrawCounterMarker(graphics, marker, _selectedColor, _selectedFillColor);
 
         _nextCounterValue++;
         _pictureBox.Image = _workingBitmap;
-        InvalidatePictureBoxRegion(InflateRectangle(markerArea, 2));
+        InvalidatePictureBoxRegion(InflateRectangle(marker.Bounds, 2));
     }
 
     private void CopyToClipboard()
@@ -1738,33 +1716,6 @@ public sealed class EditorForm : Form
         if (_closeAfterCopyOrSave)
         {
             Close();
-        }
-    }
-
-    private static Font GetOrCreateCounterFont(float fontSize)
-    {
-        lock (CounterFontSync)
-        {
-            if (!CounterFonts.TryGetValue(fontSize, out var font))
-            {
-                font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
-                CounterFonts[fontSize] = font;
-            }
-
-            return font;
-        }
-    }
-
-    internal static void ClearCounterFontCache()
-    {
-        lock (CounterFontSync)
-        {
-            foreach (var font in CounterFonts.Values)
-            {
-                font.Dispose();
-            }
-
-            CounterFonts.Clear();
         }
     }
 
@@ -2006,12 +1957,6 @@ public sealed class EditorForm : Form
         if (keyData == Keys.F11)
         {
             SetActiveTool(EditTool.Crop);
-            return true;
-        }
-
-        if (keyData == Keys.T)
-        {
-            SetActiveTool(EditTool.Text);
             return true;
         }
 
