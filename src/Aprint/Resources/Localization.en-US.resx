@@ -459,8 +459,8 @@
   <data name="Editor.DrawSection" xml:space="preserve">
     <value>Draw:</value>
   </data>
-  <data name="Editor.BlurSection" xml:space="preserve">
-    <value>Blur:</value>
+  <data name="Editor.MaskSection" xml:space="preserve">
+    <value>Mask:</value>
   </data>
   <data name="Editor.SaveFilter" xml:space="preserve">
     <value>PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp</value>

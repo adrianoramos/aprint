@@ -1,6 +1,6 @@
 namespace Aprint.Features.Editor;
 
-public enum BorrarMode
+public enum MaskMode
 {
     Solid,
     Pixelate,

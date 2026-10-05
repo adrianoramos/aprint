@@ -23,7 +23,8 @@ public sealed class SettingsStoreTests : IDisposable
             OutsideCaptureClickAction = OutsideCaptureClickAction.ExitCaptureMode,
             OpenEditorAfterCapture = true,
             PlaySoundOnCapture = true,
-            BorrarMode = BorrarMode.Solid,
+            MaskMode = MaskMode.Solid,
+            LastCaptureTool = EditTool.Circle,
             ShowToolLabels = false,
             SaveEditorImageWithoutPrompt = true,
             AutoCloseEditorWhenInactive = true,
@@ -35,7 +36,7 @@ public sealed class SettingsStoreTests : IDisposable
             LastLineColorArgb = Color.Blue.ToArgb(),
             LastTextColorArgb = Color.Green.ToArgb(),
             LastFillColorArgb = Color.Yellow.ToArgb(),
-            LastBorrarPixelSize = 24,
+            LastMaskPixelSize = 24,
             HotkeyKey = Keys.F8,
             HotkeyCtrl = false,
             HotkeyShift = false,
@@ -64,6 +65,20 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(CaptureMode.AllScreens, settings.CaptureMode);
         Assert.True(settings.HotkeyCtrl);
         Assert.True(settings.HotkeyShift);
+    }
+
+    [Fact]
+    public void LoadPreservesMaskSettingsFromLegacyJsonNames()
+    {
+        var filePath = Path.Combine(_testDirectory, "settings.json");
+        Directory.CreateDirectory(_testDirectory);
+        File.WriteAllText(filePath, "{\"BorrarMode\":0,\"LastBorrarPixelSize\":24}");
+        var store = new SettingsStore(filePath);
+
+        var settings = store.Load();
+
+        Assert.Equal(MaskMode.Solid, settings.MaskMode);
+        Assert.Equal(24, settings.LastMaskPixelSize);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Text.Json.Serialization;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
 
@@ -31,7 +32,10 @@ public sealed class AppSettings
 
     public EditorWindowStartState EditorStartState { get; set; } = EditorWindowStartState.Default;
 
-    public BorrarMode BorrarMode { get; set; } = BorrarMode.Pixelate;
+    [JsonPropertyName("BorrarMode")]
+    public MaskMode MaskMode { get; set; } = MaskMode.Pixelate;
+
+    public EditTool LastCaptureTool { get; set; } = EditTool.Freehand;
 
     public bool ShowToolLabels { get; set; } = true;
 
@@ -65,7 +69,8 @@ public sealed class AppSettings
 
     public int? LastFillColorArgb { get; set; }
 
-    public int LastBorrarPixelSize { get; set; } = 6;
+    [JsonPropertyName("LastBorrarPixelSize")]
+    public int LastMaskPixelSize { get; set; } = 6;
 
     public Keys HotkeyKey { get; set; } = Keys.P;
 

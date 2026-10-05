@@ -158,14 +158,14 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
-    public void ApplyBorrarFillsSelectionWithSolidColor()
+    public void ApplyMaskFillsSelectionWithSolidColor()
     {
         using var bitmap = new Bitmap(4, 4);
 
-        ImageEditingService.ApplyBorrar(
+        ImageEditingService.ApplyMask(
             bitmap,
             new Rectangle(1, 1, 2, 2),
-            BorrarMode.Solid,
+            MaskMode.Solid,
             Color.Red,
             pixelSize: 4);
 
@@ -175,7 +175,7 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
-    public void ApplyBorrarPixelatesSelectionWithoutFillingIt()
+    public void ApplyMaskPixelatesSelectionWithoutFillingIt()
     {
         using var bitmap = new Bitmap(4, 4);
         for (var row = 0; row < bitmap.Height; row++)
@@ -186,7 +186,7 @@ public sealed class ImageEditingServiceTests
             }
         }
 
-        ImageEditingService.ApplyBorrar(bitmap, new Rectangle(0, 0, 4, 4), BorrarMode.Pixelate, Color.Red, pixelSize: 4);
+        ImageEditingService.ApplyMask(bitmap, new Rectangle(0, 0, 4, 4), MaskMode.Pixelate, Color.Red, pixelSize: 4);
 
         Assert.Equal(Color.FromArgb(60, 60, 0).ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
         Assert.Equal(bitmap.GetPixel(0, 0).ToArgb(), bitmap.GetPixel(3, 3).ToArgb());
@@ -194,7 +194,7 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
-    public void ApplyBorrarPixelatesSelectionAtOffset()
+    public void ApplyMaskPixelatesSelectionAtOffset()
     {
         using var bitmap = new Bitmap(8, 8);
         using (var graphics = Graphics.FromImage(bitmap))
@@ -210,7 +210,7 @@ public sealed class ImageEditingServiceTests
             }
         }
 
-        ImageEditingService.ApplyBorrar(bitmap, new Rectangle(2, 2, 4, 4), BorrarMode.Pixelate, Color.Red, pixelSize: 4);
+        ImageEditingService.ApplyMask(bitmap, new Rectangle(2, 2, 4, 4), MaskMode.Pixelate, Color.Red, pixelSize: 4);
 
         Assert.Equal(Color.FromArgb(60, 60, 0).ToArgb(), bitmap.GetPixel(2, 2).ToArgb());
         Assert.Equal(bitmap.GetPixel(2, 2).ToArgb(), bitmap.GetPixel(5, 5).ToArgb());
