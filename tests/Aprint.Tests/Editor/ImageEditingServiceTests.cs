@@ -218,6 +218,62 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void ApplyMaskPixelatesPartialBlocksWithTheExactAverage()
+    {
+        using var bitmap = new Bitmap(11, 7);
+        for (var row = 0; row < bitmap.Height; row++)
+        {
+            for (var column = 0; column < bitmap.Width; column++)
+            {
+                bitmap.SetPixel(column, row, Color.FromArgb(column * 20, row * 30, (column + row) * 10));
+            }
+        }
+
+        var area = new Rectangle(2, 1, 7, 5);
+        var blockSize = 4;
+        var expectedColors = new int[2, 2];
+        for (var blockY = 0; blockY < expectedColors.GetLength(0); blockY++)
+        {
+            for (var blockX = 0; blockX < expectedColors.GetLength(1); blockX++)
+            {
+                var blockWidth = Math.Min(blockSize, area.Width - (blockX * blockSize));
+                var blockHeight = Math.Min(blockSize, area.Height - (blockY * blockSize));
+                long red = 0;
+                long green = 0;
+                long blue = 0;
+                for (var y = 0; y < blockHeight; y++)
+                {
+                    for (var x = 0; x < blockWidth; x++)
+                    {
+                        var color = bitmap.GetPixel(area.Left + (blockX * blockSize) + x, area.Top + (blockY * blockSize) + y);
+                        red += color.R;
+                        green += color.G;
+                        blue += color.B;
+                    }
+                }
+
+                expectedColors[blockY, blockX] = Color.FromArgb(
+                    (int)(red / (blockWidth * blockHeight)),
+                    (int)(green / (blockWidth * blockHeight)),
+                    (int)(blue / (blockWidth * blockHeight))).ToArgb();
+            }
+        }
+
+        ImageEditingService.ApplyMask(bitmap, area, MaskMode.Pixelate, Color.Red, blockSize);
+
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            for (var x = 0; x < bitmap.Width; x++)
+            {
+                var expected = area.Contains(x, y)
+                    ? expectedColors[(y - area.Top) / blockSize, (x - area.Left) / blockSize]
+                    : Color.FromArgb(x * 20, y * 30, (x + y) * 10).ToArgb();
+                Assert.Equal(expected, bitmap.GetPixel(x, y).ToArgb());
+            }
+        }
+    }
+
+    [Fact]
     public void CreateSelectionRectangleNormalizesReverseDrag()
     {
         var rectangle = ImageEditingService.CreateSelectionRectangle(new Point(8, 6), new Point(2, 1));

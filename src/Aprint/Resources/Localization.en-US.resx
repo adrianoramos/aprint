@@ -132,6 +132,9 @@
   <data name="Capture.Region.Capture" xml:space="preserve">
     <value>Capture</value>
   </data>
+  <data name="Capture.Region.SendToEditor" xml:space="preserve">
+    <value>Send to editor</value>
+  </data>
   <data name="Capture.Region.Actions" xml:space="preserve">
     <value>Capture actions</value>
   </data>

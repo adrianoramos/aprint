@@ -20,6 +20,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _settingsMenuItem;
     private readonly ToolStripMenuItem _aboutMenuItem;
     private readonly ToolStripMenuItem _exitMenuItem;
+    private readonly HashSet<EditorForm> _modelessEditors = [];
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
     private string? _lastSavedFilePath;
@@ -101,7 +102,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         try
         {
             var previousCaptureTool = _settings.LastCaptureTool;
-            using var result = _captureWorkflow.Execute(_settings, captureModeOverride);
+            using var result = _captureWorkflow.Execute(_settings, captureModeOverride, bitmap => OpenEditor(bitmap, showWithoutActivation: true));
             if (_settings.LastCaptureTool != previousCaptureTool)
             {
                 _settingsStore.Save(_settings);
@@ -125,6 +126,7 @@ public sealed class TrayApplicationContext : ApplicationContext
                     _notifyIcon.ShowBalloonTip(3000, AppLocalization.Translate("Tray.ScreenshotCaptured"), AppLocalization.Translate("Tray.EditorOpened"), ToolTipIcon.Info);
                 }
 
+                _isCaptureInProgress = false;
                 OpenEditor(result.Bitmap);
                 return;
             }
@@ -163,10 +165,10 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void OpenEditor(Bitmap bitmap)
+    private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize);
+        var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize, showWithoutActivation);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 
@@ -251,17 +253,43 @@ public sealed class TrayApplicationContext : ApplicationContext
                 break;
         }
 
-        editor.ShowDialog();
-
-        if (_settings.RememberLastEditorTool)
+        if (showWithoutActivation)
         {
-            _settings.LastEditorTool = editor.SelectedTool;
-            _settingsStore.Save(_settings);
+            editor.TopMost = topMost;
+            _modelessEditors.Add(editor);
+            editor.FormClosed += (_, _) =>
+            {
+                _modelessEditors.Remove(editor);
+                SaveLastEditorTool(editor);
+                if (captureAgain)
+                {
+                    CaptureScreenshot();
+                }
+            };
+            editor.Show();
+            return;
         }
+
+        editor.TopMost = topMost;
+        using (editor)
+        {
+            editor.ShowDialog();
+        }
+
+        SaveLastEditorTool(editor);
 
         if (captureAgain)
         {
             CaptureScreenshot();
+        }
+    }
+
+    private void SaveLastEditorTool(EditorForm editor)
+    {
+        if (_settings.RememberLastEditorTool)
+        {
+            _settings.LastEditorTool = editor.SelectedTool;
+            _settingsStore.Save(_settings);
         }
     }
 

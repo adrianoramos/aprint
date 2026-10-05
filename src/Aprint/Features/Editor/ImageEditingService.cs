@@ -326,18 +326,18 @@ public static class ImageEditingService
             return;
         }
 
-        using var graphics = Graphics.FromImage(bitmap);
         if (mode == MaskMode.Pixelate)
         {
-            PixelateArea(bitmap, graphics, rectangle, pixelSize);
+            PixelateArea(bitmap, rectangle, pixelSize);
             return;
         }
 
+        using var graphics = Graphics.FromImage(bitmap);
         using var solidBrush = new SolidBrush(color);
         graphics.FillRectangle(solidBrush, rectangle);
     }
 
-    private static void PixelateArea(Bitmap bitmap, Graphics graphics, Rectangle rectangle, int blockSize)
+    private static void PixelateArea(Bitmap bitmap, Rectangle rectangle, int blockSize)
     {
         blockSize = Math.Max(4, blockSize);
         var blocksWide = (rectangle.Width + blockSize - 1) / blockSize;
@@ -398,18 +398,54 @@ public static class ImageEditingService
             }
         }
 
-        using var brush = new SolidBrush(Color.Empty);
-        for (var blockY = 0; blockY < blocksHigh; blockY++)
+        BitmapData? outputData = null;
+        try
         {
-            var blockTop = blockY * blockSize;
-            var blockHeight = Math.Min(blockSize, rectangle.Height - blockTop);
+            outputData = bitmap.LockBits(
+                new Rectangle(Point.Empty, bitmap.Size),
+                ImageLockMode.ReadWrite,
+                PixelFormat.Format32bppArgb);
 
-            for (var blockX = 0; blockX < blocksWide; blockX++)
+            unsafe
             {
-                var blockLeft = blockX * blockSize;
-                var blockWidth = Math.Min(blockSize, rectangle.Width - blockLeft);
-                brush.Color = Color.FromArgb(blockColors[(blockY * blocksWide) + blockX]);
-                graphics.FillRectangle(brush, rectangle.Left + blockLeft, rectangle.Top + blockTop, blockWidth, blockHeight);
+                var scan0 = (byte*)outputData.Scan0;
+
+                for (var blockY = 0; blockY < blocksHigh; blockY++)
+                {
+                    var blockTop = blockY * blockSize;
+                    var blockHeight = Math.Min(blockSize, rectangle.Height - blockTop);
+
+                    for (var blockX = 0; blockX < blocksWide; blockX++)
+                    {
+                        var blockLeft = blockX * blockSize;
+                        var blockWidth = Math.Min(blockSize, rectangle.Width - blockLeft);
+                        var argb = (uint)blockColors[(blockY * blocksWide) + blockX];
+                        var blue = (byte)argb;
+                        var green = (byte)(argb >> 8);
+                        var red = (byte)(argb >> 16);
+                        var alpha = (byte)(argb >> 24);
+
+                        for (var y = 0; y < blockHeight; y++)
+                        {
+                            var destination = scan0 + (((rectangle.Top + blockTop + y) * outputData.Stride) + ((rectangle.Left + blockLeft) * 4));
+                            for (var x = 0; x < blockWidth; x++)
+                            {
+                                destination[0] = blue;
+                                destination[1] = green;
+                                destination[2] = red;
+                                destination[3] = alpha;
+                                destination += 4;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (outputData is not null)
+            {
+                bitmap.UnlockBits(outputData);
             }
         }
     }

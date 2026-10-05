@@ -8,7 +8,7 @@ namespace Aprint.Application;
 /// <summary>Executa o fluxo de captura e entrega o resultado pronto para apresentação.</summary>
 public sealed class CaptureWorkflow
 {
-    public CaptureResult? Execute(AppSettings settings, CaptureMode? captureModeOverride = null)
+    public CaptureResult? Execute(AppSettings settings, CaptureMode? captureModeOverride = null, Action<Bitmap>? sendToEditor = null)
     {
         var selectedMode = captureModeOverride ?? settings.CaptureMode;
         var captureMode = selectedMode == CaptureMode.SelectArea
@@ -22,7 +22,7 @@ public sealed class CaptureWorkflow
 
         try
         {
-            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.MaskMode, settings.LastMaskPixelSize, settings.LastLineColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, settings.ShowCaptureToolLabels, settings.LastCaptureTool, out var lastCaptureTool, out var wasCancelled, out regionAction);
+            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.MaskMode, settings.LastMaskPixelSize, settings.LastLineColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, settings.ShowCaptureToolLabels, settings.LastCaptureTool, sendToEditor, out var lastCaptureTool, out var wasCancelled, out regionAction);
             settings.LastCaptureTool = lastCaptureTool;
             if (wasCancelled)
             {
@@ -93,7 +93,7 @@ public sealed class CaptureWorkflow
         }
     }
 
-    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, MaskMode maskMode, int maskPixelSize, int lineColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showCaptureToolLabels, EditTool lastCaptureTool, out EditTool selectedCaptureTool, out bool wasCancelled, out RegionSelectionAction? selectedAction)
+    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, MaskMode maskMode, int maskPixelSize, int lineColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showCaptureToolLabels, EditTool lastCaptureTool, Action<Bitmap>? sendToEditor, out EditTool selectedCaptureTool, out bool wasCancelled, out RegionSelectionAction? selectedAction)
     {
         wasCancelled = false;
         selectedCaptureTool = lastCaptureTool;
@@ -104,6 +104,11 @@ public sealed class CaptureWorkflow
         }
 
         using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, maskMode, maskPixelSize, lineColorArgb, highlightWidth, fillColorArgb, textFontFamily, textFontSize, textFontStyle, textColorArgb, showCaptureToolLabels, lastCaptureTool);
+        if (sendToEditor is not null)
+        {
+            selector.SendToEditorRequested += sendToEditor;
+        }
+
         var dialogResult = selector.ShowDialog();
         selectedCaptureTool = selector.LastUsedTool;
         if (dialogResult != DialogResult.OK || selector.SelectedRegion is not { } region || selector.SelectedAction is not { } action)

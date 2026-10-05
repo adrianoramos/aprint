@@ -106,6 +106,7 @@ public sealed class EditorForm : Form
     private string _initialFolder;
     private readonly bool _closeAfterCopyOrSave;
     private readonly bool _saveWithoutPrompt;
+    private readonly bool _showWithoutActivation;
     private readonly string _automaticSavePath;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
@@ -187,9 +188,10 @@ public sealed class EditorForm : Form
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
+        _showWithoutActivation = showWithoutActivation;
         _selectedColor = Color.FromArgb(lineColorArgb);
         _selectedTextColor = Color.FromArgb(textColorArgb);
         _selectedFillColor = fillColorArgb.HasValue ? Color.FromArgb(fillColorArgb.Value) : null;
@@ -757,11 +759,13 @@ public sealed class EditorForm : Form
         Controls.Add(toolStrip);
 
         CenterPictureBox(scrollPanel);
-        SetActiveTool(initialTool);
+        SetActiveTool(Enum.IsDefined(initialTool) ? initialTool : EditTool.Freehand);
     }
 
     /// <summary>Current selected tool in the editor.</summary>
     public EditTool SelectedTool => _currentTool;
+
+    protected override bool ShowWithoutActivation => _showWithoutActivation;
 
     private static void CenterPictureBox(Panel scrollPanel)
     {
