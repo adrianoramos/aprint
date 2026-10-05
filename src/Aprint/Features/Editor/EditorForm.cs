@@ -291,6 +291,7 @@ public sealed class EditorForm : Form
         _btnFillColor.Click += (_, _) => PickFillColor();
         _btnFillColorDropdown = new ToolStripDropDownButton
         {
+            ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             ImageKey = EnsureToolIconKey(ToolIconKind.FillColor, Color.Black),
             ImageScaling = ToolStripItemImageScaling.None,
@@ -360,6 +361,7 @@ public sealed class EditorForm : Form
             shortcut: "F10");
         _btnTextFormatDropdown = new ToolStripDropDownButton
         {
+            ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             ImageKey = EnsureToolIconKey(ToolIconKind.Text, Color.Black),
             ImageScaling = ToolStripItemImageScaling.None,
@@ -459,6 +461,7 @@ public sealed class EditorForm : Form
         };
         _btnHighlightSizeDropdown = new ToolStripDropDownButton
         {
+            ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             ImageKey = EnsureToolIconKey(ToolIconKind.Highlight, Color.Black),
             ImageScaling = ToolStripItemImageScaling.None,
@@ -523,6 +526,7 @@ public sealed class EditorForm : Form
 
         _btnBorrarModeDropdown = new ToolStripDropDownButton
         {
+            ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             ImageKey = EnsureToolIconKey(
                 _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
@@ -794,6 +798,7 @@ public sealed class EditorForm : Form
         {
             CheckOnClick = isCheckable,
             Checked = isChecked,
+            ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             ImageKey = EnsureToolIconKey(iconKind, iconColor),
             ImageScaling = ToolStripItemImageScaling.None,
