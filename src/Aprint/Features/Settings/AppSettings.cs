@@ -35,6 +35,8 @@ public sealed class AppSettings
     [JsonPropertyName("BorrarMode")]
     public MaskMode MaskMode { get; set; } = MaskMode.Pixelate;
 
+    public EditTool LastCaptureTool { get; set; } = EditTool.Freehand;
+
     public bool ShowToolLabels { get; set; } = true;
 
     public bool ShowCaptureToolLabels { get; set; } = true;

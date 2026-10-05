@@ -100,7 +100,13 @@ public sealed class TrayApplicationContext : ApplicationContext
         _isCaptureInProgress = true;
         try
         {
+            var previousCaptureTool = _settings.LastCaptureTool;
             using var result = _captureWorkflow.Execute(_settings, captureModeOverride);
+            if (_settings.LastCaptureTool != previousCaptureTool)
+            {
+                _settingsStore.Save(_settings);
+            }
+
             if (result is null)
             {
                 return;

@@ -167,8 +167,6 @@ public sealed class RegionSelectorForm : Form
     private const int SplitDropdownWidth = 26;
     private const int IconOnlyActionWidth = 52;
     private const int IconOnlyDropdownWidth = 14;
-    private static AnnotationTool _lastSelectedAnnotationTool = AnnotationTool.Freehand;
-
     private readonly Bitmap _background;
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
     private readonly SolidBrush _overlayBrush = new(Color.FromArgb(120, 0, 0, 0));
@@ -247,7 +245,9 @@ public sealed class RegionSelectorForm : Form
 
     public RegionSelectionAction? SelectedAction { get; private set; }
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true)
+    public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
+
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand)
     {
         _background = background;
         _editHistory = new EditHistory(_background, _nextCounterValue);
@@ -261,6 +261,7 @@ public sealed class RegionSelectorForm : Form
         _textFont = CreateTextFont(textFontFamily, textFontSize, textFontStyle);
         _textColor = Color.FromArgb(textColorArgb);
         _showCaptureToolLabels = showCaptureToolLabels;
+        LastUsedTool = NormalizeLastCaptureTool(lastCaptureTool);
         _textCaretTimer.Tick += (_, _) =>
         {
             if (_isEditingText)
@@ -857,7 +858,9 @@ public sealed class RegionSelectorForm : Form
         captureDropdownButton.DropDownItems.AddRange([captureMenuItem, copyMenuItem, saveMenuItem]);
 
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
-        var drawingButton = CreateActionButton(GetCaptureToolButtonText(drawingLabel), null);
+        var drawingButton = CreateActionButton(
+            GetCaptureToolButtonText(drawingLabel),
+            LoadActionIcon("freehand.png", Color.FromArgb(45, 49, 54)));
         _drawingButton = drawingButton;
         drawingButton.AccessibleName = drawingLabel;
         drawingButton.ToolTipText = drawingLabel;
@@ -932,7 +935,7 @@ public sealed class RegionSelectorForm : Form
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
-        RestoreLastAnnotationTool(drawingButton);
+        RestoreLastCaptureTool(drawingButton);
         AddMaskMenuItem(MaskMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
         AddMaskMenuItem(MaskMode.Solid, "Editor.Filled", _filledIcon);
 
@@ -1011,18 +1014,74 @@ public sealed class RegionSelectorForm : Form
         _ => string.Empty,
     };
 
-    private void RestoreLastAnnotationTool(ToolStripButton drawingButton)
+    private void RestoreLastCaptureTool(ToolStripButton drawingButton)
     {
-        var menuItem = _drawingDropdownButton!.DropDownItems
-            .OfType<ToolStripMenuItem>()
-            .FirstOrDefault(item => item.Tag is AnnotationTool tool && tool == _lastSelectedAnnotationTool);
-        if (menuItem is null || menuItem.Tag is not AnnotationTool selectedTool || menuItem.Image is not Image selectedIcon)
+        var initialAnnotationTool = LastUsedTool switch
         {
+            EditTool.Freehand => AnnotationTool.Freehand,
+            EditTool.Line => AnnotationTool.Line,
+            EditTool.Arrow => AnnotationTool.Arrow,
+            EditTool.Rectangle => AnnotationTool.Rectangle,
+            EditTool.Circle => AnnotationTool.Circle,
+            _ => AnnotationTool.None,
+        };
+
+        if (initialAnnotationTool != AnnotationTool.None)
+        {
+            var menuItem = _drawingDropdownButton!.DropDownItems
+                .OfType<ToolStripMenuItem>()
+                .FirstOrDefault(item => item.Tag is AnnotationTool tool && tool == initialAnnotationTool);
+            if (menuItem?.Image is Image icon)
+            {
+                SelectAnnotationTool(initialAnnotationTool, drawingButton, menuItem, icon, toggleIfAlreadyActive: false);
+            }
             return;
         }
 
-        SelectAnnotationTool(selectedTool, drawingButton, menuItem, selectedIcon);
+        var standaloneTool = LastUsedTool switch
+        {
+            EditTool.Highlight => AnnotationTool.Highlight,
+            EditTool.Counter => AnnotationTool.Counter,
+            EditTool.Text => AnnotationTool.Text,
+            _ => AnnotationTool.None,
+        };
+        if (standaloneTool != AnnotationTool.None)
+        {
+            SetStandaloneTool(standaloneTool, toggleIfAlreadyActive: false);
+            return;
+        }
+
+        if (LastUsedTool is EditTool.Blur or EditTool.Pixelated)
+        {
+            var maskMode = LastUsedTool == EditTool.Blur ? MaskMode.Solid : MaskMode.Pixelate;
+            var menuItem = _maskDropdownButton!.DropDownItems
+                .OfType<ToolStripMenuItem>()
+                .FirstOrDefault(item => item.Tag is MaskMode mode && mode == maskMode);
+            if (menuItem?.Image is Image icon)
+            {
+                SelectMaskMode(maskMode, menuItem, icon);
+            }
+        }
     }
+
+    private static EditTool NormalizeLastCaptureTool(EditTool tool) => tool is
+        EditTool.Freehand or EditTool.Line or EditTool.Arrow or EditTool.Rectangle or EditTool.Circle or
+        EditTool.Highlight or EditTool.Counter or EditTool.Text or EditTool.Blur or EditTool.Pixelated
+            ? tool
+            : EditTool.Freehand;
+
+    private static EditTool GetEditTool(AnnotationTool tool) => tool switch
+    {
+        AnnotationTool.Freehand => EditTool.Freehand,
+        AnnotationTool.Line => EditTool.Line,
+        AnnotationTool.Arrow => EditTool.Arrow,
+        AnnotationTool.Rectangle => EditTool.Rectangle,
+        AnnotationTool.Circle => EditTool.Circle,
+        AnnotationTool.Highlight => EditTool.Highlight,
+        AnnotationTool.Counter => EditTool.Counter,
+        AnnotationTool.Text => EditTool.Text,
+        _ => EditTool.Freehand,
+    };
 
     private void AddMaskMenuItem(MaskMode mode, string localizationKey, Image icon)
     {
@@ -1455,7 +1514,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         var isTogglingOff = toggleIfAlreadyActive && _annotationTool == tool && _selectedAnnotationTool == tool;
-        _lastSelectedAnnotationTool = tool;
+        LastUsedTool = GetEditTool(tool);
         _selectedAnnotationTool = tool;
         _selectedDrawingMenuItem = selectedMenuItem;
         _selectedDrawingIcon = selectedIcon;
@@ -1489,6 +1548,10 @@ public sealed class RegionSelectorForm : Form
         _annotationTool = toggleIfAlreadyActive && _annotationTool == tool
             ? AnnotationTool.None
             : tool;
+        if (_annotationTool != AnnotationTool.None)
+        {
+            LastUsedTool = GetEditTool(tool);
+        }
         _isMaskModeActive = false;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateMaskButtonAppearance();
@@ -1663,6 +1726,7 @@ public sealed class RegionSelectorForm : Form
 
         _maskMode = mode;
         _isMaskModeActive = !isTogglingOff;
+        LastUsedTool = mode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated;
         foreach (ToolStripMenuItem menuItem in _maskDropdownButton!.DropDownItems)
         {
             menuItem.Checked = _isMaskModeActive && menuItem == selectedMenuItem;
@@ -1693,6 +1757,10 @@ public sealed class RegionSelectorForm : Form
         }
 
         _isMaskModeActive = !_isMaskModeActive;
+        if (_isMaskModeActive)
+        {
+            LastUsedTool = _maskMode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated;
+        }
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateDrawingButtonAppearance();
         UpdateMaskButtonAppearance();

@@ -24,6 +24,7 @@ public sealed class SettingsStoreTests : IDisposable
             OpenEditorAfterCapture = true,
             PlaySoundOnCapture = true,
             MaskMode = MaskMode.Solid,
+            LastCaptureTool = EditTool.Circle,
             ShowToolLabels = false,
             SaveEditorImageWithoutPrompt = true,
             AutoCloseEditorWhenInactive = true,

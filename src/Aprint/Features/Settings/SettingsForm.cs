@@ -38,6 +38,7 @@ public sealed partial class SettingsForm : Form
             PlaySoundOnCapture = currentSettings.PlaySoundOnCapture,
             EditorStartState = currentSettings.EditorStartState,
             MaskMode = currentSettings.MaskMode,
+            LastCaptureTool = currentSettings.LastCaptureTool,
             ShowToolLabels = currentSettings.ShowToolLabels,
             ShowCaptureToolLabels = currentSettings.ShowCaptureToolLabels,
             SaveEditorImageWithoutPrompt = currentSettings.SaveEditorImageWithoutPrompt,
