@@ -28,7 +28,7 @@ public sealed class RegionSelectorForm : Form
     private const int ActionControlHeight = 34;
     private const int SplitDropdownWidth = 30;
     private const int IconOnlyActionWidth = 56;
-    private const int IconOnlyDropdownWidth = 22;
+    private const int IconOnlyDropdownWidth = 14;
     private static readonly Color ActiveToolBackColor = Color.FromArgb(232, 239, 244);
     private static readonly Color ActiveToolBorderColor = Color.FromArgb(183, 197, 207);
     private static readonly Color ActiveToolHoverColor = Color.FromArgb(222, 231, 237);
