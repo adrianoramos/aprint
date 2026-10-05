@@ -125,6 +125,7 @@ public sealed class TrayApplicationContext : ApplicationContext
                     _notifyIcon.ShowBalloonTip(3000, AppLocalization.Translate("Tray.ScreenshotCaptured"), AppLocalization.Translate("Tray.EditorOpened"), ToolTipIcon.Info);
                 }
 
+                _isCaptureInProgress = false;
                 OpenEditor(result.Bitmap);
                 return;
             }
