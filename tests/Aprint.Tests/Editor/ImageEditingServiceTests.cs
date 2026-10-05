@@ -25,6 +25,18 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void CreateCounterMarkerUsesCommonNumberAndBounds()
+    {
+        var area = new Rectangle(10, 20, 100, 80);
+
+        var marker = ImageEditingService.CreateCounterMarker(Point.Empty, 99, area);
+
+        Assert.Equal(99, marker.Value);
+        Assert.Equal(ImageEditingService.CounterMarkerDiameter, marker.Diameter);
+        Assert.True(area.Contains(marker.Bounds));
+    }
+
+    [Fact]
     public void DrawCounterMarkerUsesLineAndFillColorsIndependently()
     {
         using var bitmap = new Bitmap(40, 40);
@@ -85,6 +97,48 @@ public sealed class ImageEditingServiceTests
         Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, 15).ToArgb());
         Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(15, 4).ToArgb());
         Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Theory]
+    [InlineData(EditTool.Rectangle)]
+    [InlineData(EditTool.Circle)]
+    public void DrawAnnotationUsesSharedOutlineAndFillColors(EditTool tool)
+    {
+        using var bitmap = new Bitmap(32, 32);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+
+        ImageEditingService.DrawAnnotation(graphics, new Point(4, 4), new Point(26, 26), tool, Color.Red, Color.Blue);
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(15, 15).ToArgb());
+        Assert.NotEqual(Color.White.ToArgb(), bitmap.GetPixel(15, 5).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Fact]
+    public void DrawFreehandSegmentUsesSharedAnnotationColor()
+    {
+        using var bitmap = new Bitmap(24, 24);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+
+        ImageEditingService.DrawFreehandSegment(graphics, new Point(4, 12), new Point(20, 12), Color.Red);
+
+        Assert.NotEqual(Color.White.ToArgb(), bitmap.GetPixel(12, 12).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(12, 2).ToArgb());
+    }
+
+    [Fact]
+    public void DrawFreehandStrokeUsesSharedAnnotationColor()
+    {
+        using var bitmap = new Bitmap(24, 24);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+
+        ImageEditingService.DrawFreehandStroke(graphics, [new Point(4, 12), new Point(20, 12)], Color.Red);
+
+        Assert.NotEqual(Color.White.ToArgb(), bitmap.GetPixel(12, 12).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(12, 2).ToArgb());
     }
 
     [Theory]
@@ -249,6 +303,26 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void DrawHighlighterDoesNotPaintOutsideClipBounds()
+    {
+        using var bitmap = new Bitmap(40, 24);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+            ImageEditingService.DrawHighlighter(
+                graphics,
+                [new Point(2, 12), new Point(37, 12)],
+                Color.Yellow,
+                width: 18,
+                clipBounds: new Rectangle(14, 0, 12, 24));
+        }
+
+        Assert.NotEqual(Color.White.ToArgb(), bitmap.GetPixel(20, 12).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(13, 12).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(26, 12).ToArgb());
+    }
+
+    [Fact]
     public void ApplyTextDrawsWithinTheSelectedBounds()
     {
         using var bitmap = new Bitmap(120, 60);
@@ -290,5 +364,20 @@ public sealed class ImageEditingServiceTests
         Assert.Equal(font.Height, caretSize.Height);
         Assert.True(longLine.Width > shortLine.Width);
         Assert.Equal(shortLine.Height * 2, twoLines.Height);
+    }
+
+    [Fact]
+    public void CreateTextBoundsUsesSharedEditorPlacementForReverseDrag()
+    {
+        using var font = new Font("Segoe UI", 12F);
+        var bounds = ImageEditingService.CreateTextBounds(
+            new Point(80, 70),
+            new Point(30, 20),
+            new Rectangle(0, 0, 200, 120),
+            font,
+            out var minimumWidth);
+
+        Assert.Equal(new Rectangle(80, 20, 100, font.Height + 2), bounds);
+        Assert.Equal(100, minimumWidth);
     }
 }

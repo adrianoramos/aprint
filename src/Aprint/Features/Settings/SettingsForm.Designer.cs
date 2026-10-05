@@ -29,6 +29,7 @@ partial class SettingsForm
     private CheckBox chkStartWithWindows = null!;
     private CheckBox chkPlaySound = null!;
     private CheckBox chkShowToolLabels = null!;
+    private CheckBox chkShowCaptureToolLabels = null!;
     private CheckBox chkCloseEditorOnCopyOrSave = null!;
     private CheckBox chkSaveEditorImageWithoutPrompt = null!;
     private CheckBox chkAutoCloseEditorWhenInactive = null!;
@@ -81,6 +82,7 @@ partial class SettingsForm
         cmbEditorStartState = new ComboBox();
         chkRememberLastTool = new CheckBox();
         chkShowToolLabels = new CheckBox();
+        chkShowCaptureToolLabels = new CheckBox();
         lblDefaultEditorTool = new Label();
         cmbDefaultEditorTool = new ComboBox();
         grpGeneral = new GroupBox();
@@ -174,12 +176,13 @@ partial class SettingsForm
         grpCaptureMode.Controls.Add(cmbCaptureAction);
         grpCaptureMode.Controls.Add(lblOutsideCaptureClickAction);
         grpCaptureMode.Controls.Add(cmbOutsideCaptureClickAction);
+        grpCaptureMode.Controls.Add(chkShowCaptureToolLabels);
         grpCaptureMode.Controls.Add(lblSavePath);
         grpCaptureMode.Controls.Add(txtSaveFolder);
         grpCaptureMode.Controls.Add(btnBrowse);
         grpCaptureMode.Location = new Point(12, 92);
         grpCaptureMode.Name = "grpCaptureMode";
-        grpCaptureMode.Size = new Size(436, 202);
+        grpCaptureMode.Size = new Size(436, 227);
         grpCaptureMode.TabIndex = 1;
         grpCaptureMode.TabStop = false;
         grpCaptureMode.Text = "Captura";
@@ -260,6 +263,15 @@ partial class SettingsForm
         cmbOutsideCaptureClickAction.Name = "cmbOutsideCaptureClickAction";
         cmbOutsideCaptureClickAction.Size = new Size(218, 23);
         cmbOutsideCaptureClickAction.TabIndex = 12;
+        //
+        // chkShowCaptureToolLabels
+        //
+        chkShowCaptureToolLabels.AutoSize = true;
+        chkShowCaptureToolLabels.Location = new Point(15, 198);
+        chkShowCaptureToolLabels.Name = "chkShowCaptureToolLabels";
+        chkShowCaptureToolLabels.Size = new Size(345, 19);
+        chkShowCaptureToolLabels.TabIndex = 13;
+        chkShowCaptureToolLabels.Text = "Exibir rótulo dos botões na barra de captura";
         // 
         // cmbNotificationClick
         // 
@@ -290,7 +302,7 @@ partial class SettingsForm
         grpEditor.Controls.Add(chkShowToolLabels);
         grpEditor.Controls.Add(lblDefaultEditorTool);
         grpEditor.Controls.Add(cmbDefaultEditorTool);
-        grpEditor.Location = new Point(12, 298);
+        grpEditor.Location = new Point(12, 323);
         grpEditor.Name = "grpEditor";
         grpEditor.Size = new Size(436, 215);
         grpEditor.TabIndex = 2;
@@ -396,7 +408,7 @@ partial class SettingsForm
         grpGeneral.Controls.Add(chkStartWithWindows);
         grpGeneral.Controls.Add(lblLanguage);
         grpGeneral.Controls.Add(cmbLanguage);
-        grpGeneral.Location = new Point(12, 517);
+        grpGeneral.Location = new Point(12, 542);
         grpGeneral.Name = "grpGeneral";
         grpGeneral.Size = new Size(436, 167);
         grpGeneral.TabIndex = 3;
@@ -452,7 +464,7 @@ partial class SettingsForm
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(282, 690);
+        btnSave.Location = new Point(282, 715);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -462,7 +474,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 690);
+        btnCancel.Location = new Point(368, 715);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -475,7 +487,7 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(460, 729);
+        ClientSize = new Size(460, 754);
         Controls.Add(grpHotkey);
         Controls.Add(grpCaptureMode);
         Controls.Add(grpEditor);

@@ -24,10 +24,11 @@ public sealed class RegionSelectorForm : Form
     private const int SelectionBorderWidth = 2;
     private const int HandleSize = 10;
     private const int MinimumSelectionSize = 3;
-    private const int FreehandPenWidth = 3;
-    private const int TextMinimumWidth = 100;
+    private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ActionControlHeight = 34;
     private const int SplitDropdownWidth = 30;
+    private const int IconOnlyActionWidth = 56;
+    private const int IconOnlyDropdownWidth = 22;
     private static readonly Color ActiveToolBackColor = Color.FromArgb(232, 239, 244);
     private static readonly Color ActiveToolBorderColor = Color.FromArgb(183, 197, 207);
     private static readonly Color ActiveToolHoverColor = Color.FromArgb(222, 231, 237);
@@ -43,10 +44,12 @@ public sealed class RegionSelectorForm : Form
     private readonly ContextMenuStrip _drawingMenu = new();
     private readonly ContextMenuStrip _borrarMenu = new();
     private readonly ContextMenuStrip _captureActionsMenu = new();
+    private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
+    private readonly ToolTip _actionToolTip = new();
     private readonly List<List<Point>> _freehandStrokes = [];
     private readonly List<List<Point>> _highlightStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
-    private readonly List<(Point Center, int Value, int Diameter)> _counterMarkers = [];
+    private readonly List<ImageEditingService.CounterMarker> _counterMarkers = [];
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
     private readonly Panel _actionBar;
@@ -61,17 +64,19 @@ public sealed class RegionSelectorForm : Form
     private Image? _pixelatedIcon;
     private Image? _filledIcon;
     private BorrarMode _borrarMode = BorrarMode.Pixelate;
-    private Color _borrarColor = Color.Red;
+    private Color _lineColor = Color.Red;
     private int _borrarPixelSize = 6;
     private int _highlightWidth = 18;
-    private Color? _counterFillColor;
+    private Color? _fillColor;
+    private bool _showCaptureToolLabels = true;
     private int _nextCounterValue = 1;
     private Font _textFont = new("Segoe UI", 12F);
     private Color _textColor = Color.Red;
     private string _textBuffer = string.Empty;
     private Rectangle _textBounds;
     private int _textMinimumWidth;
-    private int _textMinimumHeight;
+    private bool _isTextSelected;
+    private bool _textCaretVisible;
     private AnnotationTool _selectedAnnotationTool;
     private ToolStripMenuItem? _selectedDrawingMenuItem;
     private Image? _selectedDrawingIcon;
@@ -108,18 +113,27 @@ public sealed class RegionSelectorForm : Form
 
     public RegionSelectionAction? SelectedAction { get; private set; }
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int borrarColorArgb = -65536, int highlightWidth = 18, int? counterFillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true)
     {
         _background = background;
         _outsideCaptureClickAction = outsideCaptureClickAction;
         _borrarMode = borrarMode;
         _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
-        _borrarColor = Color.FromArgb(borrarColorArgb);
+        _lineColor = Color.FromArgb(lineColorArgb);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
-        _counterFillColor = counterFillColorArgb is int fillColorArgb ? Color.FromArgb(fillColorArgb) : null;
+        _fillColor = fillColorArgb is int selectedFillColorArgb ? Color.FromArgb(selectedFillColorArgb) : null;
         _textFont.Dispose();
         _textFont = CreateTextFont(textFontFamily, textFontSize, textFontStyle);
         _textColor = Color.FromArgb(textColorArgb);
+        _showCaptureToolLabels = showCaptureToolLabels;
+        _textCaretTimer.Tick += (_, _) =>
+        {
+            if (_isEditingText)
+            {
+                _textCaretVisible = !_textCaretVisible;
+                Invalidate(_textBounds);
+            }
+        };
 
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -443,7 +457,7 @@ public sealed class RegionSelectorForm : Form
             Capture = false;
             if (area.Width > 0 && area.Height > 0)
             {
-                ImageEditingService.ApplyBorrar(_background, area, _borrarMode, _borrarColor, _borrarPixelSize);
+                ImageEditingService.ApplyBorrar(_background, area, _borrarMode, _lineColor, _borrarPixelSize);
             }
 
             InvalidateShapePreview(_borrarStart, previousEnd, _borrarEnd);
@@ -492,6 +506,23 @@ public sealed class RegionSelectorForm : Form
                 return true;
             }
 
+            if ((keyData & Keys.Control) != 0 && (keyData & Keys.KeyCode) == Keys.A)
+            {
+                _isTextSelected = _textBuffer.Length > 0;
+                _textCaretVisible = false;
+                Invalidate(_textBounds);
+                return true;
+            }
+
+            if (keyData == Keys.Delete && _isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+                _textCaretVisible = true;
+                ResizeTextBoundsToContent();
+                return true;
+            }
+
             if (keyData == (Keys.Control | Keys.Enter))
             {
                 CommitTextEdit();
@@ -503,6 +534,20 @@ public sealed class RegionSelectorForm : Form
                 AppendTextNewLine();
                 return true;
             }
+
+            if ((keyData & Keys.Control) != 0 && (keyData & Keys.KeyCode) != Keys.ControlKey)
+            {
+                CommitTextEdit();
+            }
+            else
+            {
+                return base.ProcessCmdKey(ref msg, keyData);
+            }
+        }
+
+        if (TryHandleEditorToolShortcut(keyData))
+        {
+            return true;
         }
 
         if (keyData == Keys.Escape)
@@ -542,13 +587,24 @@ public sealed class RegionSelectorForm : Form
 
         if (e.KeyChar == '\b')
         {
-            if (_textBuffer.Length > 0)
+            if (_isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+            }
+            else if (_textBuffer.Length > 0)
             {
                 _textBuffer = _textBuffer[..^1];
             }
         }
         else if (!char.IsControl(e.KeyChar))
         {
+            if (_isTextSelected)
+            {
+                _textBuffer = string.Empty;
+                _isTextSelected = false;
+            }
+
             _textBuffer += e.KeyChar;
         }
         else
@@ -557,6 +613,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         e.Handled = true;
+        _textCaretVisible = true;
         ResizeTextBoundsToContent();
     }
 
@@ -570,6 +627,9 @@ public sealed class RegionSelectorForm : Form
             _drawingMenu.Dispose();
             _borrarMenu.Dispose();
             _captureActionsMenu.Dispose();
+            _textCaretTimer.Stop();
+            _textCaretTimer.Dispose();
+            _actionToolTip.Dispose();
             _textFont.Dispose();
             foreach (var image in _actionImages)
             {
@@ -599,12 +659,13 @@ public sealed class RegionSelectorForm : Form
         };
 
         var captureLabel = AppLocalization.Translate("Capture.Region.Capture");
-        var captureButton = CreateActionButton(captureLabel, true, LoadActionIcon("capture.png", Color.White));
+        var captureButton = CreateActionButton(GetCaptureToolButtonText(captureLabel), true, LoadActionIcon("capture.png", Color.White));
         SetSplitMainButtonSize(captureButton);
         captureButton.Margin = Padding.Empty;
         captureButton.FlatAppearance.BorderSize = 1;
         captureButton.FlatAppearance.BorderColor = Color.FromArgb(0, 88, 155);
         captureButton.AccessibleName = captureLabel;
+        _actionToolTip.SetToolTip(captureButton, $"{captureLabel} (Enter)");
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
 
         var captureDropdownButton = CreateActionButton("\u25BE", true, null);
@@ -629,6 +690,7 @@ public sealed class RegionSelectorForm : Form
             Padding = Padding.Empty,
             WrapContents = false,
         };
+        ApplyCaptureSplitButtonSize(captureActionsPanel, captureButton, captureDropdownButton);
         captureActionsPanel.Controls.Add(captureButton);
         captureActionsPanel.Controls.Add(captureDropdownButton);
 
@@ -650,10 +712,11 @@ public sealed class RegionSelectorForm : Form
         _captureActionsMenu.Items.AddRange([captureMenuItem, copyMenuItem, saveMenuItem]);
 
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
-        var drawingButton = CreateActionButton(drawingLabel, false, null);
+        var drawingButton = CreateActionButton(GetCaptureToolButtonText(drawingLabel), false, null);
         SetSplitMainButtonSize(drawingButton);
         _drawingButton = drawingButton;
         drawingButton.AccessibleName = drawingLabel;
+        _actionToolTip.SetToolTip(drawingButton, drawingLabel);
         drawingButton.Margin = Padding.Empty;
         drawingButton.FlatAppearance.BorderSize = 0;
         drawingButton.Click += (_, _) => ToggleDrawingTool();
@@ -680,36 +743,45 @@ public sealed class RegionSelectorForm : Form
             Padding = Padding.Empty,
             WrapContents = false,
         };
+        ApplyCaptureSplitButtonSize(drawingActionsPanel, drawingButton, drawingDropdownButton);
         drawingActionsPanel.Controls.Add(drawingButton);
         drawingActionsPanel.Controls.Add(drawingDropdownButton);
 
         var highlightLabel = AppLocalization.Translate("Editor.Highlight");
         _highlightIcon = LoadActionIcon("highlight.png", Color.FromArgb(45, 49, 54));
-        var highlightButton = CreateActionButton(highlightLabel, false, _highlightIcon);
+        var highlightButton = CreateActionButton(GetCaptureToolButtonText(highlightLabel), false, _highlightIcon);
+        ApplyCaptureToolButtonSize(highlightButton);
         _highlightButton = highlightButton;
         highlightButton.AccessibleName = highlightLabel;
+        _actionToolTip.SetToolTip(highlightButton, $"{highlightLabel} (F7)");
         highlightButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Highlight);
 
         var counterLabel = AppLocalization.Translate("Editor.Counter");
         var counterIcon = LoadActionIcon("counter.png", Color.FromArgb(45, 49, 54));
-        var counterButton = CreateActionButton(counterLabel, false, counterIcon);
+        var counterButton = CreateActionButton(GetCaptureToolButtonText(counterLabel), false, counterIcon);
+        ApplyCaptureToolButtonSize(counterButton);
         _counterButton = counterButton;
         counterButton.AccessibleName = counterLabel;
+        _actionToolTip.SetToolTip(counterButton, $"{counterLabel} (F9)");
         counterButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Counter);
 
         var textLabel = AppLocalization.Translate("Editor.Text");
-        var textButton = CreateActionButton(textLabel, false, LoadActionIcon("text.png", Color.FromArgb(45, 49, 54)));
+        var textButton = CreateActionButton(GetCaptureToolButtonText(textLabel), false, LoadActionIcon("text.png", Color.FromArgb(45, 49, 54)));
+        ApplyCaptureToolButtonSize(textButton);
         _textButton = textButton;
         textButton.AccessibleName = textLabel;
+        _actionToolTip.SetToolTip(textButton, $"{textLabel} (F10)");
         textButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Text);
 
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
         var borrarLabel = GetBorrarModeLabel(_borrarMode);
-        var borrarButton = CreateActionButton(borrarLabel, false, _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
+        var borrarButton = CreateActionButton(GetCaptureToolButtonText(borrarLabel), false, _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
         SetSplitMainButtonSize(borrarButton);
         _borrarButton = borrarButton;
-        borrarButton.AccessibleName = borrarLabel;
+        borrarButton.AccessibleName = AppLocalization.Translate("Editor.Mask");
+        borrarButton.AccessibleDescription = borrarLabel;
+        _actionToolTip.SetToolTip(borrarButton, $"{AppLocalization.Translate("Editor.Mask")}: {borrarLabel} (F8)");
         borrarButton.Margin = Padding.Empty;
         borrarButton.FlatAppearance.BorderSize = 0;
         borrarButton.Click += (_, _) => ToggleBorrarMode();
@@ -722,7 +794,7 @@ public sealed class RegionSelectorForm : Form
         borrarDropdownButton.Margin = new Padding(-1, 0, 0, 0);
         borrarDropdownButton.Padding = Padding.Empty;
         borrarDropdownButton.FlatAppearance.BorderSize = 0;
-        borrarDropdownButton.AccessibleName = AppLocalization.Translate("Capture.Region.Actions");
+        borrarDropdownButton.AccessibleName = AppLocalization.Translate("Editor.MaskOptions");
         borrarDropdownButton.Click += (_, _) => _borrarMenu.Show(borrarDropdownButton, new Point(0, borrarDropdownButton.Height));
 
         var borrarActionsPanel = new FlowLayoutPanel
@@ -736,6 +808,7 @@ public sealed class RegionSelectorForm : Form
             Padding = Padding.Empty,
             WrapContents = false,
         };
+        ApplyCaptureSplitButtonSize(borrarActionsPanel, borrarButton, borrarDropdownButton);
         borrarActionsPanel.Controls.Add(borrarButton);
         borrarActionsPanel.Controls.Add(borrarDropdownButton);
 
@@ -773,10 +846,24 @@ public sealed class RegionSelectorForm : Form
     {
         var icon = LoadActionIcon(iconFileName, Color.FromArgb(45, 49, 54));
         var label = AppLocalization.Translate(localizationKey);
-        var menuItem = new ToolStripMenuItem(label, icon) { Tag = tool };
+        var menuItem = new ToolStripMenuItem(label, icon)
+        {
+            Tag = tool,
+            ShortcutKeyDisplayString = GetDrawingToolShortcut(tool),
+        };
         menuItem.Click += (_, _) => SelectAnnotationTool(tool, drawingButton, menuItem, icon);
         _drawingMenu.Items.Add(menuItem);
     }
+
+    private static string GetDrawingToolShortcut(AnnotationTool tool) => tool switch
+    {
+        AnnotationTool.Freehand => "F2",
+        AnnotationTool.Line => "F3",
+        AnnotationTool.Arrow => "F4",
+        AnnotationTool.Rectangle => "F5",
+        AnnotationTool.Circle => "F6",
+        _ => string.Empty,
+    };
 
     private void RestoreLastAnnotationTool(Button drawingButton)
     {
@@ -796,6 +883,7 @@ public sealed class RegionSelectorForm : Form
         var menuItem = new ToolStripMenuItem(AppLocalization.Translate(localizationKey), icon)
         {
             Checked = mode == _borrarMode,
+            Tag = mode,
         };
         menuItem.Click += (_, _) => SelectBorrarMode(mode, menuItem, icon);
         _borrarMenu.Items.Add(menuItem);
@@ -831,6 +919,37 @@ public sealed class RegionSelectorForm : Form
             ? Color.FromArgb(0, 75, 132)
             : Color.FromArgb(230, 235, 240);
         return button;
+    }
+
+    private string GetCaptureToolButtonText(string label) => _showCaptureToolLabels ? label : string.Empty;
+
+    private void ApplyCaptureToolButtonSize(Button button)
+    {
+        if (_showCaptureToolLabels)
+        {
+            return;
+        }
+
+        button.AutoSize = false;
+        button.MinimumSize = new Size(IconOnlyActionWidth, ActionControlHeight);
+        button.Size = new Size(IconOnlyActionWidth, ActionControlHeight);
+    }
+
+    private void ApplyCaptureSplitButtonSize(FlowLayoutPanel panel, Button mainButton, Button dropdownButton)
+    {
+        if (_showCaptureToolLabels)
+        {
+            return;
+        }
+
+        var mainButtonWidth = IconOnlyActionWidth - IconOnlyDropdownWidth + 1;
+        mainButton.AutoSize = false;
+        mainButton.MinimumSize = new Size(mainButtonWidth, ActionControlHeight);
+        mainButton.Size = new Size(mainButtonWidth, ActionControlHeight);
+        dropdownButton.MinimumSize = new Size(IconOnlyDropdownWidth, ActionControlHeight);
+        dropdownButton.Size = new Size(IconOnlyDropdownWidth, ActionControlHeight);
+        panel.AutoSize = true;
+        panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
     }
 
     private static void SetSplitMainButtonSize(Button button)
@@ -891,16 +1010,12 @@ public sealed class RegionSelectorForm : Form
 
     private void BeginTextEdit(Point start, Point end)
     {
-        var draggedBounds = GetRectangle(start, end);
-        var left = Math.Clamp(draggedBounds.Left, _selection.Left, _selection.Right - 1);
-        var top = Math.Clamp(draggedBounds.Top, _selection.Top, _selection.Bottom - 1);
-        var availableWidth = _selection.Right - left;
-        var availableHeight = _selection.Bottom - top;
-        _textMinimumWidth = Math.Min(availableWidth, Math.Max(TextMinimumWidth, draggedBounds.Width));
-        _textMinimumHeight = Math.Min(availableHeight, Math.Max(_textFont.Height + 4, draggedBounds.Height));
-        _textBounds = new Rectangle(left, top, _textMinimumWidth, _textMinimumHeight);
+        _textBounds = ImageEditingService.CreateTextBounds(start, end, _selection, _textFont, out _textMinimumWidth);
         _textBuffer = string.Empty;
+        _isTextSelected = false;
         _isEditingText = true;
+        _textCaretVisible = true;
+        _textCaretTimer.Start();
         Cursor = Cursors.IBeam;
         Focus();
         Invalidate(_textBounds);
@@ -915,17 +1030,20 @@ public sealed class RegionSelectorForm : Form
 
         var previousBounds = _textBounds;
         var contentSize = ImageEditingService.MeasureTextContent(_textBuffer, _textFont);
-        var availableWidth = Math.Max(1, _selection.Right - _textBounds.Left);
-        var availableHeight = Math.Max(1, _selection.Bottom - _textBounds.Top);
-        var width = Math.Min(Math.Max(_textMinimumWidth, contentSize.Width + 4), availableWidth);
-        var height = Math.Min(Math.Max(_textMinimumHeight, contentSize.Height + 4), availableHeight);
-        _textBounds = new Rectangle(_textBounds.Left, _textBounds.Top, Math.Max(1, width), Math.Max(1, height));
+        _textBounds = ImageEditingService.ResizeTextBounds(_textBounds, _textMinimumWidth, _textBuffer, _textFont, _selection);
         Invalidate(Rectangle.Union(previousBounds, _textBounds));
     }
 
     private void AppendTextNewLine()
     {
+        if (_isTextSelected)
+        {
+            _textBuffer = string.Empty;
+            _isTextSelected = false;
+        }
+
         _textBuffer += Environment.NewLine;
+        _textCaretVisible = true;
         ResizeTextBoundsToContent();
     }
 
@@ -936,22 +1054,28 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
+        _textCaretTimer.Stop();
         _isEditingText = false;
-        Cursor = Cursors.Cross;
+        _isTextSelected = false;
         if (_textBuffer.Length > 0)
         {
             ImageEditingService.ApplyText(_background, _textBounds, _textBuffer, _textColor, _textFont);
         }
 
         _textBuffer = string.Empty;
+        _textCaretVisible = false;
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         Invalidate(_textBounds);
     }
 
     private void CancelTextEdit()
     {
         _isEditingText = false;
+        _textCaretTimer.Stop();
+        _isTextSelected = false;
         _textBuffer = string.Empty;
-        Cursor = Cursors.Cross;
+        _textCaretVisible = false;
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         Invalidate(_textBounds);
     }
 
@@ -969,9 +1093,21 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        ImageEditingService.DrawText(graphics, _textBounds, _textBuffer, _textColor, _textFont);
+        if (_isTextSelected)
+        {
+            using var selectionBrush = new SolidBrush(SystemColors.Highlight);
+            graphics.FillRectangle(selectionBrush, Rectangle.Inflate(_textBounds, -1, -1));
+        }
+
+        var textColor = _isTextSelected ? SystemColors.HighlightText : _textColor;
+        ImageEditingService.DrawText(graphics, _textBounds, _textBuffer, textColor, _textFont);
         using var borderPen = new Pen(Color.Gray) { DashStyle = DashStyle.Dash };
         graphics.DrawRectangle(borderPen, _textBounds.X, _textBounds.Y, _textBounds.Width - 1, _textBounds.Height - 1);
+
+        if (!_textCaretVisible || _isTextSelected)
+        {
+            return;
+        }
 
         var lines = _textBuffer.Split('\n');
         var lastLine = lines[^1].TrimEnd('\r');
@@ -1066,6 +1202,9 @@ public sealed class RegionSelectorForm : Form
             Math.Max(start.Y, end.Y) + 1);
 
     private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon)
+        => SelectAnnotationTool(tool, drawingButton, selectedMenuItem, selectedIcon, toggleIfAlreadyActive: true);
+
+    private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon, bool toggleIfAlreadyActive)
     {
         if (_isEditingText)
         {
@@ -1078,13 +1217,14 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        var isTogglingOff = _annotationTool == tool && _selectedAnnotationTool == tool;
+        var isTogglingOff = toggleIfAlreadyActive && _annotationTool == tool && _selectedAnnotationTool == tool;
         _lastSelectedAnnotationTool = tool;
         _selectedAnnotationTool = tool;
         _selectedDrawingMenuItem = selectedMenuItem;
         _selectedDrawingIcon = selectedIcon;
         _annotationTool = isTogglingOff ? AnnotationTool.None : tool;
         _isBorrarModeActive = false;
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateBorrarButtonAppearance();
         foreach (ToolStripMenuItem menuItem in _drawingMenu.Items)
         {
@@ -1092,23 +1232,85 @@ public sealed class RegionSelectorForm : Form
         }
 
         drawingButton.Image = _selectedDrawingIcon;
+        _actionToolTip.SetToolTip(drawingButton, $"{AppLocalization.Translate("Capture.Region.Drawing")}: {selectedMenuItem?.Text ?? tool.ToString()} ({GetDrawingToolShortcut(tool)})");
         UpdateDrawingButtonAppearance();
     }
 
     private void ToggleStandaloneTool(AnnotationTool tool)
+        => SetStandaloneTool(tool, toggleIfAlreadyActive: true);
+
+    private void SetStandaloneTool(AnnotationTool tool, bool toggleIfAlreadyActive)
     {
         if (_isEditingText)
         {
             CommitTextEdit();
         }
 
-        _annotationTool = _annotationTool == tool
+        _annotationTool = toggleIfAlreadyActive && _annotationTool == tool
             ? AnnotationTool.None
             : tool;
         _isBorrarModeActive = false;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateBorrarButtonAppearance();
         UpdateDrawingButtonAppearance();
+    }
+
+    private bool TryHandleEditorToolShortcut(Keys keyData)
+    {
+        if (!_actionBar.Visible)
+        {
+            return false;
+        }
+
+        var drawingTool = keyData switch
+        {
+            Keys.F2 => AnnotationTool.Freehand,
+            Keys.F3 => AnnotationTool.Line,
+            Keys.F4 => AnnotationTool.Arrow,
+            Keys.F5 => AnnotationTool.Rectangle,
+            Keys.F6 => AnnotationTool.Circle,
+            _ => AnnotationTool.None,
+        };
+
+        if (drawingTool != AnnotationTool.None && _drawingButton is not null)
+        {
+            var menuItem = _drawingMenu.Items
+                .OfType<ToolStripMenuItem>()
+                .FirstOrDefault(item => item.Tag is AnnotationTool tool && tool == drawingTool);
+            if (menuItem?.Image is Image icon)
+            {
+                SelectAnnotationTool(drawingTool, _drawingButton, menuItem, icon, toggleIfAlreadyActive: false);
+                return true;
+            }
+        }
+
+        switch (keyData)
+        {
+            case Keys.F7:
+                SetStandaloneTool(AnnotationTool.Highlight, toggleIfAlreadyActive: false);
+                return true;
+            case Keys.F8:
+                var mode = _isBorrarModeActive
+                    ? (_borrarMode == BorrarMode.Solid ? BorrarMode.Pixelate : BorrarMode.Solid)
+                    : _borrarMode;
+                var modeMenuItem = _borrarMenu.Items
+                    .OfType<ToolStripMenuItem>()
+                    .FirstOrDefault(item => item.Tag is BorrarMode menuMode && menuMode == mode);
+                if (modeMenuItem?.Image is Image modeIcon)
+                {
+                    SelectBorrarMode(mode, modeMenuItem, modeIcon);
+                    return true;
+                }
+                return false;
+            case Keys.F9:
+                SetStandaloneTool(AnnotationTool.Counter, toggleIfAlreadyActive: false);
+                return true;
+            case Keys.F10:
+                SetStandaloneTool(AnnotationTool.Text, toggleIfAlreadyActive: false);
+                return true;
+            default:
+                return false;
+        }
     }
 
     private Cursor GetCursorForLocation(Point location)
@@ -1157,6 +1359,7 @@ public sealed class RegionSelectorForm : Form
             UpdateBorrarButtonAppearance();
         }
 
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateDrawingButtonAppearance();
     }
 
@@ -1208,6 +1411,7 @@ public sealed class RegionSelectorForm : Form
 
         var isTogglingOff = _isBorrarModeActive && _borrarMode == mode;
         _annotationTool = AnnotationTool.None;
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
 
         _borrarMode = mode;
         _isBorrarModeActive = !isTogglingOff;
@@ -1219,8 +1423,9 @@ public sealed class RegionSelectorForm : Form
         if (_borrarButton is not null)
         {
             _borrarButton.Image = selectedIcon;
-            _borrarButton.Text = GetBorrarModeLabel(mode);
-            _borrarButton.AccessibleName = _borrarButton.Text;
+            var modeLabel = GetBorrarModeLabel(mode);
+            _borrarButton.Text = GetCaptureToolButtonText(modeLabel);
+            _borrarButton.AccessibleDescription = modeLabel;
         }
 
         UpdateDrawingButtonAppearance();
@@ -1240,6 +1445,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         _isBorrarModeActive = !_isBorrarModeActive;
+        Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateDrawingButtonAppearance();
         UpdateBorrarButtonAppearance();
     }
@@ -1254,6 +1460,10 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
+        var maskLabel = AppLocalization.Translate("Editor.Mask");
+        var modeLabel = GetBorrarModeLabel(_borrarMode);
+        _actionToolTip.SetToolTip(_borrarButton, $"{maskLabel}: {modeLabel} (F8)");
+        _borrarButton.AccessibleDescription = modeLabel;
         SetToolButtonAppearance(_borrarButton, _isBorrarModeActive);
 
         if (_borrarDropdownButton is null)
@@ -1272,20 +1482,9 @@ public sealed class RegionSelectorForm : Form
     {
         var state = graphics.Save();
         graphics.SetClip(_selection);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(Color.Red, FreehandPenWidth)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-            LineJoin = LineJoin.Round,
-        };
-
         foreach (var stroke in _freehandStrokes)
         {
-            if (stroke.Count > 1)
-            {
-                graphics.DrawLines(pen, stroke.ToArray());
-            }
+            ImageEditingService.DrawFreehandStroke(graphics, stroke, _lineColor, FreehandPenWidth);
         }
 
         graphics.Restore(state);
@@ -1293,23 +1492,17 @@ public sealed class RegionSelectorForm : Form
 
     private void DrawHighlightStrokes(Graphics graphics)
     {
-        var state = graphics.Save();
-        graphics.SetClip(_selection);
         foreach (var stroke in _highlightStrokes)
         {
-            ImageEditingService.DrawHighlighter(graphics, stroke, _borrarColor, _highlightWidth);
+            ImageEditingService.DrawHighlighter(graphics, stroke, _lineColor, _highlightWidth, _selection);
         }
-
-        graphics.Restore(state);
     }
 
     private void AddCounterMarker(Point location)
     {
-        var diameter = ImageEditingService.GetCounterMarkerDiameter(_selection.Size);
-        var center = ImageEditingService.ClampCounterMarkerCenter(location, _selection, diameter);
-        var value = _nextCounterValue++;
-        _counterMarkers.Add((center, value, diameter));
-        Invalidate(Rectangle.Intersect(ImageEditingService.GetCounterMarkerBounds(center, diameter), _selection));
+        var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue++, _selection);
+        _counterMarkers.Add(marker);
+        Invalidate(Rectangle.Intersect(marker.Bounds, _selection));
     }
 
     private void DrawCounterMarkers(Graphics graphics)
@@ -1319,11 +1512,7 @@ public sealed class RegionSelectorForm : Form
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         foreach (var marker in _counterMarkers)
         {
-            var text = marker.Value.ToString();
-            var bounds = ImageEditingService.GetCounterMarkerBounds(marker.Center, marker.Diameter);
-            var fontSize = ImageEditingService.GetCounterMarkerFontSize(marker.Diameter);
-            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
-            ImageEditingService.DrawCounterMarker(graphics, bounds, text, font, _borrarColor, _counterFillColor);
+            ImageEditingService.DrawCounterMarker(graphics, marker, _lineColor, _fillColor);
         }
 
         graphics.Restore(state);
@@ -1333,21 +1522,17 @@ public sealed class RegionSelectorForm : Form
     {
         var state = graphics.Save();
         graphics.SetClip(_selection);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(Color.Red, FreehandPenWidth)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-        };
 
         foreach (var annotation in _lineAnnotations)
         {
-            DrawLineOrArrow(graphics, pen, annotation.Start, annotation.End, annotation.IsArrow);
+            var tool = annotation.IsArrow ? EditTool.Arrow : EditTool.Line;
+            ImageEditingService.DrawAnnotation(graphics, annotation.Start, annotation.End, tool, _lineColor, _fillColor);
         }
 
         if (_isDrawingLine)
         {
-            DrawLineOrArrow(graphics, pen, _lineStart, _lineEnd, _annotationTool == AnnotationTool.Arrow);
+            var tool = _annotationTool == AnnotationTool.Arrow ? EditTool.Arrow : EditTool.Line;
+            ImageEditingService.DrawAnnotation(graphics, _lineStart, _lineEnd, tool, _lineColor, _fillColor);
         }
 
         graphics.Restore(state);
@@ -1366,17 +1551,21 @@ public sealed class RegionSelectorForm : Form
     {
         var state = graphics.Save();
         graphics.SetClip(_selection);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(Color.Red, FreehandPenWidth);
 
         foreach (var rectangle in _rectangles)
         {
-            graphics.DrawRectangle(pen, rectangle);
+            ImageEditingService.DrawAnnotation(
+                graphics,
+                rectangle.Location,
+                new Point(rectangle.Right, rectangle.Bottom),
+                EditTool.Rectangle,
+                _lineColor,
+                _fillColor);
         }
 
         if (_isDrawingRectangle)
         {
-            graphics.DrawRectangle(pen, GetRectangle(_rectangleStart, _rectangleEnd));
+            ImageEditingService.DrawAnnotation(graphics, _rectangleStart, _rectangleEnd, EditTool.Rectangle, _lineColor, _fillColor);
         }
 
         graphics.Restore(state);
@@ -1386,34 +1575,24 @@ public sealed class RegionSelectorForm : Form
     {
         var state = graphics.Save();
         graphics.SetClip(_selection);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(Color.Red, FreehandPenWidth);
 
         foreach (var circle in _circles)
         {
-            graphics.DrawEllipse(pen, circle);
+            ImageEditingService.DrawAnnotation(
+                graphics,
+                circle.Location,
+                new Point(circle.Right, circle.Bottom),
+                EditTool.Circle,
+                _lineColor,
+                _fillColor);
         }
 
         if (_isDrawingCircle)
         {
-            graphics.DrawEllipse(pen, GetRectangle(_circleStart, _circleEnd));
+            ImageEditingService.DrawAnnotation(graphics, _circleStart, _circleEnd, EditTool.Circle, _lineColor, _fillColor);
         }
 
         graphics.Restore(state);
-    }
-
-    private static void DrawLineOrArrow(Graphics graphics, Pen pen, Point start, Point end, bool isArrow)
-    {
-        if (!isArrow)
-        {
-            graphics.DrawLine(pen, start, end);
-            return;
-        }
-
-        using var arrowPen = (Pen)pen.Clone();
-        using var arrowCap = new AdjustableArrowCap(5, 7, true);
-        arrowPen.CustomEndCap = arrowCap;
-        graphics.DrawLine(arrowPen, start, end);
     }
 
     private void UpdateActionBarLocation()

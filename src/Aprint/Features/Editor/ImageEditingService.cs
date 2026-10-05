@@ -5,9 +5,25 @@ namespace Aprint.Features.Editor;
 
 public static class ImageEditingService
 {
+    public readonly record struct CounterMarker(Point Center, int Value, int Diameter)
+    {
+        public Rectangle Bounds => GetCounterMarkerBounds(Center, Diameter);
+    }
+
+    public const int AnnotationPenWidth = 3;
+    public const int TextMinimumWidth = 100;
     public const int CounterMarkerDiameter = 40;
     public const float CounterMarkerFontSize = 12F;
     private const int HighlighterAlpha = 105;
+    private static readonly Dictionary<float, Font> CounterFonts = [];
+    private static readonly object CounterFontSync = new();
+
+    public static CounterMarker CreateCounterMarker(Point requestedCenter, int value, Rectangle availableArea)
+    {
+        var diameter = GetCounterMarkerDiameter(availableArea.Size);
+        var center = ClampCounterMarkerCenter(requestedCenter, availableArea, diameter);
+        return new CounterMarker(center, value, diameter);
+    }
 
     public static int GetCounterMarkerDiameter(Size availableSize)
     {
@@ -49,6 +65,40 @@ public static class ImageEditingService
         CounterMarkerFontSize * diameter / CounterMarkerDiameter,
         6F,
         CounterMarkerFontSize);
+
+    public static void DrawCounterMarker(Graphics graphics, CounterMarker marker, Color lineColor, Color? fillColor)
+    {
+        var font = GetCounterMarkerFont(marker.Diameter);
+        DrawCounterMarker(graphics, marker.Bounds, marker.Value.ToString(), font, lineColor, fillColor);
+    }
+
+    public static Font GetCounterMarkerFont(int diameter)
+    {
+        var fontSize = GetCounterMarkerFontSize(diameter);
+        lock (CounterFontSync)
+        {
+            if (!CounterFonts.TryGetValue(fontSize, out var font))
+            {
+                font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Point);
+                CounterFonts[fontSize] = font;
+            }
+
+            return font;
+        }
+    }
+
+    public static void ClearCounterMarkerFontCache()
+    {
+        lock (CounterFontSync)
+        {
+            foreach (var font in CounterFonts.Values)
+            {
+                font.Dispose();
+            }
+
+            CounterFonts.Clear();
+        }
+    }
 
     public static void DrawCounterMarker(Graphics graphics, Rectangle bounds, string text, Font font, Color lineColor, Color? fillColor)
     {
@@ -104,6 +154,38 @@ public static class ImageEditingService
         }
     }
 
+    public static void DrawAnnotation(Graphics graphics, Point start, Point end, EditTool tool, Color lineColor, Color? fillColor = null)
+    {
+        var state = graphics.Save();
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = CreateAnnotationPen(lineColor, AnnotationPenWidth);
+        DrawShape(graphics, pen, start, end, tool, fillColor);
+        graphics.Restore(state);
+    }
+
+    public static void DrawFreehandSegment(Graphics graphics, Point start, Point end, Color color, int width = AnnotationPenWidth)
+    {
+        var state = graphics.Save();
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = CreateAnnotationPen(color, width);
+        graphics.DrawLine(pen, start, end);
+        graphics.Restore(state);
+    }
+
+    public static void DrawFreehandStroke(Graphics graphics, IReadOnlyList<Point> points, Color color, int width = AnnotationPenWidth)
+    {
+        if (points.Count < 2)
+        {
+            return;
+        }
+
+        var state = graphics.Save();
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var pen = CreateAnnotationPen(color, width);
+        graphics.DrawLines(pen, points.ToArray());
+        graphics.Restore(state);
+    }
+
     public static Rectangle CreateSelectionRectangle(Point start, Point end) => new(
         Math.Min(start.X, end.X),
         Math.Min(start.Y, end.Y),
@@ -124,7 +206,21 @@ public static class ImageEditingService
     public static void ApplyHighlighter(Bitmap bitmap, IReadOnlyList<Point> points, Color color, int width)
     {
         using var graphics = Graphics.FromImage(bitmap);
-        DrawHighlighter(graphics, points, color, width);
+        DrawHighlighter(graphics, points, color, width, new Rectangle(Point.Empty, bitmap.Size));
+    }
+
+    public static void DrawHighlighter(Graphics graphics, IReadOnlyList<Point> points, Color color, int width, Rectangle clipBounds)
+    {
+        var state = graphics.Save();
+        try
+        {
+            graphics.SetClip(clipBounds, CombineMode.Intersect);
+            DrawHighlighter(graphics, points, color, width);
+        }
+        finally
+        {
+            graphics.Restore(state);
+        }
     }
 
     public static void DrawHighlighter(Graphics graphics, IReadOnlyList<Point> points, Color color, int width)
@@ -172,6 +268,37 @@ public static class ImageEditingService
         var width = lines.Max(line => TextRenderer.MeasureText(line, font, Size.Empty, flags).Width);
 
         return new Size(width, lines.Length * font.Height);
+    }
+
+    public static Rectangle CreateTextBounds(Point dragStart, Point dragEnd, Rectangle availableArea, Font font, out int minimumWidth)
+    {
+        if (availableArea.Width <= 0 || availableArea.Height <= 0)
+        {
+            minimumWidth = 0;
+            return Rectangle.Empty;
+        }
+
+        var left = Math.Clamp(dragStart.X, availableArea.Left, availableArea.Right - 1);
+        var top = Math.Clamp(dragEnd.Y, availableArea.Top, availableArea.Bottom - 1);
+        minimumWidth = Math.Max(TextMinimumWidth, Math.Abs(dragStart.X - dragEnd.X));
+        var width = Math.Min(minimumWidth, availableArea.Right - left);
+        var height = Math.Min(font.Height + 2, availableArea.Bottom - top);
+        return new Rectangle(left, top, Math.Max(1, width), Math.Max(1, height));
+    }
+
+    public static Rectangle ResizeTextBounds(Rectangle currentBounds, int minimumWidth, string text, Font font, Rectangle availableArea)
+    {
+        if (availableArea.Width <= 0 || availableArea.Height <= 0)
+        {
+            return Rectangle.Empty;
+        }
+
+        var availableWidth = Math.Max(1, availableArea.Right - currentBounds.Left);
+        var availableHeight = Math.Max(1, availableArea.Bottom - currentBounds.Top);
+        var contentSize = MeasureTextContent(text, font);
+        var width = Math.Min(Math.Max(minimumWidth, contentSize.Width + 3), availableWidth);
+        var height = Math.Min(Math.Max(font.Height, contentSize.Height) + 2, availableHeight);
+        return new Rectangle(currentBounds.Left, currentBounds.Top, Math.Max(1, width), Math.Max(1, height));
     }
 
     public static void DrawText(Graphics graphics, Rectangle bounds, string text, Color color, Font font)
@@ -292,4 +419,11 @@ public static class ImageEditingService
         var luminance = (0.299 * background.R) + (0.587 * background.G) + (0.114 * background.B);
         return luminance > 140 ? Color.Black : Color.White;
     }
+
+    private static Pen CreateAnnotationPen(Color color, int width) => new(color, Math.Max(1, width))
+    {
+        StartCap = LineCap.Round,
+        EndCap = LineCap.Round,
+        LineJoin = LineJoin.Round,
+    };
 }
