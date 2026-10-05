@@ -1271,6 +1271,21 @@ public sealed class RegionSelectorForm : Form
         _sendToEditorFlashTimer.Stop();
         _sendToEditorFlashTimer.Start();
         Invalidate(Rectangle.Inflate(_selection, 4, 4));
+        if (IsHandleCreated && !IsDisposed)
+        {
+            BeginInvoke((Action)RestoreSelectionFocus);
+        }
+    }
+
+    private void RestoreSelectionFocus()
+    {
+        if (IsDisposed || !IsHandleCreated)
+        {
+            return;
+        }
+
+        Activate();
+        Focus();
     }
 
     private void StopSendToEditorFeedback()
