@@ -10,11 +10,18 @@ public sealed class EditHistoryTests
         using var bitmap = new Bitmap(2, 2);
         bitmap.SetPixel(0, 0, Color.Red);
         using var history = new EditHistory(bitmap, initialNextCounterValue: 1);
+        Assert.False(history.CanUndo);
+        Assert.False(history.CanRedo);
+
         history.Capture(bitmap, nextCounterValue: 1);
+        Assert.True(history.CanUndo);
+        Assert.False(history.CanRedo);
         bitmap.SetPixel(0, 0, Color.Blue);
 
         var undone = history.Undo(bitmap, currentNextCounterValue: 2);
         Assert.NotNull(undone);
+        Assert.False(history.CanUndo);
+        Assert.True(history.CanRedo);
 
         using var undoneBitmap = undone.Value.Bitmap;
         Assert.Equal(1, undone.Value.NextCounterValue);
@@ -22,6 +29,8 @@ public sealed class EditHistoryTests
 
         var redone = history.Redo(undoneBitmap, currentNextCounterValue: undone.Value.NextCounterValue);
         Assert.NotNull(redone);
+        Assert.True(history.CanUndo);
+        Assert.False(history.CanRedo);
 
         using var redoneBitmap = redone.Value.Bitmap;
         Assert.Equal(2, redone.Value.NextCounterValue);

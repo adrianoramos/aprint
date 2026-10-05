@@ -9,6 +9,10 @@ public sealed class EditHistory : IDisposable
     private readonly LinkedList<HistoryEntry> _redoStack = new();
     private long _totalMemoryBytes;
 
+    public bool CanUndo => _undoStack.Count > 1;
+
+    public bool CanRedo => _redoStack.Count > 0;
+
     public EditHistory(Bitmap initialBitmap, int initialNextCounterValue = 1)
     {
         PushSnapshot(_undoStack, initialBitmap, initialNextCounterValue);

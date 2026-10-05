@@ -26,8 +26,8 @@ public sealed class RegionSelectorForm : Form
     private const int MinimumSelectionSize = 3;
     private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ActionControlHeight = 34;
-    private const int SplitDropdownWidth = 30;
-    private const int IconOnlyActionWidth = 56;
+    private const int SplitDropdownWidth = 26;
+    private const int IconOnlyActionWidth = 52;
     private const int IconOnlyDropdownWidth = 14;
     private static readonly Color ActiveToolBackColor = Color.FromArgb(232, 239, 244);
     private static readonly Color ActiveToolBorderColor = Color.FromArgb(183, 197, 207);
@@ -53,6 +53,9 @@ public sealed class RegionSelectorForm : Form
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
     private readonly Panel _actionBar;
+    private readonly EditHistory _editHistory;
+    private Button? _undoButton;
+    private Button? _redoButton;
     private Button? _drawingButton;
     private Button? _drawingDropdownButton;
     private Button? _highlightButton;
@@ -116,6 +119,7 @@ public sealed class RegionSelectorForm : Form
     public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true)
     {
         _background = background;
+        _editHistory = new EditHistory(_background, _nextCounterValue);
         _outsideCaptureClickAction = outsideCaptureClickAction;
         _borrarMode = borrarMode;
         _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
@@ -190,7 +194,7 @@ public sealed class RegionSelectorForm : Form
                 _resizeEdges = GetResizeEdges(e.Location);
                 if (_resizeEdges != ResizeEdges.None)
                 {
-                    CommitAnnotations();
+                    CommitAnnotationsAndRecordUndo();
                     _isResizing = true;
                     Cursor = GetResizeCursor(_resizeEdges);
                     _dragOrigin = e.Location;
@@ -200,7 +204,10 @@ public sealed class RegionSelectorForm : Form
 
                 if (_annotationTool == AnnotationTool.Counter && _selection.Contains(e.Location))
                 {
+                    SaveUndoState();
                     AddCounterMarker(ClampToSelection(e.Location));
+                    CommitAnnotations();
+                    Invalidate(_selection);
                     return;
                 }
 
@@ -270,7 +277,7 @@ public sealed class RegionSelectorForm : Form
 
                 if (_selection.Contains(e.Location))
                 {
-                    CommitAnnotations();
+                    CommitAnnotationsAndRecordUndo();
                     _isMoving = true;
                     Cursor = Cursors.SizeAll;
                     _dragOrigin = e.Location;
@@ -292,7 +299,7 @@ public sealed class RegionSelectorForm : Form
             }
 
             _actionBar.Visible = false;
-            CommitAnnotations();
+            CommitAnnotationsAndRecordUndo();
             _nextCounterValue = 1;
             _isSelecting = true;
             Cursor = Cursors.Cross;
@@ -401,6 +408,14 @@ public sealed class RegionSelectorForm : Form
             AddFreehandPoint(e.Location);
             _isDrawingFreehand = false;
             Capture = false;
+            if (_freehandStrokes[^1].Count > 1)
+            {
+                CommitAnnotationsAndRecordUndo();
+            }
+            else
+            {
+                CommitAnnotations();
+            }
             return;
         }
 
@@ -409,6 +424,7 @@ public sealed class RegionSelectorForm : Form
             AddHighlightPoint(e.Location);
             _isDrawingHighlight = false;
             Capture = false;
+            CommitAnnotationsAndRecordUndo();
             return;
         }
 
@@ -419,6 +435,7 @@ public sealed class RegionSelectorForm : Form
             _lineAnnotations.Add((_lineStart, _lineEnd, _annotationTool == AnnotationTool.Arrow));
             _isDrawingLine = false;
             Capture = false;
+            CommitAnnotationsAndRecordUndo();
             InvalidateLine(previousEnd, _lineEnd);
             return;
         }
@@ -430,6 +447,7 @@ public sealed class RegionSelectorForm : Form
             _rectangles.Add(GetRectangle(_rectangleStart, _rectangleEnd));
             _isDrawingRectangle = false;
             Capture = false;
+            CommitAnnotationsAndRecordUndo();
             InvalidateShapePreview(_rectangleStart, previousEnd, _rectangleEnd);
             return;
         }
@@ -441,6 +459,7 @@ public sealed class RegionSelectorForm : Form
             _circles.Add(GetRectangle(_circleStart, _circleEnd));
             _isDrawingCircle = false;
             Capture = false;
+            CommitAnnotationsAndRecordUndo();
             InvalidateShapePreview(_circleStart, previousEnd, _circleEnd);
             return;
         }
@@ -454,7 +473,9 @@ public sealed class RegionSelectorForm : Form
             Capture = false;
             if (area.Width > 0 && area.Height > 0)
             {
+                SaveUndoState();
                 ImageEditingService.ApplyBorrar(_background, area, _borrarMode, _lineColor, _borrarPixelSize);
+                Invalidate(area);
             }
 
             InvalidateShapePreview(_borrarStart, previousEnd, _borrarEnd);
@@ -547,6 +568,18 @@ public sealed class RegionSelectorForm : Form
             return true;
         }
 
+        if (keyData == (Keys.Control | Keys.Z))
+        {
+            UndoLastEdit();
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Y))
+        {
+            RedoLastEdit();
+            return true;
+        }
+
         if (keyData == Keys.Escape)
         {
             DialogResult = DialogResult.Cancel;
@@ -624,6 +657,7 @@ public sealed class RegionSelectorForm : Form
             _drawingMenu.Dispose();
             _borrarMenu.Dispose();
             _captureActionsMenu.Dispose();
+            _editHistory.Dispose();
             _textCaretTimer.Stop();
             _textCaretTimer.Dispose();
             _actionToolTip.Dispose();
@@ -770,6 +804,24 @@ public sealed class RegionSelectorForm : Form
         _actionToolTip.SetToolTip(textButton, $"{textLabel} (F10)");
         textButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Text);
 
+        var undoLabel = AppLocalization.Translate("Editor.Undo");
+        var undoButton = CreateActionButton(GetCaptureToolButtonText(undoLabel), false, LoadActionIcon("undo.png", Color.FromArgb(45, 49, 54)));
+        ApplyCaptureToolButtonSize(undoButton);
+        _undoButton = undoButton;
+        undoButton.AccessibleName = undoLabel;
+        _actionToolTip.SetToolTip(undoButton, $"{undoLabel} (Ctrl+Z)");
+        undoButton.Enabled = false;
+        undoButton.Click += (_, _) => UndoLastEdit();
+
+        var redoLabel = AppLocalization.Translate("Editor.Redo");
+        var redoButton = CreateActionButton(GetCaptureToolButtonText(redoLabel), false, LoadActionIcon("redo.png", Color.FromArgb(45, 49, 54)));
+        ApplyCaptureToolButtonSize(redoButton);
+        _redoButton = redoButton;
+        redoButton.AccessibleName = redoLabel;
+        _actionToolTip.SetToolTip(redoButton, $"{redoLabel} (Ctrl+Y)");
+        redoButton.Enabled = false;
+        redoButton.Click += (_, _) => RedoLastEdit();
+
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
         var borrarLabel = GetBorrarModeLabel(_borrarMode);
@@ -833,9 +885,12 @@ public sealed class RegionSelectorForm : Form
         layout.Controls.Add(borrarActionsPanel);
         layout.Controls.Add(counterButton);
         layout.Controls.Add(textButton);
+        layout.Controls.Add(undoButton);
+        layout.Controls.Add(redoButton);
         layout.Controls.Add(captureActionsPanel);
         layout.Location = new Point(panel.Padding.Left, panel.Padding.Top);
         panel.Controls.Add(layout);
+        UpdateHistoryButtons();
         return panel;
     }
 
@@ -899,7 +954,7 @@ public sealed class RegionSelectorForm : Form
             Anchor = AnchorStyles.None,
             MinimumSize = new Size(0, ActionControlHeight),
             Margin = new Padding(3),
-            Padding = new Padding(6, 3, 6, 3),
+            Padding = new Padding(4, 3, 4, 3),
             FlatStyle = FlatStyle.Flat,
             BackColor = isPrimary ? Color.FromArgb(0, 103, 192) : Color.White,
             ForeColor = isPrimary ? Color.White : Color.FromArgb(45, 49, 54),
@@ -988,7 +1043,7 @@ public sealed class RegionSelectorForm : Form
     private void CompleteSelection(RegionSelectionAction action)
     {
         CommitTextEdit();
-        CommitAnnotations();
+        CommitAnnotationsAndRecordUndo();
 
         SelectedRegion = _selection;
         SelectedAction = action;
@@ -1015,6 +1070,79 @@ public sealed class RegionSelectorForm : Form
         _rectangles.Clear();
         _circles.Clear();
         _counterMarkers.Clear();
+    }
+
+    private void CommitAnnotationsAndRecordUndo()
+    {
+        var hasAnnotations = _freehandStrokes.Count > 0 || _highlightStrokes.Count > 0 ||
+            _lineAnnotations.Count > 0 || _counterMarkers.Count > 0 || _rectangles.Count > 0 || _circles.Count > 0 ||
+            _isDrawingLine || _isDrawingRectangle || _isDrawingCircle;
+        if (hasAnnotations)
+        {
+            SaveUndoState();
+        }
+
+        CommitAnnotations();
+        UpdateHistoryButtons();
+        Invalidate(_selection);
+    }
+
+    private void SaveUndoState()
+    {
+        _editHistory.Capture(_background, _nextCounterValue);
+        UpdateHistoryButtons();
+    }
+
+    private void UndoLastEdit()
+    {
+        CommitTextEdit();
+        var previousState = _editHistory.Undo(_background, _nextCounterValue);
+        if (previousState is null)
+        {
+            return;
+        }
+
+        using var bitmap = previousState.Value.Bitmap;
+        RestoreBackground(bitmap);
+        _nextCounterValue = previousState.Value.NextCounterValue;
+        UpdateHistoryButtons();
+        Invalidate(_selection);
+    }
+
+    private void RedoLastEdit()
+    {
+        CommitTextEdit();
+        var nextState = _editHistory.Redo(_background, _nextCounterValue);
+        if (nextState is null)
+        {
+            return;
+        }
+
+        using var bitmap = nextState.Value.Bitmap;
+        RestoreBackground(bitmap);
+        _nextCounterValue = nextState.Value.NextCounterValue;
+        UpdateHistoryButtons();
+        Invalidate(_selection);
+    }
+
+    private void RestoreBackground(Bitmap source)
+    {
+        using var graphics = Graphics.FromImage(_background);
+        graphics.CompositingMode = CompositingMode.SourceCopy;
+        graphics.DrawImageUnscaled(source, Point.Empty);
+    }
+
+    private void UpdateHistoryButtons()
+    {
+        if (_undoButton is not null)
+        {
+            _undoButton.Enabled = _editHistory.CanUndo;
+        }
+
+        if (_redoButton is not null)
+        {
+            _redoButton.Enabled = _editHistory.CanRedo;
+        }
     }
 
     private void BeginTextEdit(Point start, Point end)
@@ -1068,6 +1196,7 @@ public sealed class RegionSelectorForm : Form
         _isTextSelected = false;
         if (_textBuffer.Length > 0)
         {
+            SaveUndoState();
             ImageEditingService.ApplyText(_background, _textBounds, _textBuffer, _textColor, _textFont);
         }
 
