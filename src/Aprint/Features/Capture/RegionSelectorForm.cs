@@ -935,9 +935,9 @@ public sealed class RegionSelectorForm : Form
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
-        RestoreLastCaptureTool(drawingButton);
         AddMaskMenuItem(MaskMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
         AddMaskMenuItem(MaskMode.Solid, "Editor.Filled", _filledIcon);
+        RestoreLastCaptureTool(drawingButton);
 
         toolStrip.Items.AddRange([
             drawingButton,
@@ -1643,9 +1643,12 @@ public sealed class RegionSelectorForm : Form
 
         if (_selectedAnnotationTool == AnnotationTool.None)
         {
-            if (_drawingDropdownButton is not null)
+            var freehandMenuItem = _drawingDropdownButton?.DropDownItems
+                .OfType<ToolStripMenuItem>()
+                .FirstOrDefault(item => item.Tag is AnnotationTool tool && tool == AnnotationTool.Freehand);
+            if (_drawingButton is not null && freehandMenuItem?.Image is Image icon)
             {
-                _drawingDropdownButton.ShowDropDown();
+                SelectAnnotationTool(AnnotationTool.Freehand, _drawingButton, freehandMenuItem, icon, toggleIfAlreadyActive: false);
             }
 
             return;

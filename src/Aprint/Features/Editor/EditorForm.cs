@@ -757,7 +757,7 @@ public sealed class EditorForm : Form
         Controls.Add(toolStrip);
 
         CenterPictureBox(scrollPanel);
-        SetActiveTool(initialTool);
+        SetActiveTool(Enum.IsDefined(initialTool) ? initialTool : EditTool.Freehand);
     }
 
     /// <summary>Current selected tool in the editor.</summary>
