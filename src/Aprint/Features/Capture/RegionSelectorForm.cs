@@ -21,6 +21,144 @@ public sealed class RegionSelectorForm : Form
         Text,
     }
 
+    private sealed class ActionBarRenderer() : ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable())
+    {
+        private ToolStripItem? _hoveredMainButton;
+        private ToolStripItem? _hoveredDropdownButton;
+        private ToolStripItem? _primaryMainButton;
+        private ToolStripItem? _primaryDropdownButton;
+        private ToolStripItem? _activeMainButton;
+        private ToolStripItem? _activeDropdownButton;
+        private bool _hoveredGroupIsPrimary;
+
+        public void SetPrimaryGroup(ToolStripItem mainButton, ToolStripItem dropdownButton)
+        {
+            _primaryMainButton = mainButton;
+            _primaryDropdownButton = dropdownButton;
+        }
+
+        public bool SetActiveGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton)
+        {
+            if (ReferenceEquals(_activeMainButton, mainButton) &&
+                ReferenceEquals(_activeDropdownButton, dropdownButton))
+            {
+                return false;
+            }
+
+            _activeMainButton = mainButton;
+            _activeDropdownButton = dropdownButton;
+            return true;
+        }
+
+        public bool SetHoveredGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton, bool isPrimary = false)
+        {
+            if (ReferenceEquals(_hoveredMainButton, mainButton) &&
+                ReferenceEquals(_hoveredDropdownButton, dropdownButton) &&
+                _hoveredGroupIsPrimary == isPrimary)
+            {
+                return false;
+            }
+
+            _hoveredMainButton = mainButton;
+            _hoveredDropdownButton = dropdownButton;
+            _hoveredGroupIsPrimary = isPrimary;
+            return true;
+        }
+
+        protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (IsPrimaryGroupItem(e.Item))
+            {
+                var background = IsHoveredGroupItem(e.Item) || e.Item.Selected || e.Item.Pressed
+                    ? ToolStripColorPalette.PrimaryButtonHover
+                    : ToolStripColorPalette.PrimaryButtonBackground;
+                DrawBackground(
+                    e,
+                    background,
+                    ToolStripColorPalette.PrimaryButtonBorder,
+                    omitRightBorder: ReferenceEquals(e.Item, _primaryMainButton));
+                return;
+            }
+
+            if (IsHoveredGroupItem(e.Item))
+            {
+                DrawBackground(
+                    e,
+                    ToolStripColorPalette.ActiveBackground,
+                    ToolStripColorPalette.ActiveBorder,
+                    omitRightBorder: ReferenceEquals(e.Item, _hoveredMainButton));
+                return;
+            }
+
+            if (IsActiveGroupItem(e.Item))
+            {
+                DrawBackground(
+                    e,
+                    ToolStripColorPalette.ActiveBackground,
+                    ToolStripColorPalette.ActiveBorder,
+                    omitRightBorder: ReferenceEquals(e.Item, _activeMainButton));
+                return;
+            }
+
+            base.OnRenderButtonBackground(e);
+        }
+
+        protected override void OnRenderDropDownButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (IsPrimaryGroupItem(e.Item))
+            {
+                var background = IsHoveredGroupItem(e.Item) || e.Item.Selected || e.Item.Pressed
+                    ? ToolStripColorPalette.PrimaryButtonHover
+                    : ToolStripColorPalette.PrimaryButtonBackground;
+                DrawBackground(e, background, ToolStripColorPalette.PrimaryButtonBorder);
+                return;
+            }
+
+            if (IsHoveredGroupItem(e.Item))
+            {
+                DrawBackground(e, ToolStripColorPalette.ActiveBackground, ToolStripColorPalette.ActiveBorder);
+                return;
+            }
+
+            if (IsActiveGroupItem(e.Item))
+            {
+                DrawBackground(e, ToolStripColorPalette.ActiveBackground, ToolStripColorPalette.ActiveBorder);
+                return;
+            }
+
+            base.OnRenderDropDownButtonBackground(e);
+        }
+
+        private bool IsHoveredGroupItem(ToolStripItem item) =>
+            ReferenceEquals(item, _hoveredMainButton) || ReferenceEquals(item, _hoveredDropdownButton);
+
+        private bool IsPrimaryGroupItem(ToolStripItem item) =>
+            ReferenceEquals(item, _primaryMainButton) || ReferenceEquals(item, _primaryDropdownButton);
+
+        private bool IsActiveGroupItem(ToolStripItem item) =>
+            ReferenceEquals(item, _activeMainButton) || ReferenceEquals(item, _activeDropdownButton);
+
+        private static void DrawBackground(ToolStripItemRenderEventArgs e, Color background, Color borderColor, bool omitRightBorder = false)
+        {
+            var bounds = new Rectangle(Point.Empty, e.Item.Size);
+            using var fill = new SolidBrush(background);
+            e.Graphics.FillRectangle(fill, bounds);
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                using var border = new Pen(borderColor);
+                var right = bounds.Right - 1;
+                var bottom = bounds.Bottom - 1;
+                e.Graphics.DrawLine(border, bounds.Left, bounds.Top, right, bounds.Top);
+                e.Graphics.DrawLine(border, bounds.Left, bottom, right, bottom);
+                e.Graphics.DrawLine(border, bounds.Left, bounds.Top, bounds.Left, bottom);
+                if (!omitRightBorder)
+                {
+                    e.Graphics.DrawLine(border, right, bounds.Top, right, bottom);
+                }
+            }
+        }
+    }
+
     private const int SelectionBorderWidth = 2;
     private const int HandleSize = 10;
     private const int MinimumSelectionSize = 3;
@@ -29,10 +167,6 @@ public sealed class RegionSelectorForm : Form
     private const int SplitDropdownWidth = 26;
     private const int IconOnlyActionWidth = 52;
     private const int IconOnlyDropdownWidth = 14;
-    private static readonly Color ActiveToolBackColor = Color.FromArgb(232, 239, 244);
-    private static readonly Color ActiveToolBorderColor = Color.FromArgb(183, 197, 207);
-    private static readonly Color ActiveToolHoverColor = Color.FromArgb(222, 231, 237);
-    private static readonly Color ActiveToolPressedColor = Color.FromArgb(211, 222, 230);
     private static AnnotationTool _lastSelectedAnnotationTool = AnnotationTool.Freehand;
 
     private readonly Bitmap _background;
@@ -41,29 +175,26 @@ public sealed class RegionSelectorForm : Form
     private readonly Pen _borderPen = new(Color.White, SelectionBorderWidth);
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
-    private readonly ContextMenuStrip _drawingMenu = new();
-    private readonly ContextMenuStrip _borrarMenu = new();
-    private readonly ContextMenuStrip _captureActionsMenu = new();
     private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
-    private readonly ToolTip _actionToolTip = new();
     private readonly List<List<Point>> _freehandStrokes = [];
     private readonly List<List<Point>> _highlightStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
     private readonly List<ImageEditingService.CounterMarker> _counterMarkers = [];
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
-    private readonly Panel _actionBar;
+    private readonly ToolStrip _actionBar;
+    private ActionBarRenderer? _actionBarRenderer;
     private readonly EditHistory _editHistory;
-    private Button? _undoButton;
-    private Button? _redoButton;
-    private Button? _drawingButton;
-    private Button? _drawingDropdownButton;
-    private Button? _highlightButton;
+    private ToolStripButton? _undoButton;
+    private ToolStripButton? _redoButton;
+    private ToolStripButton? _drawingButton;
+    private ToolStripDropDownButton? _drawingDropdownButton;
+    private ToolStripButton? _highlightButton;
     private Image? _highlightIcon;
-    private Button? _counterButton;
-    private Button? _textButton;
-    private Button? _borrarButton;
-    private Button? _borrarDropdownButton;
+    private ToolStripButton? _counterButton;
+    private ToolStripButton? _textButton;
+    private ToolStripButton? _borrarButton;
+    private ToolStripDropDownButton? _borrarDropdownButton;
     private Image? _pixelatedIcon;
     private Image? _filledIcon;
     private BorrarMode _borrarMode = BorrarMode.Pixelate;
@@ -654,13 +785,9 @@ public sealed class RegionSelectorForm : Form
             _overlayBrush.Dispose();
             _borderPen.Dispose();
             _handleBrush.Dispose();
-            _drawingMenu.Dispose();
-            _borrarMenu.Dispose();
-            _captureActionsMenu.Dispose();
             _editHistory.Dispose();
             _textCaretTimer.Stop();
             _textCaretTimer.Dispose();
-            _actionToolTip.Dispose();
             _textFont.Dispose();
             foreach (var image in _actionImages)
             {
@@ -677,53 +804,40 @@ public sealed class RegionSelectorForm : Form
         Math.Abs(p1.X - p2.X),
         Math.Abs(p1.Y - p2.Y));
 
-    private Panel CreateActionBar()
+    private ToolStrip CreateActionBar()
     {
-        var panel = new Panel
+        var renderer = new ActionBarRenderer();
+        _actionBarRenderer = renderer;
+        var toolStrip = new ToolStrip
         {
-            BackColor = Color.FromArgb(246, 247, 249),
-            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = ToolStripColorPalette.BarBackground,
             AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            CanOverflow = false,
+            Dock = DockStyle.None,
+            GripStyle = ToolStripGripStyle.Hidden,
+            ImageScalingSize = new Size(18, 18),
             MinimumSize = new Size(0, 52),
             Padding = new Padding(6),
+            Renderer = renderer,
+            ShowItemToolTips = true,
         };
 
         var captureLabel = AppLocalization.Translate("Capture.Region.Capture");
-        var captureButton = CreateActionButton(GetCaptureToolButtonText(captureLabel), true, LoadActionIcon("capture.png", Color.White));
-        SetSplitMainButtonSize(captureButton);
-        captureButton.Margin = Padding.Empty;
-        captureButton.FlatAppearance.BorderSize = 1;
-        captureButton.FlatAppearance.BorderColor = Color.FromArgb(0, 88, 155);
+        var captureButton = CreateActionButton(
+            GetCaptureToolButtonText(captureLabel),
+            LoadActionIcon("capture.png", Color.White));
+        captureButton.BackColor = ToolStripColorPalette.PrimaryButtonBackground;
+        captureButton.ForeColor = Color.White;
         captureButton.AccessibleName = captureLabel;
-        _actionToolTip.SetToolTip(captureButton, $"{captureLabel} (Enter)");
+        captureButton.ToolTipText = $"{captureLabel} (Enter)";
         captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
 
-        var captureDropdownButton = CreateActionButton("\u25BE", true, null);
-        captureDropdownButton.AutoSize = false;
-        captureDropdownButton.MinimumSize = new Size(SplitDropdownWidth, ActionControlHeight);
-        captureDropdownButton.Size = new Size(SplitDropdownWidth, ActionControlHeight);
-        captureDropdownButton.Margin = new Padding(-1, 0, 0, 0);
-        captureDropdownButton.Padding = Padding.Empty;
-        captureDropdownButton.FlatAppearance.BorderSize = 1;
-        captureDropdownButton.FlatAppearance.BorderColor = Color.FromArgb(0, 88, 155);
+        var captureDropdownButton = CreateDropdownButton();
+        captureDropdownButton.BackColor = ToolStripColorPalette.PrimaryButtonBackground;
+        captureDropdownButton.ForeColor = Color.White;
         captureDropdownButton.AccessibleName = AppLocalization.Translate("Capture.Region.Actions");
-        captureDropdownButton.Click += (_, _) => _captureActionsMenu.Show(captureDropdownButton, new Point(0, captureDropdownButton.Height));
-
-        var captureActionsPanel = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Anchor = AnchorStyles.None,
-            BackColor = panel.BackColor,
-            FlowDirection = FlowDirection.LeftToRight,
-            Margin = new Padding(3),
-            Padding = Padding.Empty,
-            WrapContents = false,
-        };
-        ApplyCaptureSplitButtonSize(captureActionsPanel, captureButton, captureDropdownButton);
-        captureActionsPanel.Controls.Add(captureButton);
-        captureActionsPanel.Controls.Add(captureDropdownButton);
+        ApplyCaptureSplitButtonSize(captureButton, captureDropdownButton);
+        renderer.SetPrimaryGroup(captureButton, captureDropdownButton);
 
         var captureMenuItem = new ToolStripMenuItem(captureLabel, LoadActionIcon("capture.png", Color.FromArgb(45, 49, 54)))
         {
@@ -740,161 +854,141 @@ public sealed class RegionSelectorForm : Form
             ShortcutKeyDisplayString = "Ctrl+S",
         };
         saveMenuItem.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
-        _captureActionsMenu.Items.AddRange([captureMenuItem, copyMenuItem, saveMenuItem]);
+        captureDropdownButton.DropDownItems.AddRange([captureMenuItem, copyMenuItem, saveMenuItem]);
 
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
-        var drawingButton = CreateActionButton(GetCaptureToolButtonText(drawingLabel), false, null);
-        SetSplitMainButtonSize(drawingButton);
+        var drawingButton = CreateActionButton(GetCaptureToolButtonText(drawingLabel), null);
         _drawingButton = drawingButton;
         drawingButton.AccessibleName = drawingLabel;
-        _actionToolTip.SetToolTip(drawingButton, drawingLabel);
-        drawingButton.Margin = Padding.Empty;
-        drawingButton.FlatAppearance.BorderSize = 0;
+        drawingButton.ToolTipText = drawingLabel;
         drawingButton.Click += (_, _) => ToggleDrawingTool();
 
-        var drawingDropdownButton = CreateActionButton("\u25BE", false, null);
+        var drawingDropdownButton = CreateDropdownButton();
         _drawingDropdownButton = drawingDropdownButton;
-        drawingDropdownButton.AutoSize = false;
-        drawingDropdownButton.MinimumSize = new Size(SplitDropdownWidth, ActionControlHeight);
-        drawingDropdownButton.Size = new Size(SplitDropdownWidth, ActionControlHeight);
-        drawingDropdownButton.Margin = new Padding(-1, 0, 0, 0);
-        drawingDropdownButton.Padding = Padding.Empty;
-        drawingDropdownButton.FlatAppearance.BorderSize = 0;
         drawingDropdownButton.AccessibleName = drawingLabel;
-        drawingDropdownButton.Click += (_, _) => _drawingMenu.Show(drawingDropdownButton, new Point(0, drawingDropdownButton.Height));
-
-        var drawingActionsPanel = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Anchor = AnchorStyles.None,
-            BackColor = panel.BackColor,
-            FlowDirection = FlowDirection.LeftToRight,
-            Margin = new Padding(3),
-            Padding = Padding.Empty,
-            WrapContents = false,
-        };
-        ApplyCaptureSplitButtonSize(drawingActionsPanel, drawingButton, drawingDropdownButton);
-        drawingActionsPanel.Controls.Add(drawingButton);
-        drawingActionsPanel.Controls.Add(drawingDropdownButton);
+        ApplyCaptureSplitButtonSize(drawingButton, drawingDropdownButton);
 
         var highlightLabel = AppLocalization.Translate("Editor.Highlight");
         _highlightIcon = LoadActionIcon("highlight.png", Color.FromArgb(45, 49, 54));
-        var highlightButton = CreateActionButton(GetCaptureToolButtonText(highlightLabel), false, _highlightIcon);
+        var highlightButton = CreateActionButton(GetCaptureToolButtonText(highlightLabel), _highlightIcon);
         ApplyCaptureToolButtonSize(highlightButton);
         _highlightButton = highlightButton;
         highlightButton.AccessibleName = highlightLabel;
-        _actionToolTip.SetToolTip(highlightButton, $"{highlightLabel} (F7)");
+        highlightButton.ToolTipText = $"{highlightLabel} (F7)";
         highlightButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Highlight);
 
         var counterLabel = AppLocalization.Translate("Editor.Counter");
         var counterIcon = LoadActionIcon("counter.png", Color.FromArgb(45, 49, 54));
-        var counterButton = CreateActionButton(GetCaptureToolButtonText(counterLabel), false, counterIcon);
+        var counterButton = CreateActionButton(GetCaptureToolButtonText(counterLabel), counterIcon);
         ApplyCaptureToolButtonSize(counterButton);
         _counterButton = counterButton;
         counterButton.AccessibleName = counterLabel;
-        _actionToolTip.SetToolTip(counterButton, $"{counterLabel} (F9)");
+        counterButton.ToolTipText = $"{counterLabel} (F9)";
         counterButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Counter);
 
         var textLabel = AppLocalization.Translate("Editor.Text");
-        var textButton = CreateActionButton(GetCaptureToolButtonText(textLabel), false, LoadActionIcon("text.png", Color.FromArgb(45, 49, 54)));
+        var textButton = CreateActionButton(GetCaptureToolButtonText(textLabel), LoadActionIcon("text.png", Color.FromArgb(45, 49, 54)));
         ApplyCaptureToolButtonSize(textButton);
         _textButton = textButton;
         textButton.AccessibleName = textLabel;
-        _actionToolTip.SetToolTip(textButton, $"{textLabel} (F10)");
+        textButton.ToolTipText = $"{textLabel} (F10)";
         textButton.Click += (_, _) => ToggleStandaloneTool(AnnotationTool.Text);
 
         var undoLabel = AppLocalization.Translate("Editor.Undo");
-        var undoButton = CreateActionButton(GetCaptureToolButtonText(undoLabel), false, LoadActionIcon("undo.png", Color.FromArgb(45, 49, 54)));
+        var undoButton = CreateActionButton(GetCaptureToolButtonText(undoLabel), LoadActionIcon("undo.png", Color.FromArgb(45, 49, 54)));
         ApplyCaptureToolButtonSize(undoButton);
         _undoButton = undoButton;
         undoButton.AccessibleName = undoLabel;
-        _actionToolTip.SetToolTip(undoButton, $"{undoLabel} (Ctrl+Z)");
+        undoButton.ToolTipText = $"{undoLabel} (Ctrl+Z)";
         undoButton.Enabled = false;
         undoButton.Click += (_, _) => UndoLastEdit();
 
         var redoLabel = AppLocalization.Translate("Editor.Redo");
-        var redoButton = CreateActionButton(GetCaptureToolButtonText(redoLabel), false, LoadActionIcon("redo.png", Color.FromArgb(45, 49, 54)));
+        var redoButton = CreateActionButton(GetCaptureToolButtonText(redoLabel), LoadActionIcon("redo.png", Color.FromArgb(45, 49, 54)));
         ApplyCaptureToolButtonSize(redoButton);
         _redoButton = redoButton;
         redoButton.AccessibleName = redoLabel;
-        _actionToolTip.SetToolTip(redoButton, $"{redoLabel} (Ctrl+Y)");
+        redoButton.ToolTipText = $"{redoLabel} (Ctrl+Y)";
         redoButton.Enabled = false;
         redoButton.Click += (_, _) => RedoLastEdit();
 
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
         var borrarLabel = GetBorrarModeLabel(_borrarMode);
-        var borrarButton = CreateActionButton(GetCaptureToolButtonText(borrarLabel), false, _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
-        SetSplitMainButtonSize(borrarButton);
+        var borrarButton = CreateActionButton(GetCaptureToolButtonText(borrarLabel), _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
         _borrarButton = borrarButton;
         borrarButton.AccessibleName = AppLocalization.Translate("Editor.Mask");
         borrarButton.AccessibleDescription = borrarLabel;
-        _actionToolTip.SetToolTip(borrarButton, $"{AppLocalization.Translate("Editor.Mask")}: {borrarLabel} (F8)");
-        borrarButton.Margin = Padding.Empty;
-        borrarButton.FlatAppearance.BorderSize = 0;
+        borrarButton.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {borrarLabel} (F8)";
         borrarButton.Click += (_, _) => ToggleBorrarMode();
 
-        var borrarDropdownButton = CreateActionButton("\u25BE", false, null);
+        var borrarDropdownButton = CreateDropdownButton();
         _borrarDropdownButton = borrarDropdownButton;
-        borrarDropdownButton.AutoSize = false;
-        borrarDropdownButton.MinimumSize = new Size(SplitDropdownWidth, ActionControlHeight);
-        borrarDropdownButton.Size = new Size(SplitDropdownWidth, ActionControlHeight);
-        borrarDropdownButton.Margin = new Padding(-1, 0, 0, 0);
-        borrarDropdownButton.Padding = Padding.Empty;
-        borrarDropdownButton.FlatAppearance.BorderSize = 0;
         borrarDropdownButton.AccessibleName = AppLocalization.Translate("Editor.MaskOptions");
-        borrarDropdownButton.Click += (_, _) => _borrarMenu.Show(borrarDropdownButton, new Point(0, borrarDropdownButton.Height));
+        ApplyCaptureSplitButtonSize(borrarButton, borrarDropdownButton);
 
-        var borrarActionsPanel = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Anchor = AnchorStyles.None,
-            BackColor = panel.BackColor,
-            FlowDirection = FlowDirection.LeftToRight,
-            Margin = new Padding(3),
-            Padding = Padding.Empty,
-            WrapContents = false,
-        };
-        ApplyCaptureSplitButtonSize(borrarActionsPanel, borrarButton, borrarDropdownButton);
-        borrarActionsPanel.Controls.Add(borrarButton);
-        borrarActionsPanel.Controls.Add(borrarDropdownButton);
-
-        AddAnnotationMenuItem(drawingButton, AnnotationTool.Freehand, "Capture.Region.Freehand", "freehand.png");
-        AddAnnotationMenuItem(drawingButton, AnnotationTool.Line, "Capture.Region.Line", "line.png");
-        AddAnnotationMenuItem(drawingButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
-        AddAnnotationMenuItem(drawingButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
-        AddAnnotationMenuItem(drawingButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
+        AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Freehand, "Capture.Region.Freehand", "freehand.png");
+        AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Line, "Capture.Region.Line", "line.png");
+        AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
+        AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
+        AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
         RestoreLastAnnotationTool(drawingButton);
         AddBorrarMenuItem(BorrarMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
         AddBorrarMenuItem(BorrarMode.Solid, "Editor.Filled", _filledIcon);
 
-        var layout = new FlowLayoutPanel
+        toolStrip.Items.AddRange([
+            drawingButton,
+            drawingDropdownButton,
+            highlightButton,
+            borrarButton,
+            borrarDropdownButton,
+            counterButton,
+            textButton,
+            undoButton,
+            redoButton,
+            captureButton,
+            captureDropdownButton,
+        ]);
+        void SetHoveredGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton, bool isPrimary = false)
         {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            BackColor = panel.BackColor,
-            FlowDirection = FlowDirection.LeftToRight,
-            Margin = Padding.Empty,
-            Padding = Padding.Empty,
-            WrapContents = false,
+            if (renderer.SetHoveredGroup(mainButton, dropdownButton, isPrimary))
+            {
+                toolStrip.Invalidate();
+            }
+        }
+
+        void TrackHoverGroup(ToolStripItem mainButton, ToolStripItem dropdownButton, bool isPrimary = false)
+        {
+            EventHandler enter = (_, _) => SetHoveredGroup(mainButton, dropdownButton, isPrimary);
+            EventHandler leave = (_, _) =>
+            {
+                var point = toolStrip.PointToClient(Control.MousePosition);
+                var hoveredItem = toolStrip.GetItemAt(point);
+                if (!ReferenceEquals(hoveredItem, mainButton) && !ReferenceEquals(hoveredItem, dropdownButton))
+                {
+                    SetHoveredGroup(null, null);
+                }
+            };
+
+            mainButton.MouseEnter += enter;
+            mainButton.MouseLeave += leave;
+            dropdownButton.MouseEnter += enter;
+            dropdownButton.MouseLeave += leave;
+        }
+
+        TrackHoverGroup(drawingButton, drawingDropdownButton);
+        TrackHoverGroup(borrarButton, borrarDropdownButton);
+        TrackHoverGroup(captureButton, captureDropdownButton, isPrimary: true);
+        toolStrip.MouseLeave += (_, _) =>
+        {
+            SetHoveredGroup(null, null);
         };
-        layout.Controls.Add(drawingActionsPanel);
-        layout.Controls.Add(highlightButton);
-        layout.Controls.Add(borrarActionsPanel);
-        layout.Controls.Add(counterButton);
-        layout.Controls.Add(textButton);
-        layout.Controls.Add(undoButton);
-        layout.Controls.Add(redoButton);
-        layout.Controls.Add(captureActionsPanel);
-        layout.Location = new Point(panel.Padding.Left, panel.Padding.Top);
-        panel.Controls.Add(layout);
+        toolStrip.Location = Point.Empty;
         UpdateHistoryButtons();
-        return panel;
+        return toolStrip;
     }
 
-    private void AddAnnotationMenuItem(Button drawingButton, AnnotationTool tool, string localizationKey, string iconFileName)
+    private void AddAnnotationMenuItem(ToolStripButton drawingButton, ToolStripDropDownButton drawingDropdownButton, AnnotationTool tool, string localizationKey, string iconFileName)
     {
         var icon = LoadActionIcon(iconFileName, Color.FromArgb(45, 49, 54));
         var label = AppLocalization.Translate(localizationKey);
@@ -904,7 +998,7 @@ public sealed class RegionSelectorForm : Form
             ShortcutKeyDisplayString = GetDrawingToolShortcut(tool),
         };
         menuItem.Click += (_, _) => SelectAnnotationTool(tool, drawingButton, menuItem, icon);
-        _drawingMenu.Items.Add(menuItem);
+        drawingDropdownButton.DropDownItems.Add(menuItem);
     }
 
     private static string GetDrawingToolShortcut(AnnotationTool tool) => tool switch
@@ -917,9 +1011,9 @@ public sealed class RegionSelectorForm : Form
         _ => string.Empty,
     };
 
-    private void RestoreLastAnnotationTool(Button drawingButton)
+    private void RestoreLastAnnotationTool(ToolStripButton drawingButton)
     {
-        var menuItem = _drawingMenu.Items
+        var menuItem = _drawingDropdownButton!.DropDownItems
             .OfType<ToolStripMenuItem>()
             .FirstOrDefault(item => item.Tag is AnnotationTool tool && tool == _lastSelectedAnnotationTool);
         if (menuItem is null || menuItem.Tag is not AnnotationTool selectedTool || menuItem.Image is not Image selectedIcon)
@@ -938,44 +1032,58 @@ public sealed class RegionSelectorForm : Form
             Tag = mode,
         };
         menuItem.Click += (_, _) => SelectBorrarMode(mode, menuItem, icon);
-        _borrarMenu.Items.Add(menuItem);
+        _borrarDropdownButton!.DropDownItems.Add(menuItem);
     }
 
-    private Button CreateActionButton(string text, bool isPrimary, Image? image)
+    private ToolStripButton CreateActionButton(string text, Image? image)
     {
-        var button = new Button
+        var button = new ToolStripButton(text)
         {
-            Text = text,
             Image = image,
             ImageAlign = ContentAlignment.MiddleCenter,
             TextAlign = ContentAlignment.MiddleCenter,
             TextImageRelation = TextImageRelation.ImageBeforeText,
-            AutoSize = true,
-            Anchor = AnchorStyles.None,
-            MinimumSize = new Size(0, ActionControlHeight),
-            Margin = new Padding(3),
-            Padding = new Padding(4, 3, 4, 3),
-            FlatStyle = FlatStyle.Flat,
-            BackColor = isPrimary ? Color.FromArgb(0, 103, 192) : Color.White,
-            ForeColor = isPrimary ? Color.White : Color.FromArgb(45, 49, 54),
-            UseVisualStyleBackColor = false,
-            TabStop = false,
+            DisplayStyle = string.IsNullOrEmpty(text)
+                ? image is null ? ToolStripItemDisplayStyle.Text : ToolStripItemDisplayStyle.Image
+                : _showCaptureToolLabels ? ToolStripItemDisplayStyle.ImageAndText : ToolStripItemDisplayStyle.Image,
+            ImageScaling = ToolStripItemImageScaling.None,
+            AutoSize = _showCaptureToolLabels,
+            CheckOnClick = false,
+            Size = new Size(IconOnlyActionWidth, ActionControlHeight),
+            AutoToolTip = true,
+            ToolTipText = text,
         };
 
-        button.FlatAppearance.BorderSize = isPrimary ? 0 : 1;
-        button.FlatAppearance.BorderColor = Color.FromArgb(214, 219, 225);
-        button.FlatAppearance.MouseOverBackColor = isPrimary
-            ? Color.FromArgb(0, 90, 158)
-            : Color.FromArgb(241, 244, 247);
-        button.FlatAppearance.MouseDownBackColor = isPrimary
-            ? Color.FromArgb(0, 75, 132)
-            : Color.FromArgb(230, 235, 240);
+        ApplyActionButtonStyle(button);
         return button;
+    }
+
+    private ToolStripDropDownButton CreateDropdownButton()
+    {
+        var button = new ToolStripDropDownButton
+        {
+            AutoSize = false,
+            Size = new Size(_showCaptureToolLabels ? SplitDropdownWidth : IconOnlyDropdownWidth, ActionControlHeight),
+            ImageScaling = ToolStripItemImageScaling.None,
+            AutoToolTip = true,
+        };
+
+        ApplyActionButtonStyle(button);
+        button.Padding = Padding.Empty;
+        return button;
+    }
+
+    private static void ApplyActionButtonStyle(ToolStripItem button)
+    {
+        button.Margin = new Padding(2, 1, 2, 1);
+        button.Padding = new Padding(3, 2, 3, 2);
+        button.BackColor = ToolStripColorPalette.ButtonBackground;
+        button.ForeColor = ToolStripColorPalette.ButtonForeground;
     }
 
     private string GetCaptureToolButtonText(string label) => _showCaptureToolLabels ? label : string.Empty;
 
-    private void ApplyCaptureToolButtonSize(Button button)
+    private void ApplyCaptureToolButtonSize(ToolStripButton button)
     {
         if (_showCaptureToolLabels)
         {
@@ -983,31 +1091,22 @@ public sealed class RegionSelectorForm : Form
         }
 
         button.AutoSize = false;
-        button.MinimumSize = new Size(IconOnlyActionWidth, ActionControlHeight);
         button.Size = new Size(IconOnlyActionWidth, ActionControlHeight);
     }
 
-    private void ApplyCaptureSplitButtonSize(FlowLayoutPanel panel, Button mainButton, Button dropdownButton)
+    private void ApplyCaptureSplitButtonSize(ToolStripButton mainButton, ToolStripDropDownButton dropdownButton)
     {
+        mainButton.Margin = new Padding(2, 1, 0, 1);
+        dropdownButton.Margin = new Padding(0, 1, 2, 1);
+
         if (_showCaptureToolLabels)
         {
             return;
         }
 
-        var mainButtonWidth = IconOnlyActionWidth - IconOnlyDropdownWidth + 1;
         mainButton.AutoSize = false;
-        mainButton.MinimumSize = new Size(mainButtonWidth, ActionControlHeight);
-        mainButton.Size = new Size(mainButtonWidth, ActionControlHeight);
-        dropdownButton.MinimumSize = new Size(IconOnlyDropdownWidth, ActionControlHeight);
+        mainButton.Size = new Size(IconOnlyActionWidth - IconOnlyDropdownWidth, ActionControlHeight);
         dropdownButton.Size = new Size(IconOnlyDropdownWidth, ActionControlHeight);
-        panel.AutoSize = true;
-        panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-    }
-
-    private static void SetSplitMainButtonSize(Button button)
-    {
-        button.AutoSize = true;
-        button.MinimumSize = new Size(0, ActionControlHeight);
     }
 
     private Bitmap LoadActionIcon(string fileName, Color color)
@@ -1339,10 +1438,10 @@ public sealed class RegionSelectorForm : Form
             Math.Max(start.X, end.X) + 1,
             Math.Max(start.Y, end.Y) + 1);
 
-    private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon)
+    private void SelectAnnotationTool(AnnotationTool tool, ToolStripButton drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon)
         => SelectAnnotationTool(tool, drawingButton, selectedMenuItem, selectedIcon, toggleIfAlreadyActive: true);
 
-    private void SelectAnnotationTool(AnnotationTool tool, Button drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon, bool toggleIfAlreadyActive)
+    private void SelectAnnotationTool(AnnotationTool tool, ToolStripButton drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon, bool toggleIfAlreadyActive)
     {
         if (_isEditingText)
         {
@@ -1364,13 +1463,16 @@ public sealed class RegionSelectorForm : Form
         _isBorrarModeActive = false;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateBorrarButtonAppearance();
-        foreach (ToolStripMenuItem menuItem in _drawingMenu.Items)
+        foreach (ToolStripMenuItem menuItem in _drawingDropdownButton!.DropDownItems)
         {
             menuItem.Checked = menuItem == _selectedDrawingMenuItem;
         }
 
         drawingButton.Image = _selectedDrawingIcon;
-        _actionToolTip.SetToolTip(drawingButton, $"{AppLocalization.Translate("Capture.Region.Drawing")}: {selectedMenuItem?.Text ?? tool.ToString()} ({GetDrawingToolShortcut(tool)})");
+        drawingButton.DisplayStyle = _showCaptureToolLabels
+            ? ToolStripItemDisplayStyle.ImageAndText
+            : ToolStripItemDisplayStyle.Image;
+        drawingButton.ToolTipText = $"{AppLocalization.Translate("Capture.Region.Drawing")}: {selectedMenuItem?.Text ?? tool.ToString()} ({GetDrawingToolShortcut(tool)})";
         UpdateDrawingButtonAppearance();
     }
 
@@ -1412,7 +1514,7 @@ public sealed class RegionSelectorForm : Form
 
         if (drawingTool != AnnotationTool.None && _drawingButton is not null)
         {
-            var menuItem = _drawingMenu.Items
+            var menuItem = _drawingDropdownButton!.DropDownItems
                 .OfType<ToolStripMenuItem>()
                 .FirstOrDefault(item => item.Tag is AnnotationTool tool && tool == drawingTool);
             if (menuItem?.Image is Image icon)
@@ -1431,7 +1533,7 @@ public sealed class RegionSelectorForm : Form
                 var mode = _isBorrarModeActive
                     ? (_borrarMode == BorrarMode.Solid ? BorrarMode.Pixelate : BorrarMode.Solid)
                     : _borrarMode;
-                var modeMenuItem = _borrarMenu.Items
+                var modeMenuItem = _borrarDropdownButton!.DropDownItems
                     .OfType<ToolStripMenuItem>()
                     .FirstOrDefault(item => item.Tag is BorrarMode menuMode && menuMode == mode);
                 if (modeMenuItem?.Image is Image modeIcon)
@@ -1480,7 +1582,7 @@ public sealed class RegionSelectorForm : Form
         {
             if (_drawingDropdownButton is not null)
             {
-                _drawingMenu.Show(_drawingDropdownButton, new Point(0, _drawingDropdownButton.Height));
+                _drawingDropdownButton.ShowDropDown();
             }
 
             return;
@@ -1504,6 +1606,7 @@ public sealed class RegionSelectorForm : Form
     private void UpdateDrawingButtonAppearance()
     {
         var isActive = _annotationTool is AnnotationTool.Freehand or AnnotationTool.Line or AnnotationTool.Arrow or AnnotationTool.Rectangle or AnnotationTool.Circle;
+        SetActiveActionGroup(isActive ? _drawingButton : null, isActive ? _drawingDropdownButton : null);
         if (_drawingButton is not null)
         {
             SetToolButtonAppearance(_drawingButton, isActive);
@@ -1511,7 +1614,7 @@ public sealed class RegionSelectorForm : Form
 
         if (_drawingDropdownButton is not null)
         {
-            SetToolButtonAppearance(_drawingDropdownButton, isActive);
+            _drawingDropdownButton.BackColor = isActive ? ToolStripColorPalette.ActiveBackground : ToolStripColorPalette.ButtonBackground;
         }
 
         if (_highlightButton is not null)
@@ -1530,14 +1633,21 @@ public sealed class RegionSelectorForm : Form
         }
     }
 
-    private static void SetToolButtonAppearance(Button button, bool isActive)
+    private static void SetToolButtonAppearance(ToolStripButton button, bool isActive)
     {
-        button.BackColor = isActive ? ActiveToolBackColor : Color.White;
-        button.ForeColor = Color.FromArgb(45, 49, 54);
-        button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.BorderColor = isActive ? ActiveToolBorderColor : Color.FromArgb(214, 219, 225);
-        button.FlatAppearance.MouseOverBackColor = isActive ? ActiveToolHoverColor : Color.FromArgb(241, 244, 247);
-        button.FlatAppearance.MouseDownBackColor = isActive ? ActiveToolPressedColor : Color.FromArgb(230, 235, 240);
+        button.Checked = isActive;
+        button.BackColor = isActive ? ToolStripColorPalette.ActiveBackground : ToolStripColorPalette.ButtonBackground;
+        button.ForeColor = ToolStripColorPalette.ButtonForeground;
+    }
+
+    private void SetActiveActionGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton)
+    {
+        if (_actionBarRenderer?.SetActiveGroup(mainButton, dropdownButton) == true &&
+            _actionBar is not null &&
+            IsHandleCreated)
+        {
+            _actionBar.Invalidate();
+        }
     }
 
     private void SelectBorrarMode(BorrarMode mode, ToolStripMenuItem selectedMenuItem, Image selectedIcon)
@@ -1553,7 +1663,7 @@ public sealed class RegionSelectorForm : Form
 
         _borrarMode = mode;
         _isBorrarModeActive = !isTogglingOff;
-        foreach (ToolStripMenuItem menuItem in _borrarMenu.Items)
+        foreach (ToolStripMenuItem menuItem in _borrarDropdownButton!.DropDownItems)
         {
             menuItem.Checked = _isBorrarModeActive && menuItem == selectedMenuItem;
         }
@@ -1593,6 +1703,10 @@ public sealed class RegionSelectorForm : Form
 
     private void UpdateBorrarButtonAppearance()
     {
+        SetActiveActionGroup(
+            _isBorrarModeActive ? _borrarButton : null,
+            _isBorrarModeActive ? _borrarDropdownButton : null);
+
         if (_borrarButton is null)
         {
             return;
@@ -1600,7 +1714,7 @@ public sealed class RegionSelectorForm : Form
 
         var maskLabel = AppLocalization.Translate("Editor.Mask");
         var modeLabel = GetBorrarModeLabel(_borrarMode);
-        _actionToolTip.SetToolTip(_borrarButton, $"{maskLabel}: {modeLabel} (F8)");
+        _borrarButton.ToolTipText = $"{maskLabel}: {modeLabel} (F8)";
         _borrarButton.AccessibleDescription = modeLabel;
         SetToolButtonAppearance(_borrarButton, _isBorrarModeActive);
 
@@ -1609,7 +1723,7 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        SetToolButtonAppearance(_borrarDropdownButton, _isBorrarModeActive);
+        _borrarDropdownButton.BackColor = _isBorrarModeActive ? ToolStripColorPalette.ActiveBackground : ToolStripColorPalette.ButtonBackground;
     }
 
     private Point ClampToSelection(Point point) => new(
@@ -1737,12 +1851,8 @@ public sealed class RegionSelectorForm : Form
     {
         var left = Math.Clamp(_selection.Left + (_selection.Width - _actionBar.Width) / 2, 0, Math.Max(0, ClientSize.Width - _actionBar.Width));
         var top = _selection.Bottom + 18;
-        if (top + _actionBar.Height > ClientSize.Height)
-        {
-            top = _selection.Top - _actionBar.Height - 18;
-        }
 
-        _actionBar.Location = new Point(left, Math.Clamp(top, 0, Math.Max(0, ClientSize.Height - _actionBar.Height)));
+        _actionBar.Location = new Point(left, top);
     }
 
     private void DrawHandles(Graphics graphics)

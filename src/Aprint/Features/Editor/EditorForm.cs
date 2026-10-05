@@ -262,10 +262,10 @@ public sealed class EditorForm : Form
             AutoSize = false,
             Height = ToolPanelHeight,
             ShowItemToolTips = true,
-            RenderMode = ToolStripRenderMode.System,
+            Renderer = new ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable()),
             Font = new Font("Segoe UI", 9F),
-            BackColor = Color.FromArgb(245, 245, 247),
-            ForeColor = Color.FromArgb(40, 44, 52),
+            BackColor = ToolStripColorPalette.BarBackground,
+            ForeColor = ToolStripColorPalette.ButtonForeground,
             Padding = new Padding(ToolButtonPadding, ToolButtonPadding, ToolButtonPadding, ToolButtonPadding),
             ImageList = _toolIconImageList,
         };
@@ -709,6 +709,15 @@ public sealed class EditorForm : Form
             btnCopy,
             btnSaveAs,
         ]);
+
+        foreach (ToolStripItem item in toolStrip.Items)
+        {
+            if (item is ToolStripButton or ToolStripDropDownButton)
+            {
+                item.BackColor = ToolStripColorPalette.ButtonBackground;
+                item.ForeColor = ToolStripColorPalette.ButtonForeground;
+            }
+        }
 
         SetToolLabelsVisible(toolStrip, showToolLabels);
 
