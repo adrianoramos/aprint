@@ -171,9 +171,11 @@ public sealed class RegionSelectorForm : Form
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
     private readonly SolidBrush _overlayBrush = new(Color.FromArgb(120, 0, 0, 0));
     private readonly Pen _borderPen = new(Color.White, SelectionBorderWidth);
+    private readonly Pen _sendToEditorFlashPen = new(Color.FromArgb(0, 210, 170), 4);
     private readonly SolidBrush _handleBrush = new(Color.White);
     private readonly List<Image> _actionImages = [];
     private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
+    private readonly System.Windows.Forms.Timer _sendToEditorFlashTimer = new() { Interval = 100 };
     private readonly List<List<Point>> _freehandStrokes = [];
     private readonly List<List<Point>> _highlightStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
@@ -230,6 +232,8 @@ public sealed class RegionSelectorForm : Form
     private bool _isEditingText;
     private bool _isMaskModeActive;
     private bool _isDrawingMaskRegion;
+    private bool _sendToEditorFlashVisible;
+    private int _sendToEditorFlashTicks;
     private Point _lineStart;
     private Point _lineEnd;
     private Point _rectangleStart;
@@ -244,6 +248,8 @@ public sealed class RegionSelectorForm : Form
     public Rectangle? SelectedRegion { get; private set; }
 
     public RegionSelectionAction? SelectedAction { get; private set; }
+
+    public event Action<Bitmap>? SendToEditorRequested;
 
     public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
 
@@ -269,6 +275,18 @@ public sealed class RegionSelectorForm : Form
                 _textCaretVisible = !_textCaretVisible;
                 Invalidate(_textBounds);
             }
+        };
+        _sendToEditorFlashTimer.Tick += (_, _) =>
+        {
+            _sendToEditorFlashTicks--;
+            _sendToEditorFlashVisible = _sendToEditorFlashTicks > 0 && _sendToEditorFlashTicks % 2 == 0;
+            if (_sendToEditorFlashTicks <= 0)
+            {
+                _sendToEditorFlashTimer.Stop();
+                _sendToEditorFlashVisible = false;
+            }
+
+            Invalidate(Rectangle.Inflate(_selection, 4, 4));
         };
 
         FormBorderStyle = FormBorderStyle.None;
@@ -308,6 +326,10 @@ public sealed class RegionSelectorForm : Form
                 e.Graphics.DrawRectangle(previewPen, GetRectangle(_maskStart, _maskEnd));
             }
             e.Graphics.DrawRectangle(_borderPen, _selection);
+            if (_sendToEditorFlashVisible)
+            {
+                e.Graphics.DrawRectangle(_sendToEditorFlashPen, Rectangle.Inflate(_selection, 1, 1));
+            }
             DrawHandles(e.Graphics);
         }
     }
@@ -430,6 +452,7 @@ public sealed class RegionSelectorForm : Form
                 }
             }
 
+            StopSendToEditorFeedback();
             _actionBar.Visible = false;
             CommitAnnotationsAndRecordUndo();
             _nextCounterValue = 1;
@@ -721,6 +744,12 @@ public sealed class RegionSelectorForm : Form
 
         if (_actionBar.Visible)
         {
+            if (keyData == (Keys.Control | Keys.Enter))
+            {
+                SendSelectionToEditor();
+                return true;
+            }
+
             var action = keyData switch
             {
                 Keys.Enter => RegionSelectionAction.Capture,
@@ -789,6 +818,9 @@ public sealed class RegionSelectorForm : Form
             _editHistory.Dispose();
             _textCaretTimer.Stop();
             _textCaretTimer.Dispose();
+            _sendToEditorFlashTimer.Stop();
+            _sendToEditorFlashTimer.Dispose();
+            _sendToEditorFlashPen.Dispose();
             _textFont.Dispose();
             foreach (var image in _actionImages)
             {
@@ -845,6 +877,13 @@ public sealed class RegionSelectorForm : Form
             ShortcutKeyDisplayString = "Enter",
         };
         captureMenuItem.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
+        var sendToEditorMenuItem = new ToolStripMenuItem(
+            AppLocalization.Translate("Capture.Region.SendToEditor"),
+            LoadActionIcon("capture.png", Color.FromArgb(45, 49, 54)))
+        {
+            ShortcutKeyDisplayString = "Ctrl+Enter",
+        };
+        sendToEditorMenuItem.Click += (_, _) => SendSelectionToEditor();
         var copyMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Capture.Region.Copy"), LoadActionIcon("copy.png", Color.FromArgb(45, 49, 54)))
         {
             ShortcutKeyDisplayString = "Ctrl+C",
@@ -855,7 +894,7 @@ public sealed class RegionSelectorForm : Form
             ShortcutKeyDisplayString = "Ctrl+S",
         };
         saveMenuItem.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
-        captureDropdownButton.DropDownItems.AddRange([captureMenuItem, copyMenuItem, saveMenuItem]);
+        captureDropdownButton.DropDownItems.AddRange([captureMenuItem, sendToEditorMenuItem, copyMenuItem, saveMenuItem]);
 
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
         var drawingButton = CreateActionButton(
@@ -1207,6 +1246,38 @@ public sealed class RegionSelectorForm : Form
         SelectedAction = action;
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private void SendSelectionToEditor()
+    {
+        if (_selection.Width < MinimumSelectionSize || _selection.Height < MinimumSelectionSize || SendToEditorRequested is null)
+        {
+            return;
+        }
+
+        CommitTextEdit();
+        CommitAnnotationsAndRecordUndo();
+
+        var boundedRegion = Rectangle.Intersect(_selection, new Rectangle(Point.Empty, _background.Size));
+        if (boundedRegion.Width < MinimumSelectionSize || boundedRegion.Height < MinimumSelectionSize)
+        {
+            return;
+        }
+
+        using var bitmap = _background.Clone(boundedRegion, _background.PixelFormat);
+        SendToEditorRequested.Invoke(bitmap);
+        _sendToEditorFlashTicks = 6;
+        _sendToEditorFlashVisible = true;
+        _sendToEditorFlashTimer.Stop();
+        _sendToEditorFlashTimer.Start();
+        Invalidate(Rectangle.Inflate(_selection, 4, 4));
+    }
+
+    private void StopSendToEditorFeedback()
+    {
+        _sendToEditorFlashTimer.Stop();
+        _sendToEditorFlashTicks = 0;
+        _sendToEditorFlashVisible = false;
     }
 
     private void CommitAnnotations()

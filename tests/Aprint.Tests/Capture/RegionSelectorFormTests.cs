@@ -41,4 +41,36 @@ public sealed class RegionSelectorFormTests
         Assert.True(isMaskModeActive);
         Assert.Equal(expectedMode, (MaskMode)checkedMenuItem.Tag!);
     }
+
+    [Fact]
+    public void SendingSelectionToEditorKeepsSelectorOpenForRepeatedCaptures()
+    {
+        using var background = new Bitmap(8, 8);
+        using var selector = new RegionSelectorForm(background);
+        var selection = new Rectangle(1, 1, 4, 4);
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, selection);
+        var sentImages = 0;
+        selector.SendToEditorRequested += bitmap =>
+        {
+            sentImages++;
+            Assert.Equal(new Size(4, 4), bitmap.Size);
+        };
+        var sendSelection = typeof(RegionSelectorForm)
+            .GetMethod("SendSelectionToEditor", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        sendSelection.Invoke(selector, null);
+        sendSelection.Invoke(selector, null);
+
+        Assert.Equal(2, sentImages);
+        Assert.Equal(selection, (Rectangle)typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!);
+        Assert.True((bool)typeof(RegionSelectorForm)
+            .GetField("_sendToEditorFlashVisible", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!);
+        Assert.False(selector.IsDisposed);
+        Assert.Equal(DialogResult.None, selector.DialogResult);
+    }
 }
