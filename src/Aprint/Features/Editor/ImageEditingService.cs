@@ -318,7 +318,7 @@ public static class ImageEditingService
         graphics.Restore(state);
     }
 
-    public static void ApplyBorrar(Bitmap bitmap, Rectangle area, BorrarMode mode, Color color, int pixelSize)
+    public static void ApplyMask(Bitmap bitmap, Rectangle area, MaskMode mode, Color color, int pixelSize)
     {
         var rectangle = Rectangle.Intersect(area, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
         if (rectangle.Width <= 0 || rectangle.Height <= 0)
@@ -327,7 +327,7 @@ public static class ImageEditingService
         }
 
         using var graphics = Graphics.FromImage(bitmap);
-        if (mode == BorrarMode.Pixelate)
+        if (mode == MaskMode.Pixelate)
         {
             PixelateArea(bitmap, graphics, rectangle, pixelSize);
             return;

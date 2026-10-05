@@ -37,7 +37,7 @@ public sealed partial class SettingsForm : Form
             OpenEditorAfterCapture = currentSettings.OpenEditorAfterCapture,
             PlaySoundOnCapture = currentSettings.PlaySoundOnCapture,
             EditorStartState = currentSettings.EditorStartState,
-            BorrarMode = currentSettings.BorrarMode,
+            MaskMode = currentSettings.MaskMode,
             ShowToolLabels = currentSettings.ShowToolLabels,
             ShowCaptureToolLabels = currentSettings.ShowCaptureToolLabels,
             SaveEditorImageWithoutPrompt = currentSettings.SaveEditorImageWithoutPrompt,

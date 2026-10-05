@@ -160,7 +160,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void OpenEditor(Bitmap bitmap)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.BorrarMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastBorrarPixelSize);
+        using var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 
@@ -196,15 +196,15 @@ public sealed class TrayApplicationContext : ApplicationContext
             _settingsStore.Save(_settings);
         };
 
-        editor.BorrarPixelSizeChanged += size =>
+        editor.MaskPixelSizeChanged += size =>
         {
-            _settings.LastBorrarPixelSize = size;
+            _settings.LastMaskPixelSize = size;
             _settingsStore.Save(_settings);
         };
 
-        editor.BorrarModeChanged += mode =>
+        editor.MaskModeChanged += mode =>
         {
-            _settings.BorrarMode = mode;
+            _settings.MaskMode = mode;
             _settingsStore.Save(_settings);
         };
 

@@ -125,8 +125,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnConfirmCrop;
     private readonly ToolStripButton _btnCancelCrop;
     private readonly ToolStripDropDownButton _btnTextFormatDropdown;
-    private readonly ToolStripButton _btnBorrar;
-    private readonly ToolStripDropDownButton _btnBorrarModeDropdown;
+    private readonly ToolStripButton _btnMask;
+    private readonly ToolStripDropDownButton _btnMaskModeDropdown;
     private readonly ToolStripMenuItem _filledModeMenuItem;
     private readonly ToolStripMenuItem _pixelatedModeMenuItem;
     private readonly ToolStripSeparator _pixelSizeSeparator;
@@ -150,9 +150,9 @@ public sealed class EditorForm : Form
     private Color? _selectedFillColor;
     private EditTool _currentTool = EditTool.Freehand;
     private EditTool _toolBeforeCrop = EditTool.Freehand;
-    private BorrarMode _borrarMode = BorrarMode.Pixelate;
+    private MaskMode _maskMode = MaskMode.Pixelate;
     private int _highlightWidth = 18;
-    private int _borrarPixelSize = 6;
+    private int _maskPixelSize = 6;
     private int _nextCounterValue = 1;
     private bool _isDrawing;
     private Point _dragStart;
@@ -178,22 +178,22 @@ public sealed class EditorForm : Form
 
     public event Action<string>? Saved;
     public event Action? Copied;
-    public event Action<BorrarMode>? BorrarModeChanged;
+    public event Action<MaskMode>? MaskModeChanged;
     public event Action<Color>? LineColorChanged;
     public event Action<Color>? TextColorChanged;
     public event Action<Color?>? FillColorChanged;
-    public event Action<int>? BorrarPixelSizeChanged;
+    public event Action<int>? MaskPixelSizeChanged;
     public event Action? NewCaptureRequested;
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, BorrarMode borrarMode = BorrarMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int borrarPixelSize = 6)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _selectedColor = Color.FromArgb(lineColorArgb);
         _selectedTextColor = Color.FromArgb(textColorArgb);
         _selectedFillColor = fillColorArgb.HasValue ? Color.FromArgb(fillColorArgb.Value) : null;
-        _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
+        _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
         var installedFontFamilies = FontFamily.Families;
         _textFontFamily = installedFontFamilies
@@ -232,7 +232,7 @@ public sealed class EditorForm : Form
             ? Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
             : _initialFolder;
         _automaticSavePath = Path.Combine(saveFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
-        _borrarMode = borrarMode;
+        _maskMode = maskMode;
         _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
         _toolIconImageList = CreateToolIconImageList(_toolIconSize);
 
@@ -515,21 +515,21 @@ public sealed class EditorForm : Form
         });
         _btnHighlightSizeDropdown.DropDown.AutoClose = false;
 
-        _btnBorrar = CreateStandardToolButton(
-            AppLocalization.Translate(_borrarMode == BorrarMode.Solid ? "Editor.Filled" : "Editor.Pixelated"),
-            _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
+        _btnMask = CreateStandardToolButton(
+            AppLocalization.Translate(_maskMode == MaskMode.Solid ? "Editor.Filled" : "Editor.Pixelated"),
+            _maskMode == MaskMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
             Color.Black,
             isCheckable: true,
             shortcut: "F8");
-        _btnBorrar.Click += (_, _) => SetActiveTool(
-            _borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
+        _btnMask.Click += (_, _) => SetActiveTool(
+            _maskMode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated);
 
-        _btnBorrarModeDropdown = new ToolStripDropDownButton
+        _btnMaskModeDropdown = new ToolStripDropDownButton
         {
             ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
             ImageKey = EnsureToolIconKey(
-                _borrarMode == BorrarMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
+                _maskMode == MaskMode.Solid ? ToolIconKind.Filled : ToolIconKind.Pixelated,
                 Color.Black),
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
@@ -543,16 +543,16 @@ public sealed class EditorForm : Form
         _filledModeMenuItem.Click += (_, _) =>
         {
             SetActiveTool(EditTool.Blur);
-            _btnBorrarModeDropdown.DropDown.Close();
+            _btnMaskModeDropdown.DropDown.Close();
         };
         _pixelatedModeMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.Pixelated"));
         _pixelatedModeMenuItem.Click += (_, _) =>
         {
             SetActiveTool(EditTool.Pixelated);
-            _btnBorrarModeDropdown.DropDown.Close();
+            _btnMaskModeDropdown.DropDown.Close();
         };
         _pixelSizeSeparator = new ToolStripSeparator();
-        _btnBorrarModeDropdown.DropDownItems.AddRange([
+        _btnMaskModeDropdown.DropDownItems.AddRange([
             _filledModeMenuItem,
             _pixelatedModeMenuItem,
             _pixelSizeSeparator,
@@ -567,7 +567,7 @@ public sealed class EditorForm : Form
         {
             Minimum = 4,
             Maximum = 32,
-            Value = _borrarPixelSize,
+            Value = _maskPixelSize,
             TickFrequency = 4,
             SmallChange = 1,
             LargeChange = 4,
@@ -579,16 +579,16 @@ public sealed class EditorForm : Form
         var pixelSizeLabel = new Label
         {
             AutoSize = false,
-            Text = $"{_borrarPixelSize} px",
+            Text = $"{_maskPixelSize} px",
             TextAlign = ContentAlignment.MiddleCenter,
             Size = new Size(38, 22),
             Location = new Point(144, 13),
         };
         pixelSizeSlider.ValueChanged += (_, _) =>
         {
-            _borrarPixelSize = pixelSizeSlider.Value;
-            pixelSizeLabel.Text = $"{_borrarPixelSize} px";
-            BorrarPixelSizeChanged?.Invoke(_borrarPixelSize);
+            _maskPixelSize = pixelSizeSlider.Value;
+            pixelSizeLabel.Text = $"{_maskPixelSize} px";
+            MaskPixelSizeChanged?.Invoke(_maskPixelSize);
         };
         pixelSizePanel.Controls.Add(pixelSizeSlider);
         pixelSizePanel.Controls.Add(pixelSizeLabel);
@@ -598,12 +598,12 @@ public sealed class EditorForm : Form
             Size = pixelSizePanel.Size,
             Margin = Padding.Empty,
         };
-        _btnBorrarModeDropdown.DropDownItems.Add(_pixelSizeControlHost);
-        _btnBorrarModeDropdown.DropDown.AutoClose = false;
+        _btnMaskModeDropdown.DropDownItems.Add(_pixelSizeControlHost);
+        _btnMaskModeDropdown.DropDown.AutoClose = false;
         var popupDismissMessageFilter = new PopupDismissMessageFilter(
             _btnTextFormatDropdown,
             _btnHighlightSizeDropdown,
-            _btnBorrarModeDropdown);
+            _btnMaskModeDropdown);
         Shown += (_, _) => System.Windows.Forms.Application.AddMessageFilter(popupDismissMessageFilter);
         FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(popupDismissMessageFilter);
 
@@ -694,8 +694,8 @@ public sealed class EditorForm : Form
             _btnCircle,
             _btnHighlight,
             _btnHighlightSizeDropdown,
-            _btnBorrar,
-            _btnBorrarModeDropdown,
+            _btnMask,
+            _btnMaskModeDropdown,
             _btnCounter,
             _btnText,
             _btnTextFormatDropdown,
@@ -1051,11 +1051,11 @@ public sealed class EditorForm : Form
         _currentTool = tool;
         if (tool is EditTool.Blur or EditTool.Pixelated)
         {
-            var mode = tool == EditTool.Blur ? BorrarMode.Solid : BorrarMode.Pixelate;
-            if (_borrarMode != mode)
+            var mode = tool == EditTool.Blur ? MaskMode.Solid : MaskMode.Pixelate;
+            if (_maskMode != mode)
             {
-                _borrarMode = mode;
-                BorrarModeChanged?.Invoke(mode);
+                _maskMode = mode;
+                MaskModeChanged?.Invoke(mode);
             }
         }
         _btnFreehand.Checked = tool == EditTool.Freehand;
@@ -1069,23 +1069,23 @@ public sealed class EditorForm : Form
         _btnCrop.Checked = tool == EditTool.Crop;
         _btnConfirmCrop.Visible = tool == EditTool.Crop;
         _btnCancelCrop.Visible = tool == EditTool.Crop;
-        _btnBorrar.Checked = tool is EditTool.Blur or EditTool.Pixelated;
-        UpdateBorrarToolAppearance();
+        _btnMask.Checked = tool is EditTool.Blur or EditTool.Pixelated;
+        UpdateMaskToolAppearance();
         _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;
     }
 
-    private void UpdateBorrarToolAppearance()
+    private void UpdateMaskToolAppearance()
     {
-        var isFilled = _borrarMode == BorrarMode.Solid;
+        var isFilled = _maskMode == MaskMode.Solid;
         var iconKind = isFilled ? ToolIconKind.Filled : ToolIconKind.Pixelated;
         var localizedMode = AppLocalization.Translate(isFilled ? "Editor.Filled" : "Editor.Pixelated");
         var iconKey = EnsureToolIconKey(iconKind, Color.Black);
 
-        _btnBorrar.Text = localizedMode;
-        _btnBorrar.ImageKey = iconKey;
-        _btnBorrar.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {localizedMode} (F8)";
-        _btnBorrarModeDropdown.ImageKey = iconKey;
-        _btnBorrarModeDropdown.ToolTipText = AppLocalization.Translate("Editor.PixelatedSize");
+        _btnMask.Text = localizedMode;
+        _btnMask.ImageKey = iconKey;
+        _btnMask.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {localizedMode} (F8)";
+        _btnMaskModeDropdown.ImageKey = iconKey;
+        _btnMaskModeDropdown.ToolTipText = AppLocalization.Translate("Editor.PixelatedSize");
         _filledModeMenuItem.Checked = isFilled;
         _pixelatedModeMenuItem.Checked = !isFilled;
         _pixelSizeSeparator.Visible = !isFilled;
@@ -1382,7 +1382,7 @@ public sealed class EditorForm : Form
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? selection
                 : Rectangle.Union(_lastPreviewDirtyRect, selection);
-            ApplyBorrarToSelection(selection);
+            ApplyMaskToSelection(selection);
             _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
             InvalidatePictureBoxRegion(repaintRegion);
@@ -1560,9 +1560,9 @@ public sealed class EditorForm : Form
         SetActiveTool(_toolBeforeCrop);
     }
 
-    private void ApplyBorrarToSelection(Rectangle area)
+    private void ApplyMaskToSelection(Rectangle area)
     {
-        ImageEditingService.ApplyBorrar(_workingBitmap, area, _borrarMode, _selectedColor, _borrarPixelSize);
+        ImageEditingService.ApplyMask(_workingBitmap, area, _maskMode, _selectedColor, _maskPixelSize);
         _pictureBox.Image = _workingBitmap;
         InvalidatePictureBoxRegion(InflateRectangle(area, 2));
     }
@@ -1948,10 +1948,10 @@ public sealed class EditorForm : Form
 
         if (keyData == Keys.F8)
         {
-            var borrarToolIsActive = _currentTool is EditTool.Blur or EditTool.Pixelated;
-            var tool = borrarToolIsActive
+            var maskToolIsActive = _currentTool is EditTool.Blur or EditTool.Pixelated;
+            var tool = maskToolIsActive
                 ? (_currentTool == EditTool.Blur ? EditTool.Pixelated : EditTool.Blur)
-                : (_borrarMode == BorrarMode.Solid ? EditTool.Blur : EditTool.Pixelated);
+                : (_maskMode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated);
             SetActiveTool(tool);
             return true;
         }

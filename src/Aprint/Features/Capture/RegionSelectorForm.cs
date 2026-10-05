@@ -193,13 +193,13 @@ public sealed class RegionSelectorForm : Form
     private Image? _highlightIcon;
     private ToolStripButton? _counterButton;
     private ToolStripButton? _textButton;
-    private ToolStripButton? _borrarButton;
-    private ToolStripDropDownButton? _borrarDropdownButton;
+    private ToolStripButton? _maskButton;
+    private ToolStripDropDownButton? _maskDropdownButton;
     private Image? _pixelatedIcon;
     private Image? _filledIcon;
-    private BorrarMode _borrarMode = BorrarMode.Pixelate;
+    private MaskMode _maskMode = MaskMode.Pixelate;
     private Color _lineColor = Color.Red;
-    private int _borrarPixelSize = 6;
+    private int _maskPixelSize = 6;
     private int _highlightWidth = 18;
     private Color? _fillColor;
     private bool _showCaptureToolLabels = true;
@@ -230,16 +230,16 @@ public sealed class RegionSelectorForm : Form
     private bool _isDrawingCircle;
     private bool _isDrawingTextSelection;
     private bool _isEditingText;
-    private bool _isBorrarModeActive;
-    private bool _isDrawingBorrarRegion;
+    private bool _isMaskModeActive;
+    private bool _isDrawingMaskRegion;
     private Point _lineStart;
     private Point _lineEnd;
     private Point _rectangleStart;
     private Point _rectangleEnd;
     private Point _circleStart;
     private Point _circleEnd;
-    private Point _borrarStart;
-    private Point _borrarEnd;
+    private Point _maskStart;
+    private Point _maskEnd;
     private Point _textStart;
     private Point _textEnd;
 
@@ -247,13 +247,13 @@ public sealed class RegionSelectorForm : Form
 
     public RegionSelectionAction? SelectedAction { get; private set; }
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, BorrarMode borrarMode = BorrarMode.Pixelate, int borrarPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true)
     {
         _background = background;
         _editHistory = new EditHistory(_background, _nextCounterValue);
         _outsideCaptureClickAction = outsideCaptureClickAction;
-        _borrarMode = borrarMode;
-        _borrarPixelSize = Math.Clamp(borrarPixelSize, 4, 32);
+        _maskMode = maskMode;
+        _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
         _lineColor = Color.FromArgb(lineColorArgb);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
         _fillColor = fillColorArgb is int selectedFillColorArgb ? Color.FromArgb(selectedFillColorArgb) : null;
@@ -301,10 +301,10 @@ public sealed class RegionSelectorForm : Form
             DrawCircles(e.Graphics);
             DrawCounterMarkers(e.Graphics);
             DrawTextOverlay(e.Graphics);
-            if (_isDrawingBorrarRegion)
+            if (_isDrawingMaskRegion)
             {
                 using var previewPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
-                e.Graphics.DrawRectangle(previewPen, GetRectangle(_borrarStart, _borrarEnd));
+                e.Graphics.DrawRectangle(previewPen, GetRectangle(_maskStart, _maskEnd));
             }
             e.Graphics.DrawRectangle(_borderPen, _selection);
             DrawHandles(e.Graphics);
@@ -397,11 +397,11 @@ public sealed class RegionSelectorForm : Form
                     return;
                 }
 
-                if (_isBorrarModeActive && _selection.Contains(e.Location))
+                if (_isMaskModeActive && _selection.Contains(e.Location))
                 {
-                    _isDrawingBorrarRegion = true;
-                    _borrarStart = ClampToSelection(e.Location);
-                    _borrarEnd = _borrarStart;
+                    _isDrawingMaskRegion = true;
+                    _maskStart = ClampToSelection(e.Location);
+                    _maskEnd = _maskStart;
                     Capture = true;
                     return;
                 }
@@ -486,11 +486,11 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        if (_isDrawingBorrarRegion)
+        if (_isDrawingMaskRegion)
         {
-            var previousEnd = _borrarEnd;
-            _borrarEnd = ClampToSelection(e.Location);
-            InvalidateShapePreview(_borrarStart, previousEnd, _borrarEnd);
+            var previousEnd = _maskEnd;
+            _maskEnd = ClampToSelection(e.Location);
+            InvalidateShapePreview(_maskStart, previousEnd, _maskEnd);
             return;
         }
 
@@ -595,21 +595,21 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        if (_isDrawingBorrarRegion)
+        if (_isDrawingMaskRegion)
         {
-            var previousEnd = _borrarEnd;
-            _borrarEnd = ClampToSelection(e.Location);
-            var area = GetRectangle(_borrarStart, _borrarEnd);
-            _isDrawingBorrarRegion = false;
+            var previousEnd = _maskEnd;
+            _maskEnd = ClampToSelection(e.Location);
+            var area = GetRectangle(_maskStart, _maskEnd);
+            _isDrawingMaskRegion = false;
             Capture = false;
             if (area.Width > 0 && area.Height > 0)
             {
                 SaveUndoState();
-                ImageEditingService.ApplyBorrar(_background, area, _borrarMode, _lineColor, _borrarPixelSize);
+                ImageEditingService.ApplyMask(_background, area, _maskMode, _lineColor, _maskPixelSize);
                 Invalidate(area);
             }
 
-            InvalidateShapePreview(_borrarStart, previousEnd, _borrarEnd);
+            InvalidateShapePreview(_maskStart, previousEnd, _maskEnd);
             return;
         }
 
@@ -914,18 +914,18 @@ public sealed class RegionSelectorForm : Form
 
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
-        var borrarLabel = GetBorrarModeLabel(_borrarMode);
-        var borrarButton = CreateActionButton(GetCaptureToolButtonText(borrarLabel), _borrarMode == BorrarMode.Pixelate ? _pixelatedIcon : _filledIcon);
-        _borrarButton = borrarButton;
-        borrarButton.AccessibleName = AppLocalization.Translate("Editor.Mask");
-        borrarButton.AccessibleDescription = borrarLabel;
-        borrarButton.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {borrarLabel} (F8)";
-        borrarButton.Click += (_, _) => ToggleBorrarMode();
+        var maskLabel = GetMaskModeLabel(_maskMode);
+        var maskButton = CreateActionButton(GetCaptureToolButtonText(maskLabel), _maskMode == MaskMode.Pixelate ? _pixelatedIcon : _filledIcon);
+        _maskButton = maskButton;
+        maskButton.AccessibleName = AppLocalization.Translate("Editor.Mask");
+        maskButton.AccessibleDescription = maskLabel;
+        maskButton.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {maskLabel} (F8)";
+        maskButton.Click += (_, _) => ToggleMaskMode();
 
-        var borrarDropdownButton = CreateDropdownButton();
-        _borrarDropdownButton = borrarDropdownButton;
-        borrarDropdownButton.AccessibleName = AppLocalization.Translate("Editor.MaskOptions");
-        ApplyCaptureSplitButtonSize(borrarButton, borrarDropdownButton);
+        var maskDropdownButton = CreateDropdownButton();
+        _maskDropdownButton = maskDropdownButton;
+        maskDropdownButton.AccessibleName = AppLocalization.Translate("Editor.MaskOptions");
+        ApplyCaptureSplitButtonSize(maskButton, maskDropdownButton);
 
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Freehand, "Capture.Region.Freehand", "freehand.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Line, "Capture.Region.Line", "line.png");
@@ -933,15 +933,15 @@ public sealed class RegionSelectorForm : Form
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
         RestoreLastAnnotationTool(drawingButton);
-        AddBorrarMenuItem(BorrarMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
-        AddBorrarMenuItem(BorrarMode.Solid, "Editor.Filled", _filledIcon);
+        AddMaskMenuItem(MaskMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
+        AddMaskMenuItem(MaskMode.Solid, "Editor.Filled", _filledIcon);
 
         toolStrip.Items.AddRange([
             drawingButton,
             drawingDropdownButton,
             highlightButton,
-            borrarButton,
-            borrarDropdownButton,
+            maskButton,
+            maskDropdownButton,
             counterButton,
             textButton,
             undoButton,
@@ -977,7 +977,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         TrackHoverGroup(drawingButton, drawingDropdownButton);
-        TrackHoverGroup(borrarButton, borrarDropdownButton);
+        TrackHoverGroup(maskButton, maskDropdownButton);
         TrackHoverGroup(captureButton, captureDropdownButton, isPrimary: true);
         toolStrip.MouseLeave += (_, _) =>
         {
@@ -1024,15 +1024,15 @@ public sealed class RegionSelectorForm : Form
         SelectAnnotationTool(selectedTool, drawingButton, menuItem, selectedIcon);
     }
 
-    private void AddBorrarMenuItem(BorrarMode mode, string localizationKey, Image icon)
+    private void AddMaskMenuItem(MaskMode mode, string localizationKey, Image icon)
     {
         var menuItem = new ToolStripMenuItem(AppLocalization.Translate(localizationKey), icon)
         {
-            Checked = mode == _borrarMode,
+            Checked = mode == _maskMode,
             Tag = mode,
         };
-        menuItem.Click += (_, _) => SelectBorrarMode(mode, menuItem, icon);
-        _borrarDropdownButton!.DropDownItems.Add(menuItem);
+        menuItem.Click += (_, _) => SelectMaskMode(mode, menuItem, icon);
+        _maskDropdownButton!.DropDownItems.Add(menuItem);
     }
 
     private ToolStripButton CreateActionButton(string text, Image? image)
@@ -1460,9 +1460,9 @@ public sealed class RegionSelectorForm : Form
         _selectedDrawingMenuItem = selectedMenuItem;
         _selectedDrawingIcon = selectedIcon;
         _annotationTool = isTogglingOff ? AnnotationTool.None : tool;
-        _isBorrarModeActive = false;
+        _isMaskModeActive = false;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
-        UpdateBorrarButtonAppearance();
+        UpdateMaskButtonAppearance();
         foreach (ToolStripMenuItem menuItem in _drawingDropdownButton!.DropDownItems)
         {
             menuItem.Checked = menuItem == _selectedDrawingMenuItem;
@@ -1489,9 +1489,9 @@ public sealed class RegionSelectorForm : Form
         _annotationTool = toggleIfAlreadyActive && _annotationTool == tool
             ? AnnotationTool.None
             : tool;
-        _isBorrarModeActive = false;
+        _isMaskModeActive = false;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
-        UpdateBorrarButtonAppearance();
+        UpdateMaskButtonAppearance();
         UpdateDrawingButtonAppearance();
     }
 
@@ -1530,15 +1530,15 @@ public sealed class RegionSelectorForm : Form
                 SetStandaloneTool(AnnotationTool.Highlight, toggleIfAlreadyActive: false);
                 return true;
             case Keys.F8:
-                var mode = _isBorrarModeActive
-                    ? (_borrarMode == BorrarMode.Solid ? BorrarMode.Pixelate : BorrarMode.Solid)
-                    : _borrarMode;
-                var modeMenuItem = _borrarDropdownButton!.DropDownItems
+                var mode = _isMaskModeActive
+                    ? (_maskMode == MaskMode.Solid ? MaskMode.Pixelate : MaskMode.Solid)
+                    : _maskMode;
+                var modeMenuItem = _maskDropdownButton!.DropDownItems
                     .OfType<ToolStripMenuItem>()
-                    .FirstOrDefault(item => item.Tag is BorrarMode menuMode && menuMode == mode);
+                    .FirstOrDefault(item => item.Tag is MaskMode menuMode && menuMode == mode);
                 if (modeMenuItem?.Image is Image modeIcon)
                 {
-                    SelectBorrarMode(mode, modeMenuItem, modeIcon);
+                    SelectMaskMode(mode, modeMenuItem, modeIcon);
                     return true;
                 }
                 return false;
@@ -1562,7 +1562,7 @@ public sealed class RegionSelectorForm : Form
                 return Cursors.IBeam;
             }
 
-            if (_annotationTool != AnnotationTool.None || _isBorrarModeActive)
+            if (_annotationTool != AnnotationTool.None || _isMaskModeActive)
             {
                 return Cursors.Cross;
             }
@@ -1595,8 +1595,8 @@ public sealed class RegionSelectorForm : Form
         else
         {
             _annotationTool = _selectedAnnotationTool;
-            _isBorrarModeActive = false;
-            UpdateBorrarButtonAppearance();
+            _isMaskModeActive = false;
+            UpdateMaskButtonAppearance();
         }
 
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
@@ -1650,80 +1650,80 @@ public sealed class RegionSelectorForm : Form
         }
     }
 
-    private void SelectBorrarMode(BorrarMode mode, ToolStripMenuItem selectedMenuItem, Image selectedIcon)
+    private void SelectMaskMode(MaskMode mode, ToolStripMenuItem selectedMenuItem, Image selectedIcon)
     {
         if (_isEditingText)
         {
             CommitTextEdit();
         }
 
-        var isTogglingOff = _isBorrarModeActive && _borrarMode == mode;
+        var isTogglingOff = _isMaskModeActive && _maskMode == mode;
         _annotationTool = AnnotationTool.None;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
 
-        _borrarMode = mode;
-        _isBorrarModeActive = !isTogglingOff;
-        foreach (ToolStripMenuItem menuItem in _borrarDropdownButton!.DropDownItems)
+        _maskMode = mode;
+        _isMaskModeActive = !isTogglingOff;
+        foreach (ToolStripMenuItem menuItem in _maskDropdownButton!.DropDownItems)
         {
-            menuItem.Checked = _isBorrarModeActive && menuItem == selectedMenuItem;
+            menuItem.Checked = _isMaskModeActive && menuItem == selectedMenuItem;
         }
 
-        if (_borrarButton is not null)
+        if (_maskButton is not null)
         {
-            _borrarButton.Image = selectedIcon;
-            var modeLabel = GetBorrarModeLabel(mode);
-            _borrarButton.Text = GetCaptureToolButtonText(modeLabel);
-            _borrarButton.AccessibleDescription = modeLabel;
+            _maskButton.Image = selectedIcon;
+            var modeLabel = GetMaskModeLabel(mode);
+            _maskButton.Text = GetCaptureToolButtonText(modeLabel);
+            _maskButton.AccessibleDescription = modeLabel;
         }
 
         UpdateDrawingButtonAppearance();
-        UpdateBorrarButtonAppearance();
+        UpdateMaskButtonAppearance();
     }
 
-    private void ToggleBorrarMode()
+    private void ToggleMaskMode()
     {
         if (_isEditingText)
         {
             CommitTextEdit();
         }
 
-        if (!_isBorrarModeActive)
+        if (!_isMaskModeActive)
         {
             _annotationTool = AnnotationTool.None;
         }
 
-        _isBorrarModeActive = !_isBorrarModeActive;
+        _isMaskModeActive = !_isMaskModeActive;
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateDrawingButtonAppearance();
-        UpdateBorrarButtonAppearance();
+        UpdateMaskButtonAppearance();
     }
 
-    private static string GetBorrarModeLabel(BorrarMode mode) =>
-        AppLocalization.Translate(mode == BorrarMode.Pixelate ? "Editor.Pixelated" : "Editor.Filled");
+    private static string GetMaskModeLabel(MaskMode mode) =>
+        AppLocalization.Translate(mode == MaskMode.Pixelate ? "Editor.Pixelated" : "Editor.Filled");
 
-    private void UpdateBorrarButtonAppearance()
+    private void UpdateMaskButtonAppearance()
     {
         SetActiveActionGroup(
-            _isBorrarModeActive ? _borrarButton : null,
-            _isBorrarModeActive ? _borrarDropdownButton : null);
+            _isMaskModeActive ? _maskButton : null,
+            _isMaskModeActive ? _maskDropdownButton : null);
 
-        if (_borrarButton is null)
+        if (_maskButton is null)
         {
             return;
         }
 
         var maskLabel = AppLocalization.Translate("Editor.Mask");
-        var modeLabel = GetBorrarModeLabel(_borrarMode);
-        _borrarButton.ToolTipText = $"{maskLabel}: {modeLabel} (F8)";
-        _borrarButton.AccessibleDescription = modeLabel;
-        SetToolButtonAppearance(_borrarButton, _isBorrarModeActive);
+        var modeLabel = GetMaskModeLabel(_maskMode);
+        _maskButton.ToolTipText = $"{maskLabel}: {modeLabel} (F8)";
+        _maskButton.AccessibleDescription = modeLabel;
+        SetToolButtonAppearance(_maskButton, _isMaskModeActive);
 
-        if (_borrarDropdownButton is null)
+        if (_maskDropdownButton is null)
         {
             return;
         }
 
-        _borrarDropdownButton.BackColor = _isBorrarModeActive ? ToolStripColorPalette.ActiveBackground : ToolStripColorPalette.ButtonBackground;
+        _maskDropdownButton.BackColor = _isMaskModeActive ? ToolStripColorPalette.ActiveBackground : ToolStripColorPalette.ButtonBackground;
     }
 
     private Point ClampToSelection(Point point) => new(
