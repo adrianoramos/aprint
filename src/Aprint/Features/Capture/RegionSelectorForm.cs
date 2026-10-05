@@ -190,6 +190,7 @@ public sealed class RegionSelectorForm : Form
                 _resizeEdges = GetResizeEdges(e.Location);
                 if (_resizeEdges != ResizeEdges.None)
                 {
+                    CommitAnnotations();
                     _isResizing = true;
                     Cursor = GetResizeCursor(_resizeEdges);
                     _dragOrigin = e.Location;
@@ -269,6 +270,7 @@ public sealed class RegionSelectorForm : Form
 
                 if (_selection.Contains(e.Location))
                 {
+                    CommitAnnotations();
                     _isMoving = true;
                     Cursor = Cursors.SizeAll;
                     _dragOrigin = e.Location;
@@ -290,12 +292,7 @@ public sealed class RegionSelectorForm : Form
             }
 
             _actionBar.Visible = false;
-            _freehandStrokes.Clear();
-            _highlightStrokes.Clear();
-            _lineAnnotations.Clear();
-            _rectangles.Clear();
-            _circles.Clear();
-            _counterMarkers.Clear();
+            CommitAnnotations();
             _nextCounterValue = 1;
             _isSelecting = true;
             Cursor = Cursors.Cross;
@@ -991,6 +988,16 @@ public sealed class RegionSelectorForm : Form
     private void CompleteSelection(RegionSelectionAction action)
     {
         CommitTextEdit();
+        CommitAnnotations();
+
+        SelectedRegion = _selection;
+        SelectedAction = action;
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    private void CommitAnnotations()
+    {
         if (_freehandStrokes.Count > 0 || _highlightStrokes.Count > 0 || _lineAnnotations.Count > 0 || _counterMarkers.Count > 0 || _rectangles.Count > 0 || _circles.Count > 0 || _isDrawingLine || _isDrawingRectangle || _isDrawingCircle)
         {
             using var graphics = Graphics.FromImage(_background);
@@ -1002,10 +1009,12 @@ public sealed class RegionSelectorForm : Form
             DrawCounterMarkers(graphics);
         }
 
-        SelectedRegion = _selection;
-        SelectedAction = action;
-        DialogResult = DialogResult.OK;
-        Close();
+        _freehandStrokes.Clear();
+        _highlightStrokes.Clear();
+        _lineAnnotations.Clear();
+        _rectangles.Clear();
+        _circles.Clear();
+        _counterMarkers.Clear();
     }
 
     private void BeginTextEdit(Point start, Point end)
