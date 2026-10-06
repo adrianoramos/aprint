@@ -73,4 +73,37 @@ public sealed class RegionSelectorFormTests
         Assert.False(selector.IsDisposed);
         Assert.Equal(DialogResult.None, selector.DialogResult);
     }
+
+    [Fact]
+    public void MovingSelectionHidesActionBarUntilDragEnds()
+    {
+        using var background = new Bitmap(100, 100);
+        using var selector = new RegionSelectorForm(background);
+        selector.Show();
+        var annotationToolField = typeof(RegionSelectorForm)
+            .GetField("_annotationTool", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        annotationToolField.SetValue(selector, Enum.Parse(annotationToolField.FieldType, "None"));
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(20, 20, 40, 40));
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        actionBar.Visible = true;
+        var mouseDown = typeof(RegionSelectorForm).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseMove = typeof(RegionSelectorForm).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseUp = typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 40, 40, 0)]);
+
+        Assert.True((bool)typeof(RegionSelectorForm)
+            .GetField("_isMoving", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!);
+        Assert.False(actionBar.Visible);
+
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 50, 50, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 50, 50, 0)]);
+
+        Assert.True(actionBar.Visible);
+    }
 }

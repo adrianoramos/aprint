@@ -350,6 +350,7 @@ public sealed class RegionSelectorForm : Form
                 {
                     CommitAnnotationsAndRecordUndo();
                     _isResizing = true;
+                    _actionBar.Visible = false;
                     Cursor = GetResizeCursor(_resizeEdges);
                     _dragOrigin = e.Location;
                     _originalSelection = _selection;
@@ -433,6 +434,7 @@ public sealed class RegionSelectorForm : Form
                 {
                     CommitAnnotationsAndRecordUndo();
                     _isMoving = true;
+                    _actionBar.Visible = false;
                     Cursor = Cursors.SizeAll;
                     _dragOrigin = e.Location;
                     _originalSelection = _selection;
@@ -642,6 +644,7 @@ public sealed class RegionSelectorForm : Form
             _isResizing = false;
             _isMoving = false;
             UpdateActionBarLocation();
+            _actionBar.Visible = _selection.Width >= MinimumSelectionSize && _selection.Height >= MinimumSelectionSize;
             Cursor = Cursors.Default;
             return;
         }
