@@ -879,7 +879,7 @@ public sealed class RegionSelectorForm : Form
         captureMenuItem.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
         var sendToEditorMenuItem = new ToolStripMenuItem(
             AppLocalization.Translate("Capture.Region.SendToEditor"),
-            LoadActionIcon("capture.png", Color.FromArgb(45, 49, 54)))
+            LoadActionIcon("sendtoeditor.png", Color.FromArgb(45, 49, 54)))
         {
             ShortcutKeyDisplayString = "Ctrl+Enter",
         };
