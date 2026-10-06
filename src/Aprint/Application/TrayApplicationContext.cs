@@ -15,6 +15,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly GlobalHotkeyManager _hotkeyManager = new();
     private readonly SettingsStore _settingsStore = new();
     private readonly CaptureWorkflow _captureWorkflow = new();
+    private readonly Image _captureNowIcon;
     private readonly ToolStripMenuItem _captureNowMenuItem;
     private readonly ToolStripMenuItem _toggleCaptureModeMenuItem;
     private readonly ToolStripMenuItem _settingsMenuItem;
@@ -33,7 +34,8 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settingsStore = settingsStore;
         AppLocalization.ApplyCulture(_settings.Language);
 
-        _captureNowMenuItem = new ToolStripMenuItem();
+        _captureNowIcon = LoadMenuIcon("capture.png");
+        _captureNowMenuItem = new ToolStripMenuItem { Image = _captureNowIcon };
         _captureNowMenuItem.Click += (_, _) => CaptureScreenshot();
         _toggleCaptureModeMenuItem = new ToolStripMenuItem();
         _toggleCaptureModeMenuItem.Click += (_, _) => CaptureScreenshot(
@@ -379,8 +381,18 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settingsForm?.Close();
         ImageEditingService.ClearCounterMarkerFontCache();
         _contextMenu.Dispose();
+        _captureNowIcon.Dispose();
         _notifyIcon.Dispose();
         System.Windows.Forms.Application.Exit();
+    }
+
+    private static Image LoadMenuIcon(string fileName)
+    {
+        var resourceName = $"Aprint.Resources.Icons.{fileName}";
+        using var stream = typeof(TrayApplicationContext).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Recurso incorporado '{resourceName}' não encontrado.");
+        using var resourceImage = Image.FromStream(stream);
+        return new Bitmap(resourceImage, new Size(16, 16));
     }
 
     private void ApplyLocalizedTexts()
