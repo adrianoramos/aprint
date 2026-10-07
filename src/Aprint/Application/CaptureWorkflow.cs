@@ -36,29 +36,20 @@ public sealed class CaptureWorkflow
             }
 
             var bitmap = selectedRegionBitmap ?? fullBitmap!;
-            var openEditor = regionAction switch
-            {
-                RegionSelectionAction.Capture => true,
-                RegionSelectionAction.Save or RegionSelectionAction.Copy => false,
-                _ => settings.OpenEditorAfterCapture,
-            };
+            var actions = ResolveActions(settings, regionAction);
 
             if (settings.PlaySoundOnCapture)
             {
                 NotificationSound.Play();
             }
 
-            var copyToClipboard = regionAction == RegionSelectionAction.Copy ||
-                (regionAction is null && settings.CaptureAction is CaptureAction.ClipboardOnly or CaptureAction.Both);
-            if (copyToClipboard)
+            if (actions.CopyToClipboard)
             {
                 Clipboard.SetImage(bitmap);
             }
 
             string? filePath = null;
-            var saveToDisk = regionAction == RegionSelectionAction.Save ||
-                (regionAction is null && !openEditor && settings.CaptureAction is CaptureAction.SaveToDiskOnly or CaptureAction.Both);
-            if (saveToDisk)
+            if (actions.SaveToDisk)
             {
                 if (regionAction == RegionSelectionAction.Save && !settings.SaveEditorImageWithoutPrompt)
                 {
@@ -74,7 +65,7 @@ public sealed class CaptureWorkflow
                 }
             }
 
-            var result = new CaptureResult(bitmap, filePath, openEditor, regionAction);
+            var result = new CaptureResult(bitmap, filePath, actions.OpenEditor, regionAction);
             transferSelectedRegionBitmap = selectedRegionBitmap is not null;
             transferFullBitmap = selectedRegionBitmap is null;
             return result;
@@ -91,6 +82,22 @@ public sealed class CaptureWorkflow
                 fullBitmap?.Dispose();
             }
         }
+    }
+
+    private static (bool OpenEditor, bool CopyToClipboard, bool SaveToDisk) ResolveActions(
+        AppSettings settings,
+        RegionSelectionAction? selectionAction)
+    {
+        var usesConfiguredAction = selectionAction is null or RegionSelectionAction.Capture;
+        var openEditor = selectionAction is RegionSelectionAction.Copy or RegionSelectionAction.Save
+            ? false
+            : settings.OpenEditorAfterCapture;
+        var copyToClipboard = selectionAction == RegionSelectionAction.Copy ||
+            (usesConfiguredAction && settings.CaptureAction is CaptureAction.ClipboardOnly or CaptureAction.Both);
+        var saveToDisk = selectionAction == RegionSelectionAction.Save ||
+            (usesConfiguredAction && !openEditor && settings.CaptureAction is CaptureAction.SaveToDiskOnly or CaptureAction.Both);
+
+        return (openEditor, copyToClipboard, saveToDisk);
     }
 
     private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, MaskMode maskMode, int maskPixelSize, int lineColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showToolLabels, EditTool lastCaptureTool, Action<Bitmap>? sendToEditor, out EditTool selectedCaptureTool, out bool wasCancelled, out RegionSelectionAction? selectedAction)
