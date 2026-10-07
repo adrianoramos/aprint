@@ -262,17 +262,17 @@ public sealed partial class SettingsForm : Form
     private void ApplyLocalizedTexts()
     {
         Text = AppLocalization.Translate("Settings.FormTitle");
-        grpHotkey.Text = AppLocalization.Translate("Settings.HotkeyGroup");
+        tabHotkey.Text = AppLocalization.Translate("Settings.HotkeyGroup");
         chkForcePrintScreen.Text = AppLocalization.Translate("Settings.ForcePrintScreen");
-        grpCaptureMode.Text = AppLocalization.Translate("Settings.CaptureGroup");
+        tabCapture.Text = AppLocalization.Translate("Settings.CaptureGroup");
         lblCaptureMode.Text = AppLocalization.Translate("Settings.CaptureModeLabel");
         lblCaptureAction.Text = AppLocalization.Translate("Settings.ActionGroup");
         lblOutsideCaptureClickAction.Text = AppLocalization.Translate("Settings.OutsideCaptureClickActionLabel");
         lblSavePath.Text = AppLocalization.Translate("Settings.SavePathLabel");
         btnBrowse.Text = AppLocalization.Translate("Settings.Browse");
         lblNotificationClick.Text = AppLocalization.Translate("Settings.NotificationClickLabel");
-        grpEditor.Text = AppLocalization.Translate("Settings.EditorGroup");
-        grpGeneral.Text = AppLocalization.Translate("Settings.GeneralGroup");
+        tabEditor.Text = AppLocalization.Translate("Settings.EditorGroup");
+        tabGeneral.Text = AppLocalization.Translate("Settings.GeneralGroup");
         chkOpenEditor.Text = AppLocalization.Translate("Settings.OpenEditorAfterCapture");
         chkShowToolLabels.Text = AppLocalization.Translate("Settings.ShowToolLabels");
         chkSaveEditorImageWithoutPrompt.Text = AppLocalization.Translate("Settings.SaveEditorImageWithoutPrompt");

@@ -3,14 +3,17 @@ namespace Aprint.Features.Settings;
 partial class SettingsForm
 {
     private System.ComponentModel.IContainer components = null!;
-    private GroupBox grpHotkey = null!;
+    private TabControl tabSettings = null!;
+    private TabPage tabHotkey = null!;
+    private TabPage tabCapture = null!;
+    private TabPage tabEditor = null!;
+    private TabPage tabGeneral = null!;
     private CheckBox chkCtrl = null!;
     private CheckBox chkShift = null!;
     private CheckBox chkAlt = null!;
     private CheckBox chkWin = null!;
     private CheckBox chkForcePrintScreen = null!;
     private ComboBox cmbKey = null!;
-    private GroupBox grpCaptureMode = null!;
     private Label lblCaptureMode = null!;
     private ComboBox cmbCaptureMode = null!;
     private Label lblOutsideCaptureClickAction = null!;
@@ -19,10 +22,8 @@ partial class SettingsForm
     private ComboBox cmbCaptureAction = null!;
     private ComboBox cmbNotificationClick = null!;
     private Label lblNotificationClick = null!;
-    private GroupBox grpEditor = null!;
     private Button btnSave = null!;
     private Button btnCancel = null!;
-    private GroupBox grpGeneral = null!;
     private CheckBox chkShowNotification = null!;
     private CheckBox chkOpenEditor = null!;
     private CheckBox chkRememberLastTool = null!;
@@ -53,14 +54,17 @@ partial class SettingsForm
 
     private void InitializeComponent()
     {
-        grpHotkey = new GroupBox();
+        tabSettings = new TabControl();
+        tabCapture = new TabPage();
+        tabHotkey = new TabPage();
+        tabEditor = new TabPage();
+        tabGeneral = new TabPage();
         chkCtrl = new CheckBox();
         chkShift = new CheckBox();
         chkAlt = new CheckBox();
         chkWin = new CheckBox();
         chkForcePrintScreen = new CheckBox();
         cmbKey = new ComboBox();
-        grpCaptureMode = new GroupBox();
         lblCaptureMode = new Label();
         cmbCaptureMode = new ComboBox();
         lblOutsideCaptureClickAction = new Label();
@@ -72,7 +76,6 @@ partial class SettingsForm
         btnBrowse = new Button();
         cmbNotificationClick = new ComboBox();
         lblNotificationClick = new Label();
-        grpEditor = new GroupBox();
         chkOpenEditor = new CheckBox();
         chkCloseEditorOnCopyOrSave = new CheckBox();
         chkSaveEditorImageWithoutPrompt = new CheckBox();
@@ -83,7 +86,6 @@ partial class SettingsForm
         chkShowToolLabels = new CheckBox();
         lblDefaultEditorTool = new Label();
         cmbDefaultEditorTool = new ComboBox();
-        grpGeneral = new GroupBox();
         chkShowNotification = new CheckBox();
         chkPlaySound = new CheckBox();
         chkStartWithWindows = new CheckBox();
@@ -91,26 +93,32 @@ partial class SettingsForm
         cmbLanguage = new ComboBox();
         btnSave = new Button();
         btnCancel = new Button();
-        grpHotkey.SuspendLayout();
-        grpCaptureMode.SuspendLayout();
-        grpEditor.SuspendLayout();
-        grpGeneral.SuspendLayout();
+        tabSettings.SuspendLayout();
+        tabHotkey.SuspendLayout();
+        tabCapture.SuspendLayout();
+        tabEditor.SuspendLayout();
+        tabGeneral.SuspendLayout();
         SuspendLayout();
-        // 
-        // grpHotkey
-        // 
-        grpHotkey.Controls.Add(chkCtrl);
-        grpHotkey.Controls.Add(chkShift);
-        grpHotkey.Controls.Add(chkAlt);
-        grpHotkey.Controls.Add(chkWin);
-        grpHotkey.Controls.Add(chkForcePrintScreen);
-        grpHotkey.Controls.Add(cmbKey);
-        grpHotkey.Location = new Point(12, 12);
-        grpHotkey.Name = "grpHotkey";
-        grpHotkey.Size = new Size(436, 76);
-        grpHotkey.TabIndex = 0;
-        grpHotkey.TabStop = false;
-        grpHotkey.Text = "Atalho para captura";
+        //
+        // tabSettings
+        //
+        tabSettings.Controls.AddRange([tabGeneral, tabHotkey, tabCapture, tabEditor]);
+        tabSettings.Location = new Point(12, 12);
+        tabSettings.Name = "tabSettings";
+        tabSettings.SelectedIndex = 0;
+        tabSettings.Size = new Size(436, 258);
+        tabSettings.TabIndex = 0;
+        //
+        // tabHotkey
+        //
+        tabHotkey.Controls.AddRange([chkCtrl, chkShift, chkAlt, chkWin, chkForcePrintScreen, cmbKey]);
+        tabHotkey.Location = new Point(4, 24);
+        tabHotkey.Name = "tabHotkey";
+        tabHotkey.Padding = new Padding(3);
+        tabHotkey.Size = new Size(428, 230);
+        tabHotkey.TabIndex = 1;
+        tabHotkey.Text = "Atalho";
+        tabHotkey.UseVisualStyleBackColor = true;
         // 
         // chkCtrl
         // 
@@ -161,28 +169,31 @@ partial class SettingsForm
         // cmbKey
         // 
         cmbKey.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbKey.Location = new Point(258, 49);
+        cmbKey.Location = new Point(250, 49);
         cmbKey.Name = "cmbKey";
         cmbKey.Size = new Size(163, 23);
         cmbKey.TabIndex = 5;
-        // 
-        // grpCaptureMode
-        // 
-        grpCaptureMode.Controls.Add(lblCaptureMode);
-        grpCaptureMode.Controls.Add(cmbCaptureMode);
-        grpCaptureMode.Controls.Add(lblCaptureAction);
-        grpCaptureMode.Controls.Add(cmbCaptureAction);
-        grpCaptureMode.Controls.Add(lblOutsideCaptureClickAction);
-        grpCaptureMode.Controls.Add(cmbOutsideCaptureClickAction);
-        grpCaptureMode.Controls.Add(lblSavePath);
-        grpCaptureMode.Controls.Add(txtSaveFolder);
-        grpCaptureMode.Controls.Add(btnBrowse);
-        grpCaptureMode.Location = new Point(12, 92);
-        grpCaptureMode.Name = "grpCaptureMode";
-        grpCaptureMode.Size = new Size(436, 200);
-        grpCaptureMode.TabIndex = 1;
-        grpCaptureMode.TabStop = false;
-        grpCaptureMode.Text = "Captura";
+        //
+        // tabCapture
+        //
+        tabCapture.Controls.AddRange([
+            lblCaptureMode,
+            cmbCaptureMode,
+            lblCaptureAction,
+            cmbCaptureAction,
+            lblOutsideCaptureClickAction,
+            cmbOutsideCaptureClickAction,
+            lblSavePath,
+            txtSaveFolder,
+            btnBrowse,
+        ]);
+        tabCapture.Location = new Point(4, 24);
+        tabCapture.Name = "tabCapture";
+        tabCapture.Padding = new Padding(3);
+        tabCapture.Size = new Size(428, 230);
+        tabCapture.TabIndex = 2;
+        tabCapture.Text = "Captura";
+        tabCapture.UseVisualStyleBackColor = true;
         // 
         // lblCaptureMode
         // 
@@ -198,7 +209,7 @@ partial class SettingsForm
         cmbCaptureMode.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbCaptureMode.Location = new Point(15, 42);
         cmbCaptureMode.Name = "cmbCaptureMode";
-        cmbCaptureMode.Size = new Size(406, 23);
+        cmbCaptureMode.Size = new Size(398, 23);
         cmbCaptureMode.TabIndex = 7;
         // 
         // lblCaptureAction
@@ -215,7 +226,7 @@ partial class SettingsForm
         cmbCaptureAction.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbCaptureAction.Location = new Point(15, 92);
         cmbCaptureAction.Name = "cmbCaptureAction";
-        cmbCaptureAction.Size = new Size(406, 23);
+        cmbCaptureAction.Size = new Size(398, 23);
         cmbCaptureAction.TabIndex = 9;
         cmbCaptureAction.SelectedIndexChanged += cmbCaptureAction_SelectedIndexChanged;
         // 
@@ -232,12 +243,12 @@ partial class SettingsForm
         // 
         txtSaveFolder.Location = new Point(15, 142);
         txtSaveFolder.Name = "txtSaveFolder";
-        txtSaveFolder.Size = new Size(329, 23);
+        txtSaveFolder.Size = new Size(317, 23);
         txtSaveFolder.TabIndex = 9;
         // 
         // btnBrowse
         // 
-        btnBrowse.Location = new Point(348, 142);
+        btnBrowse.Location = new Point(340, 142);
         btnBrowse.Name = "btnBrowse";
         btnBrowse.Size = new Size(73, 25);
         btnBrowse.TabIndex = 10;
@@ -248,7 +259,7 @@ partial class SettingsForm
         // 
         lblOutsideCaptureClickAction.Location = new Point(15, 173);
         lblOutsideCaptureClickAction.Name = "lblOutsideCaptureClickAction";
-        lblOutsideCaptureClickAction.Size = new Size(184, 19);
+        lblOutsideCaptureClickAction.Size = new Size(178, 19);
         lblOutsideCaptureClickAction.TabIndex = 11;
         lblOutsideCaptureClickAction.Text = "Ao clicar fora da área de captura:";
         lblOutsideCaptureClickAction.TextAlign = ContentAlignment.MiddleLeft;
@@ -256,17 +267,17 @@ partial class SettingsForm
         // cmbOutsideCaptureClickAction
         // 
         cmbOutsideCaptureClickAction.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbOutsideCaptureClickAction.Location = new Point(203, 169);
+        cmbOutsideCaptureClickAction.Location = new Point(201, 169);
         cmbOutsideCaptureClickAction.Name = "cmbOutsideCaptureClickAction";
-        cmbOutsideCaptureClickAction.Size = new Size(218, 23);
+        cmbOutsideCaptureClickAction.Size = new Size(212, 23);
         cmbOutsideCaptureClickAction.TabIndex = 12;
         // 
         // cmbNotificationClick
         // 
         cmbNotificationClick.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbNotificationClick.Location = new Point(215, 97);
+        cmbNotificationClick.Location = new Point(205, 97);
         cmbNotificationClick.Name = "cmbNotificationClick";
-        cmbNotificationClick.Size = new Size(206, 23);
+        cmbNotificationClick.Size = new Size(208, 23);
         cmbNotificationClick.TabIndex = 15;
         // 
         // lblNotificationClick
@@ -277,25 +288,28 @@ partial class SettingsForm
         lblNotificationClick.Size = new Size(134, 15);
         lblNotificationClick.TabIndex = 14;
         lblNotificationClick.Text = "Ao clicar na notificação:";
-        // 
-        // grpEditor
-        // 
-        grpEditor.Controls.Add(chkOpenEditor);
-        grpEditor.Controls.Add(chkCloseEditorOnCopyOrSave);
-        grpEditor.Controls.Add(chkSaveEditorImageWithoutPrompt);
-        grpEditor.Controls.Add(chkAutoCloseEditorWhenInactive);
-        grpEditor.Controls.Add(cmbEditorInactivityTimeout);
-        grpEditor.Controls.Add(cmbEditorStartState);
-        grpEditor.Controls.Add(chkRememberLastTool);
-        grpEditor.Controls.Add(chkShowToolLabels);
-        grpEditor.Controls.Add(lblDefaultEditorTool);
-        grpEditor.Controls.Add(cmbDefaultEditorTool);
-        grpEditor.Location = new Point(12, 296);
-        grpEditor.Name = "grpEditor";
-        grpEditor.Size = new Size(436, 215);
-        grpEditor.TabIndex = 2;
-        grpEditor.TabStop = false;
-        grpEditor.Text = "Editor";
+        //
+        // tabEditor
+        //
+        tabEditor.Controls.AddRange([
+            chkOpenEditor,
+            chkCloseEditorOnCopyOrSave,
+            chkSaveEditorImageWithoutPrompt,
+            chkAutoCloseEditorWhenInactive,
+            cmbEditorInactivityTimeout,
+            cmbEditorStartState,
+            chkRememberLastTool,
+            chkShowToolLabels,
+            lblDefaultEditorTool,
+            cmbDefaultEditorTool,
+        ]);
+        tabEditor.Location = new Point(4, 24);
+        tabEditor.Name = "tabEditor";
+        tabEditor.Padding = new Padding(3);
+        tabEditor.Size = new Size(428, 230);
+        tabEditor.TabIndex = 3;
+        tabEditor.Text = "Editor";
+        tabEditor.UseVisualStyleBackColor = true;
         // 
         // chkOpenEditor
         // 
@@ -319,9 +333,9 @@ partial class SettingsForm
         // cmbEditorStartState
         // 
         cmbEditorStartState.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbEditorStartState.Location = new Point(215, 20);
+        cmbEditorStartState.Location = new Point(205, 20);
         cmbEditorStartState.Name = "cmbEditorStartState";
-        cmbEditorStartState.Size = new Size(206, 23);
+        cmbEditorStartState.Size = new Size(208, 23);
         cmbEditorStartState.TabIndex = 16;
         // 
         // chkRememberLastTool
@@ -365,7 +379,7 @@ partial class SettingsForm
         // cmbEditorInactivityTimeout
         // 
         cmbEditorInactivityTimeout.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbEditorInactivityTimeout.Location = new Point(258, 121);
+        cmbEditorInactivityTimeout.Location = new Point(250, 121);
         cmbEditorInactivityTimeout.Name = "cmbEditorInactivityTimeout";
         cmbEditorInactivityTimeout.Size = new Size(163, 23);
         cmbEditorInactivityTimeout.TabIndex = 18;
@@ -382,26 +396,29 @@ partial class SettingsForm
         // cmbDefaultEditorTool
         // 
         cmbDefaultEditorTool.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbDefaultEditorTool.Location = new Point(215, 176);
+        cmbDefaultEditorTool.Location = new Point(205, 176);
         cmbDefaultEditorTool.Name = "cmbDefaultEditorTool";
-        cmbDefaultEditorTool.Size = new Size(206, 23);
+        cmbDefaultEditorTool.Size = new Size(208, 23);
         cmbDefaultEditorTool.TabIndex = 20;
-        // 
-        // grpGeneral
-        // 
-        grpGeneral.Controls.Add(chkShowNotification);
-        grpGeneral.Controls.Add(lblNotificationClick);
-        grpGeneral.Controls.Add(cmbNotificationClick);
-        grpGeneral.Controls.Add(chkPlaySound);
-        grpGeneral.Controls.Add(chkStartWithWindows);
-        grpGeneral.Controls.Add(lblLanguage);
-        grpGeneral.Controls.Add(cmbLanguage);
-        grpGeneral.Location = new Point(12, 515);
-        grpGeneral.Name = "grpGeneral";
-        grpGeneral.Size = new Size(436, 167);
-        grpGeneral.TabIndex = 3;
-        grpGeneral.TabStop = false;
-        grpGeneral.Text = "Geral";
+        //
+        // tabGeneral
+        //
+        tabGeneral.Controls.AddRange([
+            chkShowNotification,
+            lblNotificationClick,
+            cmbNotificationClick,
+            chkPlaySound,
+            chkStartWithWindows,
+            lblLanguage,
+            cmbLanguage,
+        ]);
+        tabGeneral.Location = new Point(4, 24);
+        tabGeneral.Name = "tabGeneral";
+        tabGeneral.Padding = new Padding(3);
+        tabGeneral.Size = new Size(428, 230);
+        tabGeneral.TabIndex = 0;
+        tabGeneral.Text = "Geral";
+        tabGeneral.UseVisualStyleBackColor = true;
         // 
         // chkShowNotification
         // 
@@ -446,13 +463,13 @@ partial class SettingsForm
         cmbLanguage.FormattingEnabled = true;
         cmbLanguage.Location = new Point(107, 131);
         cmbLanguage.Name = "cmbLanguage";
-        cmbLanguage.Size = new Size(314, 23);
+        cmbLanguage.Size = new Size(306, 23);
         cmbLanguage.TabIndex = 22;
         // 
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(282, 688);
+        btnSave.Location = new Point(280, 282);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -462,7 +479,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 688);
+        btnCancel.Location = new Point(368, 282);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -475,11 +492,8 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(460, 727);
-        Controls.Add(grpHotkey);
-        Controls.Add(grpCaptureMode);
-        Controls.Add(grpEditor);
-        Controls.Add(grpGeneral);
+        ClientSize = new Size(460, 320);
+        Controls.Add(tabSettings);
         Controls.Add(btnSave);
         Controls.Add(btnCancel);
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -488,14 +502,15 @@ partial class SettingsForm
         Name = "SettingsForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Aprint - Configurações";
-        grpHotkey.ResumeLayout(false);
-        grpHotkey.PerformLayout();
-        grpCaptureMode.ResumeLayout(false);
-        grpCaptureMode.PerformLayout();
-        grpEditor.ResumeLayout(false);
-        grpEditor.PerformLayout();
-        grpGeneral.ResumeLayout(false);
-        grpGeneral.PerformLayout();
+        tabSettings.ResumeLayout(false);
+        tabHotkey.ResumeLayout(false);
+        tabHotkey.PerformLayout();
+        tabCapture.ResumeLayout(false);
+        tabCapture.PerformLayout();
+        tabEditor.ResumeLayout(false);
+        tabEditor.PerformLayout();
+        tabGeneral.ResumeLayout(false);
+        tabGeneral.PerformLayout();
         ResumeLayout(false);
     }
 }
