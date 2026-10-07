@@ -334,6 +334,26 @@ public sealed class RegionSelectorForm : Form
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
+        if (e.Button == MouseButtons.Right)
+        {
+            if (_selection.Contains(e.Location))
+            {
+                if (_isEditingText)
+                {
+                    CommitTextEdit();
+                }
+
+                CommitAnnotationsAndRecordUndo();
+                _isMoving = true;
+                _actionBar.Visible = false;
+                Cursor = Cursors.SizeAll;
+                _dragOrigin = e.Location;
+                _originalSelection = _selection;
+            }
+
+            return;
+        }
+
         if (e.Button == MouseButtons.Left)
         {
             if (_isEditingText)
@@ -544,7 +564,7 @@ public sealed class RegionSelectorForm : Form
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
-        if (e.Button != MouseButtons.Left)
+        if (e.Button != MouseButtons.Left && !(e.Button == MouseButtons.Right && _isMoving))
         {
             return;
         }

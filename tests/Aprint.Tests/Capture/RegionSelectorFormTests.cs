@@ -147,4 +147,41 @@ public sealed class RegionSelectorFormTests
 
         Assert.True(actionBar.Visible);
     }
+
+    [Fact]
+    public void RightButtonDragMovesSelectionAndRestoresActionBar()
+    {
+        using var background = new Bitmap(100, 100);
+        using var selector = new RegionSelectorForm(background);
+        selector.Show();
+        var annotationToolField = typeof(RegionSelectorForm)
+            .GetField("_annotationTool", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        annotationToolField.SetValue(selector, Enum.Parse(annotationToolField.FieldType, "None"));
+        var selectionField = typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        selectionField.SetValue(selector, new Rectangle(20, 20, 40, 40));
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        actionBar.Visible = true;
+        var mouseDown = typeof(RegionSelectorForm).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseMove = typeof(RegionSelectorForm).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseUp = typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, 40, 40, 0)]);
+        Assert.True((bool)typeof(RegionSelectorForm)
+            .GetField("_isMoving", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!);
+        Assert.False(actionBar.Visible);
+
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, 50, 50, 0)]);
+        Assert.Equal(new Rectangle(30, 30, 40, 40), (Rectangle)selectionField.GetValue(selector)!);
+
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, 50, 50, 0)]);
+
+        Assert.False((bool)typeof(RegionSelectorForm)
+            .GetField("_isMoving", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!);
+        Assert.True(actionBar.Visible);
+    }
 }
