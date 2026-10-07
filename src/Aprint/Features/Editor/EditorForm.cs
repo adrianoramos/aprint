@@ -299,8 +299,8 @@ public sealed class EditorForm : Form
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
             AutoSize = false,
-            Width = 14,
-            Height = ToolButtonSize,
+            Width = ToolStripMetrics.DropdownButtonWidth,
+            Height = ToolStripMetrics.DropdownButtonHeight,
             AutoToolTip = false,
             ToolTipText = AppLocalization.Translate("Editor.FillColor"),
         };
@@ -369,8 +369,8 @@ public sealed class EditorForm : Form
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
             AutoSize = false,
-            Width = 14,
-            Height = ToolButtonSize,
+            Width = ToolStripMetrics.DropdownButtonWidth,
+            Height = ToolStripMetrics.DropdownButtonHeight,
             AutoToolTip = false,
             ToolTipText = AppLocalization.Translate("Editor.TextFormatting"),
         };
@@ -469,8 +469,8 @@ public sealed class EditorForm : Form
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
             AutoSize = false,
-            Width = 14,
-            Height = ToolButtonSize,
+            Width = ToolStripMetrics.DropdownButtonWidth,
+            Height = ToolStripMetrics.DropdownButtonHeight,
             AutoToolTip = false,
             ToolTipText = AppLocalization.Translate("Editor.HighlightSize"),
         };
@@ -536,8 +536,8 @@ public sealed class EditorForm : Form
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
             AutoSize = false,
-            Width = 14,
-            Height = ToolButtonSize,
+            Width = ToolStripMetrics.DropdownButtonWidth,
+            Height = ToolStripMetrics.DropdownButtonHeight,
             AutoToolTip = false,
             ToolTipText = AppLocalization.Translate("Editor.PixelatedSize"),
         };
@@ -721,8 +721,6 @@ public sealed class EditorForm : Form
             }
         }
 
-        SetToolLabelsVisible(toolStrip, showToolLabels);
-
         var scrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         scrollPanel.Resize += (_, _) => CenterPictureBox(scrollPanel);
 
@@ -758,6 +756,7 @@ public sealed class EditorForm : Form
         Controls.Add(scrollPanel);
         Controls.Add(toolStrip);
 
+        SetToolLabelsVisible(toolStrip, showToolLabels);
         CenterPictureBox(scrollPanel);
         SetActiveTool(Enum.IsDefined(initialTool) ? initialTool : EditTool.Freehand);
     }
@@ -782,20 +781,25 @@ public sealed class EditorForm : Form
 
     private static void SetToolLabelsVisible(ToolStrip toolStrip, bool visible)
     {
-        foreach (ToolStripItem item in toolStrip.Items)
+        var buttons = toolStrip.Items.OfType<ToolStripButton>().ToArray();
+        foreach (var button in buttons)
         {
-            if (item is ToolStripButton button)
+            button.AutoSize = visible;
+            if (!visible)
             {
-                button.AutoSize = visible;
-                if (!visible)
-                {
-                    button.Width = ToolButtonSize;
-                }
-
-                button.DisplayStyle = visible
-                    ? ToolStripItemDisplayStyle.ImageAndText
-                    : ToolStripItemDisplayStyle.Image;
+                button.Width = ToolButtonSize;
             }
+
+            button.DisplayStyle = visible
+                ? ToolStripItemDisplayStyle.ImageAndText
+                : ToolStripItemDisplayStyle.Image;
+        }
+
+        foreach (var button in buttons)
+        {
+            var preferredWidth = button.GetPreferredSize(Size.Empty).Width;
+            button.AutoSize = false;
+            button.Size = new Size(preferredWidth, ToolStripMetrics.DropdownButtonHeight);
         }
     }
 

@@ -76,6 +76,7 @@ public sealed class RegionSelectorFormTests
 
         Assert.Equal(3, dropdownButtons.Length);
         Assert.All(dropdownButtons, button => Assert.Equal(14, button.Width));
+        Assert.All(dropdownButtons, button => Assert.Equal(34, button.Height));
         var splitButtons = dropdownButtons
             .Select(button => (ToolStripButton)actionBar.Items[actionBar.Items.IndexOf(button) - 1]);
         Assert.All(splitButtons, button => Assert.Equal(34, button.Height));

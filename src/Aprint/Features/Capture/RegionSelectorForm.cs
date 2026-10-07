@@ -163,9 +163,8 @@ public sealed class RegionSelectorForm : Form
     private const int HandleSize = 10;
     private const int MinimumSelectionSize = 3;
     private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
-    private const int ActionControlHeight = 34;
+    private const int ActionControlHeight = ToolStripMetrics.DropdownButtonHeight;
     private const int IconOnlyActionWidth = 52;
-    private const int IconOnlyDropdownWidth = 14;
     private readonly Bitmap _background;
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
     private readonly SolidBrush _overlayBrush = new(Color.FromArgb(120, 0, 0, 0));
@@ -1175,7 +1174,7 @@ public sealed class RegionSelectorForm : Form
         var button = new ToolStripDropDownButton
         {
             AutoSize = false,
-            Size = new Size(IconOnlyDropdownWidth, ActionControlHeight),
+            Size = new Size(ToolStripMetrics.DropdownButtonWidth, ActionControlHeight),
             ImageScaling = ToolStripItemImageScaling.None,
             AutoToolTip = true,
         };
@@ -1217,8 +1216,8 @@ public sealed class RegionSelectorForm : Form
         }
 
         mainButton.AutoSize = false;
-        mainButton.Size = new Size(IconOnlyActionWidth - IconOnlyDropdownWidth, ActionControlHeight);
-        dropdownButton.Size = new Size(IconOnlyDropdownWidth, ActionControlHeight);
+        mainButton.Size = new Size(IconOnlyActionWidth - ToolStripMetrics.DropdownButtonWidth, ActionControlHeight);
+        dropdownButton.Size = new Size(ToolStripMetrics.DropdownButtonWidth, ActionControlHeight);
     }
 
     private Bitmap LoadActionIcon(string fileName, Color color)
