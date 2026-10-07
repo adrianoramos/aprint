@@ -1719,7 +1719,7 @@ public sealed class EditorForm : Form
         using var graphics = Graphics.FromImage(_workingBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        ImageEditingService.DrawCounterMarker(graphics, marker, _selectedColor, _selectedFillColor);
+        ImageEditingService.DrawCounterMarker(graphics, marker, _selectedColor, _selectedFillColor, _selectedTextColor);
 
         _nextCounterValue++;
         _pictureBox.Image = _workingBitmap;

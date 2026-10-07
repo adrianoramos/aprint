@@ -1934,7 +1934,7 @@ public sealed class RegionSelectorForm : Form
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         foreach (var marker in _counterMarkers)
         {
-            ImageEditingService.DrawCounterMarker(graphics, marker, _lineColor, _fillColor);
+            ImageEditingService.DrawCounterMarker(graphics, marker, _lineColor, _fillColor, _textColor);
         }
 
         graphics.Restore(state);
