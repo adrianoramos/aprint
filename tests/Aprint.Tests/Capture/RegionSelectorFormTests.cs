@@ -46,7 +46,7 @@ public sealed class RegionSelectorFormTests
     public void MaskButtonLabelRemainsStableWhenMaskModeChanges()
     {
         using var bitmap = new Bitmap(4, 4);
-        using var selector = new RegionSelectorForm(bitmap, showCaptureToolLabels: true);
+        using var selector = new RegionSelectorForm(bitmap, showToolLabels: true);
         var maskButton = (ToolStripButton)typeof(RegionSelectorForm)
             .GetField("_maskButton", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(selector)!;
@@ -68,7 +68,7 @@ public sealed class RegionSelectorFormTests
     public void DropdownButtonsKeepCompactWidthWhenLabelsAreEnabled(bool showLabels)
     {
         using var bitmap = new Bitmap(4, 4);
-        using var selector = new RegionSelectorForm(bitmap, showCaptureToolLabels: showLabels);
+        using var selector = new RegionSelectorForm(bitmap, showToolLabels: showLabels);
         var actionBar = (ToolStrip)typeof(RegionSelectorForm)
             .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(selector)!;

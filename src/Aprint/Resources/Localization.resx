@@ -298,10 +298,7 @@
     <value>Nenhuma ação</value>
   </data>
   <data name="Settings.ShowToolLabels" xml:space="preserve">
-    <value>Exibir o rótulo dos botões na barra de ferramentas do editor</value>
-  </data>
-  <data name="Settings.ShowCaptureToolLabels" xml:space="preserve">
-    <value>Exibir rótulo dos botões na barra de captura</value>
+    <value>Exibir rótulos dos botões nas barras de ferramentas</value>
   </data>
   <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
     <value>Salvar sem perguntar</value>

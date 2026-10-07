@@ -201,7 +201,7 @@ public sealed class RegionSelectorForm : Form
     private int _maskPixelSize = 6;
     private int _highlightWidth = 18;
     private Color? _fillColor;
-    private bool _showCaptureToolLabels = true;
+    private bool _showToolLabels = true;
     private int _nextCounterValue = 1;
     private Font _textFont = new("Segoe UI", 12F);
     private Color _textColor = Color.Red;
@@ -252,7 +252,7 @@ public sealed class RegionSelectorForm : Form
 
     public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showCaptureToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand)
     {
         _background = background;
         _editHistory = new EditHistory(_background, _nextCounterValue);
@@ -265,7 +265,7 @@ public sealed class RegionSelectorForm : Form
         _textFont.Dispose();
         _textFont = CreateTextFont(textFontFamily, textFontSize, textFontStyle);
         _textColor = Color.FromArgb(textColorArgb);
-        _showCaptureToolLabels = showCaptureToolLabels;
+        _showToolLabels = showToolLabels;
         LastUsedTool = NormalizeLastCaptureTool(lastCaptureTool);
         _textCaretTimer.Tick += (_, _) =>
         {
@@ -994,7 +994,7 @@ public sealed class RegionSelectorForm : Form
             captureButton,
             captureDropdownButton,
         ]);
-        if (_showCaptureToolLabels)
+        if (_showToolLabels)
         {
             toolStrip.PerformLayout();
             foreach (var splitButton in new[] { drawingButton, maskButton, captureButton })
@@ -1157,9 +1157,9 @@ public sealed class RegionSelectorForm : Form
             TextImageRelation = TextImageRelation.ImageBeforeText,
             DisplayStyle = string.IsNullOrEmpty(text)
                 ? image is null ? ToolStripItemDisplayStyle.Text : ToolStripItemDisplayStyle.Image
-                : _showCaptureToolLabels ? ToolStripItemDisplayStyle.ImageAndText : ToolStripItemDisplayStyle.Image,
+                : _showToolLabels ? ToolStripItemDisplayStyle.ImageAndText : ToolStripItemDisplayStyle.Image,
             ImageScaling = ToolStripItemImageScaling.None,
-            AutoSize = _showCaptureToolLabels,
+            AutoSize = _showToolLabels,
             CheckOnClick = false,
             Size = new Size(IconOnlyActionWidth, ActionControlHeight),
             AutoToolTip = true,
@@ -1193,11 +1193,11 @@ public sealed class RegionSelectorForm : Form
         button.ForeColor = ToolStripColorPalette.ButtonForeground;
     }
 
-    private string GetCaptureToolButtonText(string label) => _showCaptureToolLabels ? label : string.Empty;
+    private string GetCaptureToolButtonText(string label) => _showToolLabels ? label : string.Empty;
 
     private void ApplyCaptureToolButtonSize(ToolStripButton button)
     {
-        if (_showCaptureToolLabels)
+        if (_showToolLabels)
         {
             return;
         }
@@ -1211,7 +1211,7 @@ public sealed class RegionSelectorForm : Form
         mainButton.Margin = new Padding(2, 1, 0, 1);
         dropdownButton.Margin = new Padding(0, 1, 2, 1);
 
-        if (_showCaptureToolLabels)
+        if (_showToolLabels)
         {
             return;
         }
@@ -1628,7 +1628,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         drawingButton.Image = _selectedDrawingIcon;
-        drawingButton.DisplayStyle = _showCaptureToolLabels
+        drawingButton.DisplayStyle = _showToolLabels
             ? ToolStripItemDisplayStyle.ImageAndText
             : ToolStripItemDisplayStyle.Image;
         drawingButton.ToolTipText = $"{AppLocalization.Translate("Capture.Region.Drawing")}: {selectedMenuItem?.Text ?? tool.ToString()} ({GetDrawingToolShortcut(tool)})";

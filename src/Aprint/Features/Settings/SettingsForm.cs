@@ -40,7 +40,6 @@ public sealed partial class SettingsForm : Form
             MaskMode = currentSettings.MaskMode,
             LastCaptureTool = currentSettings.LastCaptureTool,
             ShowToolLabels = currentSettings.ShowToolLabels,
-            ShowCaptureToolLabels = currentSettings.ShowCaptureToolLabels,
             SaveEditorImageWithoutPrompt = currentSettings.SaveEditorImageWithoutPrompt,
             CloseEditorOnCopyOrSave = currentSettings.CloseEditorOnCopyOrSave,
             AutoCloseEditorWhenInactive = currentSettings.AutoCloseEditorWhenInactive,
@@ -118,7 +117,6 @@ public sealed partial class SettingsForm : Form
         chkStartWithWindows.Checked = StartupManager.IsEnabled();
         chkPlaySound.Checked = _workingSettings.PlaySoundOnCapture;
         chkShowToolLabels.Checked = _workingSettings.ShowToolLabels;
-        chkShowCaptureToolLabels.Checked = _workingSettings.ShowCaptureToolLabels;
         chkSaveEditorImageWithoutPrompt.Checked = _workingSettings.SaveEditorImageWithoutPrompt;
         chkCloseEditorOnCopyOrSave.Checked = _workingSettings.CloseEditorOnCopyOrSave;
         chkAutoCloseEditorWhenInactive.Checked = _workingSettings.AutoCloseEditorWhenInactive;
@@ -277,7 +275,6 @@ public sealed partial class SettingsForm : Form
         grpGeneral.Text = AppLocalization.Translate("Settings.GeneralGroup");
         chkOpenEditor.Text = AppLocalization.Translate("Settings.OpenEditorAfterCapture");
         chkShowToolLabels.Text = AppLocalization.Translate("Settings.ShowToolLabels");
-        chkShowCaptureToolLabels.Text = AppLocalization.Translate("Settings.ShowCaptureToolLabels");
         chkSaveEditorImageWithoutPrompt.Text = AppLocalization.Translate("Settings.SaveEditorImageWithoutPrompt");
         chkCloseEditorOnCopyOrSave.Text = AppLocalization.Translate("Settings.CloseEditorOnCopyOrSave");
         chkAutoCloseEditorWhenInactive.Text = AppLocalization.Translate("Settings.AutoCloseEditorWhenInactive");
@@ -343,7 +340,6 @@ public sealed partial class SettingsForm : Form
         StartupManager.SetEnabled(chkStartWithWindows.Checked);
         _workingSettings.PlaySoundOnCapture = chkPlaySound.Checked;
         _workingSettings.ShowToolLabels = chkShowToolLabels.Checked;
-        _workingSettings.ShowCaptureToolLabels = chkShowCaptureToolLabels.Checked;
         _workingSettings.SaveEditorImageWithoutPrompt = chkSaveEditorImageWithoutPrompt.Checked;
         _workingSettings.CloseEditorOnCopyOrSave = chkCloseEditorOnCopyOrSave.Checked;
         _workingSettings.AutoCloseEditorWhenInactive = chkAutoCloseEditorWhenInactive.Checked;

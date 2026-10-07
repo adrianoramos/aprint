@@ -298,10 +298,7 @@
     <value>No action</value>
   </data>
   <data name="Settings.ShowToolLabels" xml:space="preserve">
-    <value>Show button labels on the editor toolbar</value>
-  </data>
-  <data name="Settings.ShowCaptureToolLabels" xml:space="preserve">
-    <value>Show button labels on the capture toolbar</value>
+    <value>Show button labels on toolbars</value>
   </data>
   <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
     <value>Save without asking</value>
