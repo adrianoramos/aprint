@@ -164,7 +164,6 @@ public sealed class RegionSelectorForm : Form
     private const int MinimumSelectionSize = 3;
     private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ActionControlHeight = 34;
-    private const int SplitDropdownWidth = 26;
     private const int IconOnlyActionWidth = 52;
     private const int IconOnlyDropdownWidth = 14;
     private readonly Bitmap _background;
@@ -959,12 +958,13 @@ public sealed class RegionSelectorForm : Form
 
         _pixelatedIcon = LoadActionIcon("pixelated.png", Color.FromArgb(45, 49, 54));
         _filledIcon = LoadActionIcon("filled.png", Color.FromArgb(45, 49, 54));
-        var maskLabel = GetMaskModeLabel(_maskMode);
+        var maskLabel = AppLocalization.Translate("Editor.Mask");
+        var maskModeLabel = GetMaskModeLabel(_maskMode);
         var maskButton = CreateActionButton(GetCaptureToolButtonText(maskLabel), _maskMode == MaskMode.Pixelate ? _pixelatedIcon : _filledIcon);
         _maskButton = maskButton;
-        maskButton.AccessibleName = AppLocalization.Translate("Editor.Mask");
-        maskButton.AccessibleDescription = maskLabel;
-        maskButton.ToolTipText = $"{AppLocalization.Translate("Editor.Mask")}: {maskLabel} (F8)";
+        maskButton.AccessibleName = maskLabel;
+        maskButton.AccessibleDescription = maskModeLabel;
+        maskButton.ToolTipText = $"{maskLabel}: {maskModeLabel} (F8)";
         maskButton.Click += (_, _) => ToggleMaskMode();
 
         var maskDropdownButton = CreateDropdownButton();
@@ -994,6 +994,17 @@ public sealed class RegionSelectorForm : Form
             captureButton,
             captureDropdownButton,
         ]);
+        if (_showCaptureToolLabels)
+        {
+            toolStrip.PerformLayout();
+            foreach (var splitButton in new[] { drawingButton, maskButton, captureButton })
+            {
+                var preferredWidth = splitButton.Width;
+                splitButton.AutoSize = false;
+                splitButton.Size = new Size(preferredWidth, ActionControlHeight);
+            }
+        }
+
         void SetHoveredGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton, bool isPrimary = false)
         {
             if (renderer.SetHoveredGroup(mainButton, dropdownButton, isPrimary))
@@ -1164,7 +1175,7 @@ public sealed class RegionSelectorForm : Form
         var button = new ToolStripDropDownButton
         {
             AutoSize = false,
-            Size = new Size(_showCaptureToolLabels ? SplitDropdownWidth : IconOnlyDropdownWidth, ActionControlHeight),
+            Size = new Size(IconOnlyDropdownWidth, ActionControlHeight),
             ImageScaling = ToolStripItemImageScaling.None,
             AutoToolTip = true,
         };
@@ -1828,7 +1839,6 @@ public sealed class RegionSelectorForm : Form
         {
             _maskButton.Image = selectedIcon;
             var modeLabel = GetMaskModeLabel(mode);
-            _maskButton.Text = GetCaptureToolButtonText(modeLabel);
             _maskButton.AccessibleDescription = modeLabel;
         }
 

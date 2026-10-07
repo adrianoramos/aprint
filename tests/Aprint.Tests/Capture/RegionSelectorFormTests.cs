@@ -43,6 +43,46 @@ public sealed class RegionSelectorFormTests
     }
 
     [Fact]
+    public void MaskButtonLabelRemainsStableWhenMaskModeChanges()
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap, showCaptureToolLabels: true);
+        var maskButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_maskButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var maskDropdownButton = (ToolStripDropDownButton)typeof(RegionSelectorForm)
+            .GetField("_maskDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var expectedLabel = AppLocalization.Translate("Editor.Mask");
+
+        foreach (var menuItem in maskDropdownButton.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            menuItem.PerformClick();
+            Assert.Equal(expectedLabel, maskButton.Text);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DropdownButtonsKeepCompactWidthWhenLabelsAreEnabled(bool showLabels)
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap, showCaptureToolLabels: showLabels);
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var dropdownButtons = actionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
+
+        Assert.Equal(3, dropdownButtons.Length);
+        Assert.All(dropdownButtons, button => Assert.Equal(14, button.Width));
+        var splitButtons = dropdownButtons
+            .Select(button => (ToolStripButton)actionBar.Items[actionBar.Items.IndexOf(button) - 1]);
+        Assert.All(splitButtons, button => Assert.Equal(34, button.Height));
+        Assert.All(splitButtons, button => Assert.False(button.AutoSize));
+    }
+
+    [Fact]
     public void SendingSelectionToEditorKeepsSelectorOpenForRepeatedCaptures()
     {
         using var background = new Bitmap(8, 8);
