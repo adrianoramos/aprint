@@ -408,6 +408,32 @@ public sealed class RegionSelectorFormTests
     }
 
     [Fact]
+    public void ActionBarStaysInsideMonitorBoundsNearBottomEdge()
+    {
+        using var background = new Bitmap(100, 100);
+        using var selector = new RegionSelectorForm(background);
+        selector.Show();
+        var screenBounds = selector.RectangleToClient(Screen.FromPoint(Cursor.Position).Bounds);
+        var selection = new Rectangle(screenBounds.Left + 20, screenBounds.Bottom - 30, 40, 30);
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, selection);
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+
+        typeof(RegionSelectorForm)
+            .GetMethod("UpdateActionBarLocation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, null);
+
+        Assert.True(actionBar.Left >= screenBounds.Left);
+        Assert.True(actionBar.Right <= screenBounds.Right);
+        Assert.True(actionBar.Top >= screenBounds.Top);
+        Assert.True(actionBar.Bottom <= screenBounds.Bottom);
+        Assert.True(actionBar.Bottom <= selection.Top);
+    }
+
+    [Fact]
     public void RightButtonDragMovesSelectionAndRestoresActionBar()
     {
         using var background = new Bitmap(100, 100);

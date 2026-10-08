@@ -2179,8 +2179,18 @@ public sealed class RegionSelectorForm : Form
 
     private void UpdateActionBarLocation()
     {
-        var left = Math.Clamp(_selection.Left + (_selection.Width - _actionBar.Width) / 2, 0, Math.Max(0, ClientSize.Width - _actionBar.Width));
+        var screenBounds = RectangleToClient(Screen.FromRectangle(RectangleToScreen(_selection)).Bounds);
+        var left = Math.Clamp(
+            _selection.Left + (_selection.Width - _actionBar.Width) / 2,
+            screenBounds.Left,
+            Math.Max(screenBounds.Left, screenBounds.Right - _actionBar.Width));
         var top = _selection.Bottom + 18;
+        if (top + _actionBar.Height > screenBounds.Bottom)
+        {
+            top = _selection.Top - _actionBar.Height - 18;
+        }
+
+        top = Math.Clamp(top, screenBounds.Top, Math.Max(screenBounds.Top, screenBounds.Bottom - _actionBar.Height));
 
         _actionBar.Location = new Point(left, top);
     }
