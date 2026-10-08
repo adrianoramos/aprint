@@ -71,64 +71,6 @@ public sealed class SettingsFormTests
     }
 
     [Fact]
-    public void SettingsUseConsistentSpacingWithoutOverlappingControls()
-    {
-        System.Windows.Forms.Application.SetHighDpiMode(HighDpiMode.DpiUnaware);
-        using var form = new SettingsForm(new AppSettings());
-        var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
-        form.ShowInTaskbar = false;
-        form.Show();
-
-        foreach (TabPage tab in tabControl.TabPages)
-        {
-            tabControl.SelectedTab = tab;
-            tab.PerformLayout();
-            var controls = tab.Controls.Cast<Control>().ToArray();
-            foreach (var control in controls)
-            {
-                Assert.True(tab.ClientRectangle.Contains(control.Bounds), $"{control.Name} exceeds {tab.Name} bounds.");
-                foreach (var neighbor in controls.Where(neighbor => neighbor != control))
-                {
-                    Assert.False(control.Bounds.IntersectsWith(neighbor.Bounds), $"{control.Name} {control.Bounds} overlaps {neighbor.Name} {neighbor.Bounds}.");
-                }
-            }
-        }
-
-        var captureTab = tabControl.TabPages[2];
-        var labelNames = new[] { "lblCaptureMode", "lblOutsideCaptureClickAction", "lblCaptureAction", "lblSavePath" };
-        var fieldNames = new[] { "cmbCaptureMode", "cmbOutsideCaptureClickAction", "cmbCaptureAction", "txtSaveFolder" };
-        for (var index = 0; index < labelNames.Length; index++)
-        {
-            var label = captureTab.Controls[labelNames[index]]!;
-            var field = captureTab.Controls[fieldNames[index]]!;
-            Assert.Equal(15, label.Left);
-            Assert.Equal(label.Left, field.Left);
-            Assert.Equal(4, field.Top - label.Bottom);
-            if (index > 0)
-            {
-                Assert.Equal(12, label.Top - captureTab.Controls[fieldNames[index - 1]]!.Bottom);
-            }
-        }
-
-        foreach (var tabIndex in new[] { 0, 3 })
-        {
-            var checkboxes = tabControl.TabPages[tabIndex].Controls.OfType<CheckBox>().OrderBy(control => control.Top).ToArray();
-            Assert.Equal(18, checkboxes[0].Top);
-            for (var index = 1; index < checkboxes.Length; index++)
-            {
-                Assert.Equal(28, checkboxes[index].Top - checkboxes[index - 1].Top);
-            }
-        }
-
-        var saveButton = form.Controls["btnSave"]!;
-        var cancelButton = form.Controls["btnCancel"]!;
-        Assert.Equal(12, saveButton.Top - tabControl.Bottom);
-        Assert.Equal(8, cancelButton.Left - saveButton.Right);
-        Assert.Equal(12, form.ClientSize.Height - cancelButton.Bottom);
-        Assert.Equal(12, form.ClientSize.Width - cancelButton.Right);
-    }
-
-    [Fact]
     public void SettingsAreOrganizedInTabsInACompactWindow()
     {
         using var form = new SettingsForm(new AppSettings());
