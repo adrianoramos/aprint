@@ -66,10 +66,10 @@ public static class ImageEditingService
         6F,
         CounterMarkerFontSize);
 
-    public static void DrawCounterMarker(Graphics graphics, CounterMarker marker, Color lineColor, Color? fillColor)
+    public static void DrawCounterMarker(Graphics graphics, CounterMarker marker, Color lineColor, Color? fillColor, Color? textColor = null)
     {
         var font = GetCounterMarkerFont(marker.Diameter);
-        DrawCounterMarker(graphics, marker.Bounds, marker.Value.ToString(), font, lineColor, fillColor);
+        DrawCounterMarker(graphics, marker.Bounds, marker.Value.ToString(), font, lineColor, fillColor, textColor);
     }
 
     public static Font GetCounterMarkerFont(int diameter)
@@ -100,7 +100,7 @@ public static class ImageEditingService
         }
     }
 
-    public static void DrawCounterMarker(Graphics graphics, Rectangle bounds, string text, Font font, Color lineColor, Color? fillColor)
+    public static void DrawCounterMarker(Graphics graphics, Rectangle bounds, string text, Font font, Color lineColor, Color? fillColor, Color? textColor = null)
     {
         if (fillColor is Color markerFillColor)
         {
@@ -112,8 +112,8 @@ public static class ImageEditingService
         graphics.DrawEllipse(borderPen, Rectangle.Inflate(bounds, -2, -2));
 
         var textBackgroundColor = fillColor ?? lineColor;
-        var textColor = GetContrastingTextColor(textBackgroundColor);
-        using var textBrush = new SolidBrush(textColor);
+        var resolvedTextColor = textColor ?? GetContrastingTextColor(textBackgroundColor);
+        using var textBrush = new SolidBrush(resolvedTextColor);
         using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
         graphics.DrawString(text, font, textBrush, bounds, format);
     }

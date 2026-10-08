@@ -132,6 +132,24 @@
   <data name="Capture.Region.Capture" xml:space="preserve">
     <value>Capture</value>
   </data>
+  <data name="Capture.Region.FullScreen" xml:space="preserve">
+    <value>Full screen</value>
+  </data>
+  <data name="Capture.Region.CurrentScreen" xml:space="preserve">
+    <value>Screen</value>
+  </data>
+  <data name="Capture.Region.Screen" xml:space="preserve">
+    <value>Screen</value>
+  </data>
+  <data name="Capture.Region.FullScreenTooltip" xml:space="preserve">
+    <value>Capture full screen</value>
+  </data>
+  <data name="Capture.Region.CurrentScreenTooltip" xml:space="preserve">
+    <value>Capture current screen</value>
+  </data>
+  <data name="Capture.Region.ScreenTooltip" xml:space="preserve">
+    <value>Capture screen {0}</value>
+  </data>
   <data name="Capture.Region.SendToEditor" xml:space="preserve">
     <value>Send to editor</value>
   </data>
@@ -298,10 +316,7 @@
     <value>No action</value>
   </data>
   <data name="Settings.ShowToolLabels" xml:space="preserve">
-    <value>Show button labels on the editor toolbar</value>
-  </data>
-  <data name="Settings.ShowCaptureToolLabels" xml:space="preserve">
-    <value>Show button labels on the capture toolbar</value>
+    <value>Show labels on buttons</value>
   </data>
   <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
     <value>Save without asking</value>

@@ -52,6 +52,30 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void DrawCounterMarkerUsesConfiguredTextColor()
+    {
+        using var bitmap = new Bitmap(40, 40);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(Color.White);
+        using var font = new Font("Segoe UI", 12F, FontStyle.Bold);
+
+        ImageEditingService.DrawCounterMarker(
+            graphics,
+            new Rectangle(0, 0, 40, 40),
+            "1",
+            font,
+            Color.Red,
+            null,
+            Color.Lime);
+
+        Assert.Contains(Enumerable.Range(0, bitmap.Height)
+            .SelectMany(y => Enumerable.Range(0, bitmap.Width)
+                .Select(x => bitmap.GetPixel(x, y))),
+            pixel => pixel.ToArgb() == Color.Lime.ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 2).ToArgb());
+    }
+
+    [Fact]
     public void DrawCounterMarkerLeavesFillTransparentWhenNoFillColorIsSelected()
     {
         using var bitmap = new Bitmap(40, 40);
