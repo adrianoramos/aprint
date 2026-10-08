@@ -109,6 +109,11 @@ public sealed partial class SettingsForm : Form
         cmbNotificationClick.Enabled = chkShowNotification.Checked;
     }
 
+    private void cmbCaptureMode_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        cmbOutsideCaptureClickAction.Enabled = cmbCaptureMode.SelectedIndex == (int)CaptureMode.SelectArea;
+    }
+
     private void LoadValuesIntoControls()
     {
         txtSaveFolder.Text = _workingSettings.SaveFolder;

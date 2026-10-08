@@ -1,9 +1,133 @@
+using Aprint.Features.Capture;
 using Aprint.Features.Settings;
 
 namespace Aprint.Tests.Settings;
 
 public sealed class SettingsFormTests
 {
+    [Theory]
+    [InlineData("pt-BR", true, "Exibir rótulos nos botões")]
+    [InlineData("pt-BR", false, "Exibir rótulos nos botões")]
+    [InlineData("en-US", true, "Show labels on buttons")]
+    [InlineData("en-US", false, "Show labels on buttons")]
+    public void ToolLabelsOptionIsInGeneralTabWithLocalizedText(string language, bool showToolLabels, string expectedText)
+    {
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            var settings = new AppSettings { ShowToolLabels = showToolLabels };
+            using var form = new SettingsForm(settings);
+            var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
+            var generalTab = tabControl.TabPages[0];
+            var editorTab = tabControl.TabPages[3];
+            var option = Assert.IsType<CheckBox>(generalTab.Controls["chkShowToolLabels"]);
+
+            Assert.Null(editorTab.Controls["chkShowToolLabels"]);
+            Assert.Equal(expectedText, option.Text);
+            Assert.Equal(showToolLabels, option.Checked);
+            Assert.Equal(28, option.Top - generalTab.Controls["chkPlaySound"]!.Top);
+            Assert.Equal(28, generalTab.Controls["chkShowNotification"]!.Top - option.Top);
+            var editorCheckboxes = editorTab.Controls.OfType<CheckBox>().OrderBy(control => control.Top).ToArray();
+            for (var index = 1; index < editorCheckboxes.Length; index++)
+            {
+                Assert.Equal(28, editorCheckboxes[index].Top - editorCheckboxes[index - 1].Top);
+            }
+
+            option.Checked = !showToolLabels;
+            Assert.Equal(showToolLabels, settings.ShowToolLabels);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [Theory]
+    [InlineData(CaptureMode.AllScreens, false)]
+    [InlineData(CaptureMode.ScreenWithCursor, false)]
+    [InlineData(CaptureMode.SelectArea, true)]
+    public void OutsideClickActionIsEnabledOnlyForAreaSelection(CaptureMode initialMode, bool expectedEnabled)
+    {
+        using var form = new SettingsForm(new AppSettings
+        {
+            CaptureMode = initialMode,
+            OutsideCaptureClickAction = OutsideCaptureClickAction.ExitCaptureMode,
+        });
+        var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
+        var captureTab = tabControl.TabPages[2];
+        var captureMode = Assert.IsType<ComboBox>(captureTab.Controls["cmbCaptureMode"]);
+        var outsideAction = Assert.IsType<ComboBox>(captureTab.Controls["cmbOutsideCaptureClickAction"]);
+
+        Assert.Equal(expectedEnabled, outsideAction.Enabled);
+
+        foreach (var mode in new[] { CaptureMode.SelectArea, CaptureMode.AllScreens, CaptureMode.ScreenWithCursor, CaptureMode.SelectArea })
+        {
+            captureMode.SelectedIndex = (int)mode;
+
+            Assert.Equal(mode == CaptureMode.SelectArea, outsideAction.Enabled);
+            Assert.Equal((int)OutsideCaptureClickAction.ExitCaptureMode, outsideAction.SelectedIndex);
+        }
+    }
+
+    [Fact]
+    public void SettingsUseConsistentSpacingWithoutOverlappingControls()
+    {
+        System.Windows.Forms.Application.SetHighDpiMode(HighDpiMode.DpiUnaware);
+        using var form = new SettingsForm(new AppSettings());
+        var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
+        form.ShowInTaskbar = false;
+        form.Show();
+
+        foreach (TabPage tab in tabControl.TabPages)
+        {
+            tabControl.SelectedTab = tab;
+            tab.PerformLayout();
+            var controls = tab.Controls.Cast<Control>().ToArray();
+            foreach (var control in controls)
+            {
+                Assert.True(tab.ClientRectangle.Contains(control.Bounds), $"{control.Name} exceeds {tab.Name} bounds.");
+                foreach (var neighbor in controls.Where(neighbor => neighbor != control))
+                {
+                    Assert.False(control.Bounds.IntersectsWith(neighbor.Bounds), $"{control.Name} {control.Bounds} overlaps {neighbor.Name} {neighbor.Bounds}.");
+                }
+            }
+        }
+
+        var captureTab = tabControl.TabPages[2];
+        var labelNames = new[] { "lblCaptureMode", "lblOutsideCaptureClickAction", "lblCaptureAction", "lblSavePath" };
+        var fieldNames = new[] { "cmbCaptureMode", "cmbOutsideCaptureClickAction", "cmbCaptureAction", "txtSaveFolder" };
+        for (var index = 0; index < labelNames.Length; index++)
+        {
+            var label = captureTab.Controls[labelNames[index]]!;
+            var field = captureTab.Controls[fieldNames[index]]!;
+            Assert.Equal(15, label.Left);
+            Assert.Equal(label.Left, field.Left);
+            Assert.Equal(4, field.Top - label.Bottom);
+            if (index > 0)
+            {
+                Assert.Equal(12, label.Top - captureTab.Controls[fieldNames[index - 1]]!.Bottom);
+            }
+        }
+
+        foreach (var tabIndex in new[] { 0, 3 })
+        {
+            var checkboxes = tabControl.TabPages[tabIndex].Controls.OfType<CheckBox>().OrderBy(control => control.Top).ToArray();
+            Assert.Equal(18, checkboxes[0].Top);
+            for (var index = 1; index < checkboxes.Length; index++)
+            {
+                Assert.Equal(28, checkboxes[index].Top - checkboxes[index - 1].Top);
+            }
+        }
+
+        var saveButton = form.Controls["btnSave"]!;
+        var cancelButton = form.Controls["btnCancel"]!;
+        Assert.Equal(12, saveButton.Top - tabControl.Bottom);
+        Assert.Equal(8, cancelButton.Left - saveButton.Right);
+        Assert.Equal(12, form.ClientSize.Height - cancelButton.Bottom);
+        Assert.Equal(12, form.ClientSize.Width - cancelButton.Right);
+    }
+
     [Fact]
     public void SettingsAreOrganizedInTabsInACompactWindow()
     {

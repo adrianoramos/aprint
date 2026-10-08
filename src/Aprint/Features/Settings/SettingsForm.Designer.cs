@@ -55,27 +55,32 @@ partial class SettingsForm
     private void InitializeComponent()
     {
         tabSettings = new TabControl();
-        tabCapture = new TabPage();
-        tabHotkey = new TabPage();
-        tabEditor = new TabPage();
         tabGeneral = new TabPage();
+        chkShowNotification = new CheckBox();
+        lblNotificationClick = new Label();
+        cmbNotificationClick = new ComboBox();
+        chkPlaySound = new CheckBox();
+        chkStartWithWindows = new CheckBox();
+        lblLanguage = new Label();
+        cmbLanguage = new ComboBox();
+        tabHotkey = new TabPage();
         chkCtrl = new CheckBox();
         chkShift = new CheckBox();
         chkAlt = new CheckBox();
         chkWin = new CheckBox();
         chkForcePrintScreen = new CheckBox();
         cmbKey = new ComboBox();
+        tabCapture = new TabPage();
         lblCaptureMode = new Label();
         cmbCaptureMode = new ComboBox();
-        lblOutsideCaptureClickAction = new Label();
-        cmbOutsideCaptureClickAction = new ComboBox();
         lblCaptureAction = new Label();
         cmbCaptureAction = new ComboBox();
+        lblOutsideCaptureClickAction = new Label();
+        cmbOutsideCaptureClickAction = new ComboBox();
         lblSavePath = new Label();
         txtSaveFolder = new TextBox();
         btnBrowse = new Button();
-        cmbNotificationClick = new ComboBox();
-        lblNotificationClick = new Label();
+        tabEditor = new TabPage();
         chkOpenEditor = new CheckBox();
         chkCloseEditorOnCopyOrSave = new CheckBox();
         chkSaveEditorImageWithoutPrompt = new CheckBox();
@@ -86,336 +91,41 @@ partial class SettingsForm
         chkShowToolLabels = new CheckBox();
         lblDefaultEditorTool = new Label();
         cmbDefaultEditorTool = new ComboBox();
-        chkShowNotification = new CheckBox();
-        chkPlaySound = new CheckBox();
-        chkStartWithWindows = new CheckBox();
-        lblLanguage = new Label();
-        cmbLanguage = new ComboBox();
         btnSave = new Button();
         btnCancel = new Button();
         tabSettings.SuspendLayout();
+        tabGeneral.SuspendLayout();
         tabHotkey.SuspendLayout();
         tabCapture.SuspendLayout();
         tabEditor.SuspendLayout();
-        tabGeneral.SuspendLayout();
         SuspendLayout();
-        //
+        // 
         // tabSettings
-        //
-        tabSettings.Controls.AddRange([tabGeneral, tabHotkey, tabCapture, tabEditor]);
+        // 
+        tabSettings.Controls.Add(tabGeneral);
+        tabSettings.Controls.Add(tabHotkey);
+        tabSettings.Controls.Add(tabCapture);
+        tabSettings.Controls.Add(tabEditor);
         tabSettings.Location = new Point(12, 12);
         tabSettings.Name = "tabSettings";
         tabSettings.SelectedIndex = 0;
-        tabSettings.Size = new Size(436, 258);
+        tabSettings.Size = new Size(436, 256);
         tabSettings.TabIndex = 0;
-        //
-        // tabHotkey
-        //
-        tabHotkey.Controls.AddRange([chkCtrl, chkShift, chkAlt, chkWin, chkForcePrintScreen, cmbKey]);
-        tabHotkey.Location = new Point(4, 24);
-        tabHotkey.Name = "tabHotkey";
-        tabHotkey.Padding = new Padding(3);
-        tabHotkey.Size = new Size(428, 230);
-        tabHotkey.TabIndex = 1;
-        tabHotkey.Text = "Atalho";
-        tabHotkey.UseVisualStyleBackColor = true;
         // 
-        // chkCtrl
-        // 
-        chkCtrl.AutoSize = true;
-        chkCtrl.Location = new Point(15, 51);
-        chkCtrl.Name = "chkCtrl";
-        chkCtrl.Size = new Size(45, 19);
-        chkCtrl.TabIndex = 1;
-        chkCtrl.Text = "Ctrl";
-        // 
-        // chkShift
-        // 
-        chkShift.AutoSize = true;
-        chkShift.Location = new Point(75, 51);
-        chkShift.Name = "chkShift";
-        chkShift.Size = new Size(50, 19);
-        chkShift.TabIndex = 2;
-        chkShift.Text = "Shift";
-        // 
-        // chkAlt
-        // 
-        chkAlt.AutoSize = true;
-        chkAlt.Location = new Point(140, 51);
-        chkAlt.Name = "chkAlt";
-        chkAlt.Size = new Size(41, 19);
-        chkAlt.TabIndex = 3;
-        chkAlt.Text = "Alt";
-        // 
-        // chkWin
-        // 
-        chkWin.AutoSize = true;
-        chkWin.Location = new Point(195, 51);
-        chkWin.Name = "chkWin";
-        chkWin.Size = new Size(47, 19);
-        chkWin.TabIndex = 4;
-        chkWin.Text = "Win";
-        // 
-        // chkForcePrintScreen
-        // 
-        chkForcePrintScreen.AutoSize = true;
-        chkForcePrintScreen.Location = new Point(15, 24);
-        chkForcePrintScreen.Name = "chkForcePrintScreen";
-        chkForcePrintScreen.Size = new Size(260, 19);
-        chkForcePrintScreen.TabIndex = 0;
-        chkForcePrintScreen.Text = "Usar tecla padrão do Windows (Print Screen)";
-        chkForcePrintScreen.CheckedChanged += chkForcePrintScreen_CheckedChanged;
-        // 
-        // cmbKey
-        // 
-        cmbKey.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbKey.Location = new Point(250, 49);
-        cmbKey.Name = "cmbKey";
-        cmbKey.Size = new Size(163, 23);
-        cmbKey.TabIndex = 5;
-        //
-        // tabCapture
-        //
-        tabCapture.Controls.AddRange([
-            lblCaptureMode,
-            cmbCaptureMode,
-            lblCaptureAction,
-            cmbCaptureAction,
-            lblOutsideCaptureClickAction,
-            cmbOutsideCaptureClickAction,
-            lblSavePath,
-            txtSaveFolder,
-            btnBrowse,
-        ]);
-        tabCapture.Location = new Point(4, 24);
-        tabCapture.Name = "tabCapture";
-        tabCapture.Padding = new Padding(3);
-        tabCapture.Size = new Size(428, 230);
-        tabCapture.TabIndex = 2;
-        tabCapture.Text = "Captura";
-        tabCapture.UseVisualStyleBackColor = true;
-        // 
-        // lblCaptureMode
-        // 
-        lblCaptureMode.AutoSize = true;
-        lblCaptureMode.Location = new Point(15, 23);
-        lblCaptureMode.Name = "lblCaptureMode";
-        lblCaptureMode.Size = new Size(101, 15);
-        lblCaptureMode.TabIndex = 6;
-        lblCaptureMode.Text = "Modo de captura:";
-        // 
-        // cmbCaptureMode
-        // 
-        cmbCaptureMode.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbCaptureMode.Location = new Point(15, 42);
-        cmbCaptureMode.Name = "cmbCaptureMode";
-        cmbCaptureMode.Size = new Size(398, 23);
-        cmbCaptureMode.TabIndex = 7;
-        // 
-        // lblCaptureAction
-        // 
-        lblCaptureAction.AutoSize = true;
-        lblCaptureAction.Location = new Point(15, 73);
-        lblCaptureAction.Name = "lblCaptureAction";
-        lblCaptureAction.Size = new Size(115, 15);
-        lblCaptureAction.TabIndex = 8;
-        lblCaptureAction.Text = "Após capturar a tela:";
-        // 
-        // cmbCaptureAction
-        // 
-        cmbCaptureAction.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbCaptureAction.Location = new Point(15, 92);
-        cmbCaptureAction.Name = "cmbCaptureAction";
-        cmbCaptureAction.Size = new Size(398, 23);
-        cmbCaptureAction.TabIndex = 9;
-        cmbCaptureAction.SelectedIndexChanged += cmbCaptureAction_SelectedIndexChanged;
-        // 
-        // lblSavePath
-        // 
-        lblSavePath.AutoSize = true;
-        lblSavePath.Location = new Point(15, 123);
-        lblSavePath.Name = "lblSavePath";
-        lblSavePath.Size = new Size(136, 15);
-        lblSavePath.TabIndex = 8;
-        lblSavePath.Text = "Salvar arquivos na pasta:";
-        // 
-        // txtSaveFolder
-        // 
-        txtSaveFolder.Location = new Point(15, 142);
-        txtSaveFolder.Name = "txtSaveFolder";
-        txtSaveFolder.Size = new Size(317, 23);
-        txtSaveFolder.TabIndex = 9;
-        // 
-        // btnBrowse
-        // 
-        btnBrowse.Location = new Point(340, 142);
-        btnBrowse.Name = "btnBrowse";
-        btnBrowse.Size = new Size(73, 25);
-        btnBrowse.TabIndex = 10;
-        btnBrowse.Text = "&Procurar...";
-        btnBrowse.Click += btnBrowse_Click;
-        // 
-        // lblOutsideCaptureClickAction
-        // 
-        lblOutsideCaptureClickAction.Location = new Point(15, 173);
-        lblOutsideCaptureClickAction.Name = "lblOutsideCaptureClickAction";
-        lblOutsideCaptureClickAction.Size = new Size(178, 19);
-        lblOutsideCaptureClickAction.TabIndex = 11;
-        lblOutsideCaptureClickAction.Text = "Ao clicar fora da área de captura:";
-        lblOutsideCaptureClickAction.TextAlign = ContentAlignment.MiddleLeft;
-        // 
-        // cmbOutsideCaptureClickAction
-        // 
-        cmbOutsideCaptureClickAction.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbOutsideCaptureClickAction.Location = new Point(201, 169);
-        cmbOutsideCaptureClickAction.Name = "cmbOutsideCaptureClickAction";
-        cmbOutsideCaptureClickAction.Size = new Size(212, 23);
-        cmbOutsideCaptureClickAction.TabIndex = 12;
-        // 
-        // cmbNotificationClick
-        // 
-        cmbNotificationClick.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbNotificationClick.Location = new Point(205, 97);
-        cmbNotificationClick.Name = "cmbNotificationClick";
-        cmbNotificationClick.Size = new Size(208, 23);
-        cmbNotificationClick.TabIndex = 15;
-        // 
-        // lblNotificationClick
-        // 
-        lblNotificationClick.AutoSize = true;
-        lblNotificationClick.Location = new Point(15, 100);
-        lblNotificationClick.Name = "lblNotificationClick";
-        lblNotificationClick.Size = new Size(134, 15);
-        lblNotificationClick.TabIndex = 14;
-        lblNotificationClick.Text = "Ao clicar na notificação:";
-        //
-        // tabEditor
-        //
-        tabEditor.Controls.AddRange([
-            chkOpenEditor,
-            chkCloseEditorOnCopyOrSave,
-            chkSaveEditorImageWithoutPrompt,
-            chkAutoCloseEditorWhenInactive,
-            cmbEditorInactivityTimeout,
-            cmbEditorStartState,
-            chkRememberLastTool,
-            chkShowToolLabels,
-            lblDefaultEditorTool,
-            cmbDefaultEditorTool,
-        ]);
-        tabEditor.Location = new Point(4, 24);
-        tabEditor.Name = "tabEditor";
-        tabEditor.Padding = new Padding(3);
-        tabEditor.Size = new Size(428, 230);
-        tabEditor.TabIndex = 3;
-        tabEditor.Text = "Editor";
-        tabEditor.UseVisualStyleBackColor = true;
-        // 
-        // chkOpenEditor
-        // 
-        chkOpenEditor.AutoSize = true;
-        chkOpenEditor.Location = new Point(15, 22);
-        chkOpenEditor.Name = "chkOpenEditor";
-        chkOpenEditor.Size = new Size(166, 19);
-        chkOpenEditor.TabIndex = 12;
-        chkOpenEditor.Text = "Abrir editor após a captura";
-        chkOpenEditor.CheckedChanged += chkOpenEditor_CheckedChanged;
-        // 
-        // chkCloseEditorOnCopyOrSave
-        // 
-        chkCloseEditorOnCopyOrSave.AutoSize = true;
-        chkCloseEditorOnCopyOrSave.Location = new Point(15, 47);
-        chkCloseEditorOnCopyOrSave.Name = "chkCloseEditorOnCopyOrSave";
-        chkCloseEditorOnCopyOrSave.Size = new Size(248, 19);
-        chkCloseEditorOnCopyOrSave.TabIndex = 13;
-        chkCloseEditorOnCopyOrSave.Text = "Fechar o editor ao copiar/salvar a imagem";
-        // 
-        // cmbEditorStartState
-        // 
-        cmbEditorStartState.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbEditorStartState.Location = new Point(205, 20);
-        cmbEditorStartState.Name = "cmbEditorStartState";
-        cmbEditorStartState.Size = new Size(208, 23);
-        cmbEditorStartState.TabIndex = 16;
-        // 
-        // chkRememberLastTool
-        // 
-        chkRememberLastTool.AutoSize = true;
-        chkRememberLastTool.Location = new Point(15, 151);
-        chkRememberLastTool.Name = "chkRememberLastTool";
-        chkRememberLastTool.Size = new Size(219, 19);
-        chkRememberLastTool.TabIndex = 14;
-        chkRememberLastTool.Text = "Lembrar última ferramenta do editor";
-        chkRememberLastTool.CheckedChanged += chkRememberLastTool_CheckedChanged;
-        // 
-        // chkShowToolLabels
-        // 
-        chkShowToolLabels.AutoSize = true;
-        chkShowToolLabels.Location = new Point(15, 72);
-        chkShowToolLabels.Name = "chkShowToolLabels";
-        chkShowToolLabels.Size = new Size(339, 19);
-        chkShowToolLabels.TabIndex = 15;
-        chkShowToolLabels.Text = "Exibir o rótulo dos botões na barra de ferramentas do editor";
-        // 
-        // chkSaveEditorImageWithoutPrompt
-        // 
-        chkSaveEditorImageWithoutPrompt.AutoSize = true;
-        chkSaveEditorImageWithoutPrompt.Location = new Point(15, 98);
-        chkSaveEditorImageWithoutPrompt.Name = "chkSaveEditorImageWithoutPrompt";
-        chkSaveEditorImageWithoutPrompt.Size = new Size(152, 19);
-        chkSaveEditorImageWithoutPrompt.TabIndex = 16;
-        chkSaveEditorImageWithoutPrompt.Text = "Salvar sem perguntar";
-        // 
-        // chkAutoCloseEditorWhenInactive
-        // 
-        chkAutoCloseEditorWhenInactive.AutoSize = true;
-        chkAutoCloseEditorWhenInactive.Location = new Point(15, 123);
-        chkAutoCloseEditorWhenInactive.Name = "chkAutoCloseEditorWhenInactive";
-        chkAutoCloseEditorWhenInactive.Size = new Size(208, 19);
-        chkAutoCloseEditorWhenInactive.TabIndex = 17;
-        chkAutoCloseEditorWhenInactive.Text = "Fechar automaticamente se inativo";
-        chkAutoCloseEditorWhenInactive.CheckedChanged += chkAutoCloseEditorWhenInactive_CheckedChanged;
-        // 
-        // cmbEditorInactivityTimeout
-        // 
-        cmbEditorInactivityTimeout.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbEditorInactivityTimeout.Location = new Point(250, 121);
-        cmbEditorInactivityTimeout.Name = "cmbEditorInactivityTimeout";
-        cmbEditorInactivityTimeout.Size = new Size(163, 23);
-        cmbEditorInactivityTimeout.TabIndex = 18;
-        // 
-        // lblDefaultEditorTool
-        // 
-        lblDefaultEditorTool.AutoSize = true;
-        lblDefaultEditorTool.Location = new Point(15, 179);
-        lblDefaultEditorTool.Name = "lblDefaultEditorTool";
-        lblDefaultEditorTool.Size = new Size(161, 15);
-        lblDefaultEditorTool.TabIndex = 19;
-        lblDefaultEditorTool.Text = "Ferramenta padrão do editor:";
-        // 
-        // cmbDefaultEditorTool
-        // 
-        cmbDefaultEditorTool.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbDefaultEditorTool.Location = new Point(205, 176);
-        cmbDefaultEditorTool.Name = "cmbDefaultEditorTool";
-        cmbDefaultEditorTool.Size = new Size(208, 23);
-        cmbDefaultEditorTool.TabIndex = 20;
-        //
         // tabGeneral
-        //
-        tabGeneral.Controls.AddRange([
-            chkShowNotification,
-            lblNotificationClick,
-            cmbNotificationClick,
-            chkPlaySound,
-            chkStartWithWindows,
-            lblLanguage,
-            cmbLanguage,
-        ]);
+        // 
+        tabGeneral.Controls.Add(chkShowNotification);
+        tabGeneral.Controls.Add(lblNotificationClick);
+        tabGeneral.Controls.Add(cmbNotificationClick);
+        tabGeneral.Controls.Add(chkPlaySound);
+        tabGeneral.Controls.Add(chkStartWithWindows);
+        tabGeneral.Controls.Add(chkShowToolLabels);
+        tabGeneral.Controls.Add(lblLanguage);
+        tabGeneral.Controls.Add(cmbLanguage);
         tabGeneral.Location = new Point(4, 24);
         tabGeneral.Name = "tabGeneral";
         tabGeneral.Padding = new Padding(3);
-        tabGeneral.Size = new Size(428, 230);
+        tabGeneral.Size = new Size(428, 228);
         tabGeneral.TabIndex = 0;
         tabGeneral.Text = "Geral";
         tabGeneral.UseVisualStyleBackColor = true;
@@ -423,35 +133,52 @@ partial class SettingsForm
         // chkShowNotification
         // 
         chkShowNotification.AutoSize = true;
-        chkShowNotification.Location = new Point(15, 74);
+        chkShowNotification.Location = new Point(15, 102);
         chkShowNotification.Name = "chkShowNotification";
         chkShowNotification.Size = new Size(206, 19);
-        chkShowNotification.TabIndex = 17;
+        chkShowNotification.TabIndex = 3;
         chkShowNotification.Text = "Exibir notificação após tirar o print";
         chkShowNotification.CheckedChanged += chkShowNotification_CheckedChanged;
+        // 
+        // lblNotificationClick
+        // 
+        lblNotificationClick.AutoSize = true;
+        lblNotificationClick.Location = new Point(15, 134);
+        lblNotificationClick.Name = "lblNotificationClick";
+        lblNotificationClick.Size = new Size(134, 15);
+        lblNotificationClick.TabIndex = 14;
+        lblNotificationClick.Text = "Ao clicar na notificação:";
+        // 
+        // cmbNotificationClick
+        // 
+        cmbNotificationClick.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbNotificationClick.Location = new Point(205, 130);
+        cmbNotificationClick.Name = "cmbNotificationClick";
+        cmbNotificationClick.Size = new Size(208, 23);
+        cmbNotificationClick.TabIndex = 4;
         // 
         // chkPlaySound
         // 
         chkPlaySound.AutoSize = true;
-        chkPlaySound.Location = new Point(15, 48);
+        chkPlaySound.Location = new Point(15, 46);
         chkPlaySound.Name = "chkPlaySound";
         chkPlaySound.Size = new Size(144, 19);
-        chkPlaySound.TabIndex = 15;
+        chkPlaySound.TabIndex = 1;
         chkPlaySound.Text = "Tocar som ao capturar";
         // 
         // chkStartWithWindows
         // 
         chkStartWithWindows.AutoSize = true;
-        chkStartWithWindows.Location = new Point(15, 22);
+        chkStartWithWindows.Location = new Point(15, 18);
         chkStartWithWindows.Name = "chkStartWithWindows";
         chkStartWithWindows.Size = new Size(147, 19);
-        chkStartWithWindows.TabIndex = 13;
+        chkStartWithWindows.TabIndex = 0;
         chkStartWithWindows.Text = "Iniciar com o Windows";
         // 
         // lblLanguage
         // 
         lblLanguage.AutoSize = true;
-        lblLanguage.Location = new Point(15, 135);
+        lblLanguage.Location = new Point(15, 162);
         lblLanguage.Name = "lblLanguage";
         lblLanguage.Size = new Size(47, 15);
         lblLanguage.TabIndex = 21;
@@ -461,15 +188,292 @@ partial class SettingsForm
         // 
         cmbLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbLanguage.FormattingEnabled = true;
-        cmbLanguage.Location = new Point(107, 131);
+        cmbLanguage.Location = new Point(205, 158);
         cmbLanguage.Name = "cmbLanguage";
-        cmbLanguage.Size = new Size(306, 23);
-        cmbLanguage.TabIndex = 22;
+        cmbLanguage.Size = new Size(208, 23);
+        cmbLanguage.TabIndex = 5;
+        // 
+        // tabHotkey
+        // 
+        tabHotkey.Controls.Add(chkCtrl);
+        tabHotkey.Controls.Add(chkShift);
+        tabHotkey.Controls.Add(chkAlt);
+        tabHotkey.Controls.Add(chkWin);
+        tabHotkey.Controls.Add(chkForcePrintScreen);
+        tabHotkey.Controls.Add(cmbKey);
+        tabHotkey.Location = new Point(4, 24);
+        tabHotkey.Name = "tabHotkey";
+        tabHotkey.Padding = new Padding(3);
+        tabHotkey.Size = new Size(428, 228);
+        tabHotkey.TabIndex = 1;
+        tabHotkey.Text = "Atalho";
+        tabHotkey.UseVisualStyleBackColor = true;
+        // 
+        // chkCtrl
+        // 
+        chkCtrl.AutoSize = true;
+        chkCtrl.Location = new Point(15, 46);
+        chkCtrl.Name = "chkCtrl";
+        chkCtrl.Size = new Size(45, 19);
+        chkCtrl.TabIndex = 1;
+        chkCtrl.Text = "Ctrl";
+        // 
+        // chkShift
+        // 
+        chkShift.AutoSize = true;
+        chkShift.Location = new Point(76, 46);
+        chkShift.Name = "chkShift";
+        chkShift.Size = new Size(50, 19);
+        chkShift.TabIndex = 2;
+        chkShift.Text = "Shift";
+        // 
+        // chkAlt
+        // 
+        chkAlt.AutoSize = true;
+        chkAlt.Location = new Point(142, 46);
+        chkAlt.Name = "chkAlt";
+        chkAlt.Size = new Size(41, 19);
+        chkAlt.TabIndex = 3;
+        chkAlt.Text = "Alt";
+        // 
+        // chkWin
+        // 
+        chkWin.AutoSize = true;
+        chkWin.Location = new Point(199, 46);
+        chkWin.Name = "chkWin";
+        chkWin.Size = new Size(47, 19);
+        chkWin.TabIndex = 4;
+        chkWin.Text = "Win";
+        // 
+        // chkForcePrintScreen
+        // 
+        chkForcePrintScreen.AutoSize = true;
+        chkForcePrintScreen.Location = new Point(15, 18);
+        chkForcePrintScreen.Name = "chkForcePrintScreen";
+        chkForcePrintScreen.Size = new Size(260, 19);
+        chkForcePrintScreen.TabIndex = 0;
+        chkForcePrintScreen.Text = "Usar tecla padrão do Windows (Print Screen)";
+        chkForcePrintScreen.CheckedChanged += chkForcePrintScreen_CheckedChanged;
+        // 
+        // cmbKey
+        // 
+        cmbKey.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbKey.Location = new Point(262, 44);
+        cmbKey.Name = "cmbKey";
+        cmbKey.Size = new Size(151, 23);
+        cmbKey.TabIndex = 5;
+        // 
+        // tabCapture
+        // 
+        tabCapture.Controls.Add(lblCaptureMode);
+        tabCapture.Controls.Add(cmbCaptureMode);
+        tabCapture.Controls.Add(lblCaptureAction);
+        tabCapture.Controls.Add(cmbCaptureAction);
+        tabCapture.Controls.Add(lblOutsideCaptureClickAction);
+        tabCapture.Controls.Add(cmbOutsideCaptureClickAction);
+        tabCapture.Controls.Add(lblSavePath);
+        tabCapture.Controls.Add(txtSaveFolder);
+        tabCapture.Controls.Add(btnBrowse);
+        tabCapture.Location = new Point(4, 24);
+        tabCapture.Name = "tabCapture";
+        tabCapture.Padding = new Padding(3);
+        tabCapture.Size = new Size(428, 228);
+        tabCapture.TabIndex = 2;
+        tabCapture.Text = "Captura";
+        tabCapture.UseVisualStyleBackColor = true;
+        // 
+        // lblCaptureMode
+        // 
+        lblCaptureMode.AutoSize = true;
+        lblCaptureMode.Location = new Point(15, 16);
+        lblCaptureMode.Name = "lblCaptureMode";
+        lblCaptureMode.Size = new Size(101, 15);
+        lblCaptureMode.TabIndex = 6;
+        lblCaptureMode.Text = "Modo de captura:";
+        // 
+        // cmbCaptureMode
+        // 
+        cmbCaptureMode.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbCaptureMode.Location = new Point(15, 35);
+        cmbCaptureMode.Name = "cmbCaptureMode";
+        cmbCaptureMode.Size = new Size(398, 23);
+        cmbCaptureMode.TabIndex = 7;
+        cmbCaptureMode.SelectedIndexChanged += cmbCaptureMode_SelectedIndexChanged;
+        // 
+        // lblCaptureAction
+        // 
+        lblCaptureAction.AutoSize = true;
+        lblCaptureAction.Location = new Point(15, 124);
+        lblCaptureAction.Name = "lblCaptureAction";
+        lblCaptureAction.Size = new Size(115, 15);
+        lblCaptureAction.TabIndex = 8;
+        lblCaptureAction.Text = "Após capturar a tela:";
+        // 
+        // cmbCaptureAction
+        // 
+        cmbCaptureAction.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbCaptureAction.Location = new Point(15, 143);
+        cmbCaptureAction.Name = "cmbCaptureAction";
+        cmbCaptureAction.Size = new Size(398, 23);
+        cmbCaptureAction.TabIndex = 11;
+        cmbCaptureAction.SelectedIndexChanged += cmbCaptureAction_SelectedIndexChanged;
+        // 
+        // lblOutsideCaptureClickAction
+        // 
+        lblOutsideCaptureClickAction.AutoSize = true;
+        lblOutsideCaptureClickAction.Location = new Point(15, 70);
+        lblOutsideCaptureClickAction.Name = "lblOutsideCaptureClickAction";
+        lblOutsideCaptureClickAction.Size = new Size(178, 15);
+        lblOutsideCaptureClickAction.TabIndex = 8;
+        lblOutsideCaptureClickAction.Text = "Ao clicar fora da área de captura:";
+        lblOutsideCaptureClickAction.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // cmbOutsideCaptureClickAction
+        // 
+        cmbOutsideCaptureClickAction.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbOutsideCaptureClickAction.Location = new Point(15, 89);
+        cmbOutsideCaptureClickAction.Name = "cmbOutsideCaptureClickAction";
+        cmbOutsideCaptureClickAction.Size = new Size(398, 23);
+        cmbOutsideCaptureClickAction.TabIndex = 9;
+        // 
+        // lblSavePath
+        // 
+        lblSavePath.AutoSize = true;
+        lblSavePath.Location = new Point(15, 178);
+        lblSavePath.Name = "lblSavePath";
+        lblSavePath.Size = new Size(136, 15);
+        lblSavePath.TabIndex = 12;
+        lblSavePath.Text = "Salvar arquivos na pasta:";
+        // 
+        // txtSaveFolder
+        // 
+        txtSaveFolder.Location = new Point(15, 197);
+        txtSaveFolder.Name = "txtSaveFolder";
+        txtSaveFolder.Size = new Size(317, 23);
+        txtSaveFolder.TabIndex = 13;
+        // 
+        // btnBrowse
+        // 
+        btnBrowse.Location = new Point(340, 196);
+        btnBrowse.Name = "btnBrowse";
+        btnBrowse.Size = new Size(73, 25);
+        btnBrowse.TabIndex = 14;
+        btnBrowse.Text = "&Procurar...";
+        btnBrowse.Click += btnBrowse_Click;
+        // 
+        // tabEditor
+        // 
+        tabEditor.Controls.Add(chkOpenEditor);
+        tabEditor.Controls.Add(chkCloseEditorOnCopyOrSave);
+        tabEditor.Controls.Add(chkSaveEditorImageWithoutPrompt);
+        tabEditor.Controls.Add(chkAutoCloseEditorWhenInactive);
+        tabEditor.Controls.Add(cmbEditorInactivityTimeout);
+        tabEditor.Controls.Add(cmbEditorStartState);
+        tabEditor.Controls.Add(chkRememberLastTool);
+        tabEditor.Controls.Add(lblDefaultEditorTool);
+        tabEditor.Controls.Add(cmbDefaultEditorTool);
+        tabEditor.Location = new Point(4, 24);
+        tabEditor.Name = "tabEditor";
+        tabEditor.Padding = new Padding(3);
+        tabEditor.Size = new Size(428, 228);
+        tabEditor.TabIndex = 3;
+        tabEditor.Text = "Editor";
+        tabEditor.UseVisualStyleBackColor = true;
+        // 
+        // chkOpenEditor
+        // 
+        chkOpenEditor.AutoSize = true;
+        chkOpenEditor.Location = new Point(15, 18);
+        chkOpenEditor.Name = "chkOpenEditor";
+        chkOpenEditor.Size = new Size(166, 19);
+        chkOpenEditor.TabIndex = 0;
+        chkOpenEditor.Text = "Abrir editor após a captura";
+        chkOpenEditor.CheckedChanged += chkOpenEditor_CheckedChanged;
+        // 
+        // chkCloseEditorOnCopyOrSave
+        // 
+        chkCloseEditorOnCopyOrSave.AutoSize = true;
+        chkCloseEditorOnCopyOrSave.Location = new Point(15, 46);
+        chkCloseEditorOnCopyOrSave.Name = "chkCloseEditorOnCopyOrSave";
+        chkCloseEditorOnCopyOrSave.Size = new Size(248, 19);
+        chkCloseEditorOnCopyOrSave.TabIndex = 2;
+        chkCloseEditorOnCopyOrSave.Text = "Fechar o editor ao copiar/salvar a imagem";
+        // 
+        // chkSaveEditorImageWithoutPrompt
+        // 
+        chkSaveEditorImageWithoutPrompt.AutoSize = true;
+        chkSaveEditorImageWithoutPrompt.Location = new Point(15, 74);
+        chkSaveEditorImageWithoutPrompt.Name = "chkSaveEditorImageWithoutPrompt";
+        chkSaveEditorImageWithoutPrompt.Size = new Size(137, 19);
+        chkSaveEditorImageWithoutPrompt.TabIndex = 3;
+        chkSaveEditorImageWithoutPrompt.Text = "Salvar sem perguntar";
+        // 
+        // chkAutoCloseEditorWhenInactive
+        // 
+        chkAutoCloseEditorWhenInactive.AutoSize = true;
+        chkAutoCloseEditorWhenInactive.Location = new Point(15, 102);
+        chkAutoCloseEditorWhenInactive.Name = "chkAutoCloseEditorWhenInactive";
+        chkAutoCloseEditorWhenInactive.Size = new Size(211, 19);
+        chkAutoCloseEditorWhenInactive.TabIndex = 4;
+        chkAutoCloseEditorWhenInactive.Text = "Fechar automaticamente se inativo";
+        chkAutoCloseEditorWhenInactive.CheckedChanged += chkAutoCloseEditorWhenInactive_CheckedChanged;
+        // 
+        // cmbEditorInactivityTimeout
+        // 
+        cmbEditorInactivityTimeout.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbEditorInactivityTimeout.Location = new Point(250, 100);
+        cmbEditorInactivityTimeout.Name = "cmbEditorInactivityTimeout";
+        cmbEditorInactivityTimeout.Size = new Size(163, 23);
+        cmbEditorInactivityTimeout.TabIndex = 5;
+        // 
+        // cmbEditorStartState
+        // 
+        cmbEditorStartState.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbEditorStartState.Location = new Point(205, 16);
+        cmbEditorStartState.Name = "cmbEditorStartState";
+        cmbEditorStartState.Size = new Size(208, 23);
+        cmbEditorStartState.TabIndex = 1;
+        // 
+        // chkRememberLastTool
+        // 
+        chkRememberLastTool.AutoSize = true;
+        chkRememberLastTool.Location = new Point(15, 130);
+        chkRememberLastTool.Name = "chkRememberLastTool";
+        chkRememberLastTool.Size = new Size(219, 19);
+        chkRememberLastTool.TabIndex = 6;
+        chkRememberLastTool.Text = "Lembrar última ferramenta do editor";
+        chkRememberLastTool.CheckedChanged += chkRememberLastTool_CheckedChanged;
+        // 
+        // chkShowToolLabels
+        // 
+        chkShowToolLabels.AutoSize = true;
+        chkShowToolLabels.Location = new Point(15, 74);
+        chkShowToolLabels.Name = "chkShowToolLabels";
+        chkShowToolLabels.Size = new Size(339, 19);
+        chkShowToolLabels.TabIndex = 2;
+        chkShowToolLabels.Text = "Exibir rótulos nos botões";
+        // 
+        // lblDefaultEditorTool
+        // 
+        lblDefaultEditorTool.AutoSize = true;
+        lblDefaultEditorTool.Location = new Point(15, 162);
+        lblDefaultEditorTool.Name = "lblDefaultEditorTool";
+        lblDefaultEditorTool.Size = new Size(161, 15);
+        lblDefaultEditorTool.TabIndex = 19;
+        lblDefaultEditorTool.Text = "Ferramenta padrão do editor:";
+        // 
+        // cmbDefaultEditorTool
+        // 
+        cmbDefaultEditorTool.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbDefaultEditorTool.Location = new Point(205, 158);
+        cmbDefaultEditorTool.Name = "cmbDefaultEditorTool";
+        cmbDefaultEditorTool.Size = new Size(208, 23);
+        cmbDefaultEditorTool.TabIndex = 7;
         // 
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(280, 282);
+        btnSave.Location = new Point(280, 280);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -479,7 +483,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 282);
+        btnCancel.Location = new Point(368, 280);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -503,14 +507,14 @@ partial class SettingsForm
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Aprint - Configurações";
         tabSettings.ResumeLayout(false);
+        tabGeneral.ResumeLayout(false);
+        tabGeneral.PerformLayout();
         tabHotkey.ResumeLayout(false);
         tabHotkey.PerformLayout();
         tabCapture.ResumeLayout(false);
         tabCapture.PerformLayout();
         tabEditor.ResumeLayout(false);
         tabEditor.PerformLayout();
-        tabGeneral.ResumeLayout(false);
-        tabGeneral.PerformLayout();
         ResumeLayout(false);
     }
 }

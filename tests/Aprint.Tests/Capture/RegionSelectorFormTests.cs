@@ -43,6 +43,265 @@ public sealed class RegionSelectorFormTests
     }
 
     [Fact]
+    public void InitialScreenSelectionBarOffersFullScreenCurrentScreenAndEachDisplay()
+    {
+        var cursorScreenBounds = Screen.FromPoint(Cursor.Position).Bounds;
+        var virtualBounds = SystemInformation.VirtualScreen;
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap);
+        selector.Show();
+        var screenSelectionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_screenSelectionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var buttons = screenSelectionBar.Items.OfType<ToolStripButton>().ToArray();
+        var itemsWidth = screenSelectionBar.Items
+            .Cast<ToolStripItem>()
+            .Sum(item => item.GetPreferredSize(Size.Empty).Width + item.Margin.Horizontal)
+            + screenSelectionBar.Padding.Horizontal;
+
+        Assert.True(screenSelectionBar.Visible);
+        Assert.Equal(DockStyle.None, screenSelectionBar.Dock);
+        Assert.Equal(52, screenSelectionBar.MinimumSize.Height);
+        Assert.Equal(itemsWidth, screenSelectionBar.MinimumSize.Width);
+        Assert.True(screenSelectionBar.Width >= screenSelectionBar.MinimumSize.Width);
+        var expectedScreenCenter = cursorScreenBounds.Left - virtualBounds.Left + (cursorScreenBounds.Width / 2);
+        var actualBarCenter = screenSelectionBar.Left + (screenSelectionBar.Width / 2);
+        Assert.InRange(
+            Math.Abs(actualBarCenter - expectedScreenCenter),
+            0,
+            1);
+        Assert.Equal(cursorScreenBounds.Top - virtualBounds.Top + 12, screenSelectionBar.Top);
+        var hasMultipleScreens = Screen.AllScreens.Length > 1;
+        Assert.Equal(hasMultipleScreens ? Screen.AllScreens.Length + 1 : 1, buttons.Length);
+        var fullScreenButton = Assert.Single(buttons, button => button.Text == AppLocalization.Translate("Capture.Region.FullScreen"));
+        Assert.NotNull(fullScreenButton.Image);
+        Assert.Equal(ToolStripItemDisplayStyle.ImageAndText, fullScreenButton.DisplayStyle);
+        if (hasMultipleScreens)
+        {
+            var currentScreenButton = Assert.Single(buttons, button => button.Text == AppLocalization.Translate("Capture.Region.CurrentScreen"));
+            Assert.NotNull(currentScreenButton.Image);
+            Assert.Equal(ToolStripItemDisplayStyle.ImageAndText, currentScreenButton.DisplayStyle);
+            for (var index = 1; index <= Screen.AllScreens.Length; index++)
+            {
+                var label = $"{AppLocalization.Translate("Capture.Region.Screen")} {index}";
+                if (Screen.AllScreens[index - 1].Bounds == cursorScreenBounds)
+                {
+                    Assert.DoesNotContain(buttons, button => button.Text == label);
+                }
+                else
+                {
+                    Assert.Contains(buttons, button => button.Text == label);
+                }
+            }
+        }
+
+        buttons.Single(button => button.Text == AppLocalization.Translate("Capture.Region.FullScreen")).PerformClick();
+
+        Assert.Equal(new Rectangle(Point.Empty, bitmap.Size), selector.SelectedRegion);
+        Assert.Equal(RegionSelectionAction.Capture, selector.SelectedAction);
+    }
+
+    [Fact]
+    public void NumberedScreenButtonSelectsTheScreenBoundsInsideTheVirtualDesktop()
+    {
+        var virtualBounds = SystemInformation.VirtualScreen;
+        using var bitmap = new Bitmap(Math.Max(4, virtualBounds.Width), Math.Max(4, virtualBounds.Height));
+        using var selector = new RegionSelectorForm(bitmap);
+        var screenSelectionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_screenSelectionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        if (Screen.AllScreens.Length == 1)
+        {
+            Assert.Single(screenSelectionBar.Items.OfType<ToolStripButton>());
+            return;
+        }
+        var cursorScreenBounds = (Rectangle)typeof(RegionSelectorForm)
+            .GetField("_screenUnderCursorAtStart", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var screenIndex = Array.FindIndex(Screen.AllScreens, screen => screen.Bounds != cursorScreenBounds);
+        var firstScreenButton = screenSelectionBar.Items
+            .OfType<ToolStripButton>()
+            .Single(button => button.Text == $"{AppLocalization.Translate("Capture.Region.Screen")} {screenIndex + 1}");
+
+        firstScreenButton.PerformClick();
+
+        var screenBounds = Screen.AllScreens[screenIndex].Bounds;
+        var expectedSelection = Rectangle.Intersect(
+            new Rectangle(
+                screenBounds.X - virtualBounds.X,
+                screenBounds.Y - virtualBounds.Y,
+                screenBounds.Width,
+                screenBounds.Height),
+            new Rectangle(Point.Empty, bitmap.Size));
+        Assert.Equal(expectedSelection, selector.SelectedRegion);
+        Assert.Equal(RegionSelectionAction.Capture, selector.SelectedAction);
+    }
+
+    [Theory]
+    [InlineData(1, 0, true)]
+    [InlineData(1, 0, false)]
+    [InlineData(2, 0, true)]
+    [InlineData(2, 0, false)]
+    [InlineData(2, 1, true)]
+    [InlineData(2, 1, false)]
+    [InlineData(3, 0, true)]
+    [InlineData(3, 0, false)]
+    [InlineData(3, 1, true)]
+    [InlineData(3, 1, false)]
+    [InlineData(3, 2, true)]
+    [InlineData(3, 2, false)]
+    public void ScreenSelectionBarOffersMonitorChoicesOnlyForMultipleScreens(int screenCount, int currentScreenIndex, bool showToolLabels)
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap, showToolLabels: showToolLabels);
+        var cursorScreenBounds = (Rectangle)typeof(RegionSelectorForm)
+            .GetField("_screenUnderCursorAtStart", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var screens = Enumerable.Range(0, screenCount)
+            .Select(index => new Rectangle(cursorScreenBounds.Right + (index + 1) * 100, cursorScreenBounds.Top, 100, 100))
+            .ToArray();
+        screens[currentScreenIndex] = cursorScreenBounds;
+        using var screenSelectionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetMethod("CreateScreenSelectionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, new object[] { screens })!;
+        var expectedLabels = new List<string> { AppLocalization.Translate("Capture.Region.FullScreen") };
+        if (screenCount > 1)
+        {
+            expectedLabels.Add(AppLocalization.Translate("Capture.Region.CurrentScreen"));
+            expectedLabels.AddRange(Enumerable.Range(1, screenCount)
+                .Where(index => index != currentScreenIndex + 1)
+                .Select(index => $"{AppLocalization.Translate("Capture.Region.Screen")} {index}"));
+        }
+
+        var buttons = screenSelectionBar.Items.OfType<ToolStripButton>().ToArray();
+        var expectedTooltips = new List<string> { AppLocalization.Translate("Capture.Region.FullScreenTooltip") };
+        if (screenCount > 1)
+        {
+            expectedTooltips.Add(AppLocalization.Translate("Capture.Region.CurrentScreenTooltip"));
+            expectedTooltips.AddRange(Enumerable.Range(1, screenCount)
+                .Where(index => index != currentScreenIndex + 1)
+                .Select(index => AppLocalization.Format("Capture.Region.ScreenTooltip", index)));
+        }
+        Assert.Equal(expectedTooltips, buttons.Select(button => button.ToolTipText));
+        Assert.Equal(expectedLabels, buttons.Select(button => button.AccessibleName));
+        var expectedTexts = expectedLabels.Take(2).Concat(Enumerable.Range(1, screenCount)
+            .Where(index => screenCount > 1 && index != currentScreenIndex + 1)
+            .Select(index => showToolLabels ? $"{AppLocalization.Translate("Capture.Region.Screen")} {index}" : $"{index}"));
+        Assert.Equal(expectedTexts, buttons.Select(button => button.Text));
+        Assert.Equal(screenCount > 1 ? 1 : 0, screenSelectionBar.Items.OfType<ToolStripSeparator>().Count());
+        for (var index = 0; index < buttons.Length; index++)
+        {
+            var button = buttons[index];
+            Assert.True(button.AutoSize);
+            Assert.Equal(index >= 2 ? new Padding(3, 3, 3, 3) : new Padding(8, 3, 8, 3), button.Padding);
+            Assert.NotNull(button.Image);
+            Assert.Equal(showToolLabels || index >= 2 ? ToolStripItemDisplayStyle.ImageAndText : ToolStripItemDisplayStyle.Image, button.DisplayStyle);
+            Assert.Equal(ContentAlignment.MiddleCenter, button.ImageAlign);
+            Assert.Equal(ContentAlignment.MiddleCenter, button.TextAlign);
+            Assert.Equal(TextImageRelation.ImageBeforeText, button.TextImageRelation);
+            Assert.Equal(ToolStripItemImageScaling.None, button.ImageScaling);
+        }
+    }
+
+    [Fact]
+    public void CurrentScreenButtonSelectsTheMonitorUnderTheCursor()
+    {
+        var virtualBounds = SystemInformation.VirtualScreen;
+        using var bitmap = new Bitmap(Math.Max(4, virtualBounds.Width), Math.Max(4, virtualBounds.Height));
+        var cursorScreenBounds = Screen.FromPoint(Cursor.Position).Bounds;
+        using var selector = new RegionSelectorForm(bitmap);
+        var screenSelectionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_screenSelectionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        if (Screen.AllScreens.Length == 1)
+        {
+            Assert.Single(screenSelectionBar.Items.OfType<ToolStripButton>());
+            return;
+        }
+        var currentScreenButton = screenSelectionBar.Items
+            .OfType<ToolStripButton>()
+            .Single(button => button.Text == AppLocalization.Translate("Capture.Region.CurrentScreen"));
+
+        currentScreenButton.PerformClick();
+
+        var expectedSelection = Rectangle.Intersect(
+            new Rectangle(
+                cursorScreenBounds.X - virtualBounds.X,
+                cursorScreenBounds.Y - virtualBounds.Y,
+                cursorScreenBounds.Width,
+                cursorScreenBounds.Height),
+            new Rectangle(Point.Empty, bitmap.Size));
+        Assert.Equal(expectedSelection, selector.SelectedRegion);
+        Assert.Equal(RegionSelectionAction.Capture, selector.SelectedAction);
+    }
+
+    [Theory]
+    [InlineData("pt-BR", true, "Capturar tela inteira", "Capturar tela atual", "Capturar tela 1")]
+    [InlineData("pt-BR", false, "Capturar tela inteira", "Capturar tela atual", "Capturar tela 1")]
+    [InlineData("en-US", true, "Capture full screen", "Capture current screen", "Capture screen 1")]
+    [InlineData("en-US", false, "Capture full screen", "Capture current screen", "Capture screen 1")]
+    public void ScreenSelectionTooltipsAreLocalizedRegardlessOfLabels(string language, bool showToolLabels, string fullScreenTooltip, string currentScreenTooltip, string numberedScreenTooltip)
+    {
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            using var bitmap = new Bitmap(4, 4);
+            using var selector = new RegionSelectorForm(bitmap, showToolLabels: showToolLabels);
+            var cursorScreenBounds = (Rectangle)typeof(RegionSelectorForm)
+                .GetField("_screenUnderCursorAtStart", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(selector)!;
+            var screens = new[] { new Rectangle(cursorScreenBounds.Right + 100, cursorScreenBounds.Top, 100, 100), cursorScreenBounds };
+            using var bar = (ToolStrip)typeof(RegionSelectorForm)
+                .GetMethod("CreateScreenSelectionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(selector, new object[] { screens })!;
+
+            Assert.Equal(new[] { fullScreenTooltip, currentScreenTooltip, numberedScreenTooltip },
+                bar.Items.OfType<ToolStripButton>().Select(button => button.ToolTipText));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void NumberedScreenButtonsRenderIconAndTextAsACenteredGroup(bool showToolLabels)
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap, showToolLabels: showToolLabels);
+        var screens = new[] { new Rectangle(100000, 0, 100, 100), new Rectangle(100100, 0, 100, 100) };
+        using var bar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetMethod("CreateScreenSelectionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, new object[] { screens })!;
+        selector.Controls.Add(bar);
+        selector.Show();
+        var imageBounds = new Dictionary<ToolStripItem, Rectangle>();
+        var textBounds = new Dictionary<ToolStripItem, Rectangle>();
+        bar.Renderer.RenderItemImage += (_, args) => imageBounds[args.Item] = args.ImageRectangle;
+        bar.Renderer.RenderItemText += (_, args) =>
+        {
+            textBounds[args.Item] = args.TextRectangle;
+            Assert.True(args.TextFormat.HasFlag(TextFormatFlags.NoPadding));
+        };
+        using var rendered = new Bitmap(bar.Width, bar.Height);
+        bar.DrawToBitmap(rendered, new Rectangle(Point.Empty, rendered.Size));
+
+        foreach (var button in bar.Items.OfType<ToolStripButton>().Skip(2))
+        {
+            Assert.True(imageBounds.ContainsKey(button));
+            Assert.True(textBounds.ContainsKey(button));
+            var content = Rectangle.Union(imageBounds[button], textBounds[button]);
+            Assert.InRange(Math.Abs(content.Left - (button.Width - content.Right)), 0, 1);
+            Assert.InRange(Math.Abs(imageBounds[button].Top - (button.Height - imageBounds[button].Bottom)), 0, 1);
+            Assert.InRange(Math.Abs(textBounds[button].Top - (button.Height - textBounds[button].Bottom)), 0, 1);
+            Assert.True(textBounds[button].Left > imageBounds[button].Right);
+        }
+    }
+
+    [Fact]
     public void MaskButtonLabelRemainsStableWhenMaskModeChanges()
     {
         using var bitmap = new Bitmap(4, 4);

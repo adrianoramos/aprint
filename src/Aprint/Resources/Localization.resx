@@ -132,6 +132,24 @@
   <data name="Capture.Region.Capture" xml:space="preserve">
     <value>Capturar</value>
   </data>
+  <data name="Capture.Region.FullScreen" xml:space="preserve">
+    <value>Tela inteira</value>
+  </data>
+  <data name="Capture.Region.CurrentScreen" xml:space="preserve">
+    <value>Tela</value>
+  </data>
+  <data name="Capture.Region.Screen" xml:space="preserve">
+    <value>Tela</value>
+  </data>
+  <data name="Capture.Region.FullScreenTooltip" xml:space="preserve">
+    <value>Capturar tela inteira</value>
+  </data>
+  <data name="Capture.Region.CurrentScreenTooltip" xml:space="preserve">
+    <value>Capturar tela atual</value>
+  </data>
+  <data name="Capture.Region.ScreenTooltip" xml:space="preserve">
+    <value>Capturar tela {0}</value>
+  </data>
   <data name="Capture.Region.SendToEditor" xml:space="preserve">
     <value>Enviar para o editor</value>
   </data>
@@ -298,7 +316,7 @@
     <value>Nenhuma ação</value>
   </data>
   <data name="Settings.ShowToolLabels" xml:space="preserve">
-    <value>Exibir rótulos dos botões nas barras de ferramentas</value>
+    <value>Exibir rótulos nos botões</value>
   </data>
   <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve">
     <value>Salvar sem perguntar</value>

@@ -21,6 +21,30 @@ public sealed class RegionSelectorForm : Form
         Text,
     }
 
+    private sealed class ScreenSelectionButton(string text) : ToolStripButton(text)
+    {
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            if (DisplayStyle != ToolStripItemDisplayStyle.ImageAndText || Image is null || Owner is null)
+            {
+                base.OnPaint(e);
+                return;
+            }
+
+            var textFlags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+            var textSize = TextRenderer.MeasureText(e.Graphics, Text, Font, Size.Empty, textFlags);
+            var gap = (int)Math.Round(4 * e.Graphics.DpiX / 96F);
+            var contentWidth = Image.Width + gap + textSize.Width;
+            var contentLeft = (Width - contentWidth) / 2;
+            var imageBounds = new Rectangle(contentLeft, (Height - Image.Height) / 2, Image.Width, Image.Height);
+            var textBounds = new Rectangle(imageBounds.Right + gap, (Height - textSize.Height) / 2, textSize.Width, textSize.Height);
+            var renderer = Owner.Renderer;
+            renderer.DrawButtonBackground(new ToolStripItemRenderEventArgs(e.Graphics, this));
+            renderer.DrawItemImage(new ToolStripItemImageRenderEventArgs(e.Graphics, this, Image, imageBounds));
+            renderer.DrawItemText(new ToolStripItemTextRenderEventArgs(e.Graphics, this, Text, textBounds, ForeColor, Font, textFlags));
+        }
+    }
+
     private sealed class ActionBarRenderer() : ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable())
     {
         private ToolStripItem? _hoveredMainButton;
@@ -165,6 +189,7 @@ public sealed class RegionSelectorForm : Form
     private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ActionControlHeight = ToolStripMetrics.DropdownButtonHeight;
     private const int IconOnlyActionWidth = 52;
+    private readonly Rectangle _screenUnderCursorAtStart;
     private readonly Bitmap _background;
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
     private readonly SolidBrush _overlayBrush = new(Color.FromArgb(120, 0, 0, 0));
@@ -180,6 +205,7 @@ public sealed class RegionSelectorForm : Form
     private readonly List<ImageEditingService.CounterMarker> _counterMarkers = [];
     private readonly List<Rectangle> _rectangles = [];
     private readonly List<Rectangle> _circles = [];
+    private readonly ToolStrip _screenSelectionBar;
     private readonly ToolStrip _actionBar;
     private ActionBarRenderer? _actionBarRenderer;
     private readonly EditHistory _editHistory;
@@ -254,6 +280,7 @@ public sealed class RegionSelectorForm : Form
     public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand)
     {
         _background = background;
+        _screenUnderCursorAtStart = Screen.FromPoint(Cursor.Position).Bounds;
         _editHistory = new EditHistory(_background, _nextCounterValue);
         _outsideCaptureClickAction = outsideCaptureClickAction;
         _maskMode = maskMode;
@@ -296,6 +323,10 @@ public sealed class RegionSelectorForm : Form
         DoubleBuffered = true;
         Cursor = Cursors.Default;
         BackColor = Color.Black;
+
+        _screenSelectionBar = CreateScreenSelectionBar(Screen.AllScreens.Select(screen => screen.Bounds).ToArray());
+        Controls.Add(_screenSelectionBar);
+        PositionScreenSelectionBar();
 
         _actionBar = CreateActionBar();
         Controls.Add(_actionBar);
@@ -356,6 +387,7 @@ public sealed class RegionSelectorForm : Form
 
         if (e.Button == MouseButtons.Left)
         {
+            _screenSelectionBar.Visible = false;
             if (_isEditingText)
             {
                 CommitTextEdit();
@@ -858,6 +890,113 @@ public sealed class RegionSelectorForm : Form
         Math.Abs(p1.X - p2.X),
         Math.Abs(p1.Y - p2.Y));
 
+    private ToolStrip CreateScreenSelectionBar(Rectangle[] screens)
+    {
+        var toolStrip = new ToolStrip
+        {
+            BackColor = ToolStripColorPalette.BarBackground,
+            AutoSize = true,
+            CanOverflow = false,
+            Dock = DockStyle.None,
+            GripStyle = ToolStripGripStyle.Hidden,
+            Padding = new Padding(6),
+            Renderer = new ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable()),
+            ShowItemToolTips = true,
+        };
+
+        var fullScreenLabel = AppLocalization.Translate("Capture.Region.FullScreen");
+        var fullScreenButton = CreateScreenSelectionButton(fullScreenLabel);
+        fullScreenButton.ToolTipText = AppLocalization.Translate("Capture.Region.FullScreenTooltip");
+        fullScreenButton.Image = LoadActionIcon("captureall.png", Color.FromArgb(45, 49, 54));
+        fullScreenButton.ImageAlign = ContentAlignment.MiddleCenter;
+        fullScreenButton.TextImageRelation = TextImageRelation.ImageBeforeText;
+        fullScreenButton.ImageScaling = ToolStripItemImageScaling.None;
+        fullScreenButton.Click += (_, _) => CompleteScreenSelection(new Rectangle(Point.Empty, _background.Size));
+        toolStrip.Items.Add(fullScreenButton);
+
+        if (screens.Length > 1)
+        {
+            var currentScreenLabel = AppLocalization.Translate("Capture.Region.CurrentScreen");
+            var currentScreenButton = CreateScreenSelectionButton(currentScreenLabel);
+            currentScreenButton.ToolTipText = AppLocalization.Translate("Capture.Region.CurrentScreenTooltip");
+            currentScreenButton.Image = LoadActionIcon("currentdisplay.png", Color.FromArgb(45, 49, 54));
+            currentScreenButton.ImageAlign = ContentAlignment.MiddleCenter;
+            currentScreenButton.TextImageRelation = TextImageRelation.ImageBeforeText;
+            currentScreenButton.ImageScaling = ToolStripItemImageScaling.None;
+            currentScreenButton.Click += (_, _) => CompleteScreenSelection(_screenUnderCursorAtStart);
+            toolStrip.Items.Add(currentScreenButton);
+            toolStrip.Items.Add(new ToolStripSeparator());
+
+            var screenLabel = AppLocalization.Translate("Capture.Region.Screen");
+            for (var index = 0; index < screens.Length; index++)
+            {
+                var screenBounds = screens[index];
+                if (screenBounds == _screenUnderCursorAtStart)
+                {
+                    continue;
+                }
+
+                var label = $"{screenLabel} {index + 1}";
+                var screenButton = CreateScreenSelectionButton(label);
+                screenButton.ToolTipText = AppLocalization.Format("Capture.Region.ScreenTooltip", index + 1);
+                screenButton.Text = _showToolLabels ? label : $"{index + 1}";
+                screenButton.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+                screenButton.Padding = new Padding(3, 3, 3, 3);
+                screenButton.Image = LoadActionIcon("display.png", Color.FromArgb(45, 49, 54));
+                screenButton.ImageAlign = ContentAlignment.MiddleCenter;
+                screenButton.TextImageRelation = TextImageRelation.ImageBeforeText;
+                screenButton.ImageScaling = ToolStripItemImageScaling.None;
+                screenButton.Click += (_, _) => CompleteScreenSelection(screenBounds);
+                toolStrip.Items.Add(screenButton);
+            }
+        }
+
+        var buttonsWidth = toolStrip.Items
+            .Cast<ToolStripItem>()
+            .Sum(item => item.GetPreferredSize(Size.Empty).Width + item.Margin.Horizontal);
+        toolStrip.MinimumSize = new Size(buttonsWidth + toolStrip.Padding.Horizontal, 52);
+        return toolStrip;
+    }
+
+    private ToolStripButton CreateScreenSelectionButton(string label) => new ScreenSelectionButton(label)
+    {
+        AutoSize = true,
+        DisplayStyle = _showToolLabels ? ToolStripItemDisplayStyle.ImageAndText : ToolStripItemDisplayStyle.Image,
+        ImageAlign = ContentAlignment.MiddleCenter,
+        TextAlign = ContentAlignment.MiddleCenter,
+        Margin = new Padding(2, 1, 2, 1),
+        Padding = new Padding(8, 3, 8, 3),
+        AccessibleName = label,
+        ToolTipText = label,
+    };
+
+    private void PositionScreenSelectionBar()
+    {
+        var virtualBounds = SystemInformation.VirtualScreen;
+        var screenLeft = _screenUnderCursorAtStart.Left - virtualBounds.Left;
+        var screenTop = _screenUnderCursorAtStart.Top - virtualBounds.Top;
+        var centeredLeft = screenLeft + (_screenUnderCursorAtStart.Width - _screenSelectionBar.Width) / 2;
+        var maximumLeft = Math.Max(screenLeft, screenLeft + _screenUnderCursorAtStart.Width - _screenSelectionBar.Width);
+        var left = Math.Clamp(centeredLeft, screenLeft, maximumLeft);
+
+        _screenSelectionBar.Location = new Point(left, screenTop + 12);
+    }
+
+    private void CompleteScreenSelection(Rectangle screenBounds)
+    {
+        var virtualBounds = SystemInformation.VirtualScreen;
+        var bitmapBounds = new Rectangle(
+            screenBounds.X - virtualBounds.X,
+            screenBounds.Y - virtualBounds.Y,
+            screenBounds.Width,
+            screenBounds.Height);
+        var selectedRegion = Rectangle.Intersect(bitmapBounds, new Rectangle(Point.Empty, _background.Size));
+        if (selectedRegion.Width >= MinimumSelectionSize && selectedRegion.Height >= MinimumSelectionSize)
+        {
+            CompleteSelection(selectedRegion, RegionSelectionAction.Capture);
+        }
+    }
+
     private ToolStrip CreateActionBar()
     {
         var renderer = new ActionBarRenderer();
@@ -1270,12 +1409,14 @@ public sealed class RegionSelectorForm : Form
         return icon;
     }
 
-    private void CompleteSelection(RegionSelectionAction action)
+    private void CompleteSelection(RegionSelectionAction action) => CompleteSelection(_selection, action);
+
+    private void CompleteSelection(Rectangle selection, RegionSelectionAction action)
     {
         CommitTextEdit();
         CommitAnnotationsAndRecordUndo();
 
-        SelectedRegion = _selection;
+        SelectedRegion = selection;
         SelectedAction = action;
         DialogResult = DialogResult.OK;
         Close();
