@@ -216,6 +216,8 @@ public sealed class EditorFormTests
         var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
 
         Assert.Equal(new ToolStripItem[] { spacerBefore, applyButton, cancelButton, spacerAfter }, visibleItems);
+        Assert.EndsWith("(Enter)", applyButton.ToolTipText);
+        Assert.EndsWith("(Esc)", cancelButton.ToolTipText);
         var actionsCenter = (applyButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
         Assert.InRange(Math.Abs(actionsCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
 
@@ -243,6 +245,8 @@ public sealed class EditorFormTests
         var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
 
         Assert.Equal(new ToolStripItem[] { spacerBefore, confirmButton, cancelButton, spacerAfter }, visibleItems);
+        Assert.EndsWith("(Enter)", confirmButton.ToolTipText);
+        Assert.EndsWith("(Esc)", cancelButton.ToolTipText);
         var actionsCenter = (confirmButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
         Assert.InRange(Math.Abs(actionsCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
 

@@ -435,6 +435,12 @@
   <data name="Editor.CancelCrop" xml:space="preserve">
     <value>Cancel</value>
   </data>
+  <data name="Editor.ConfirmCropToolTip" xml:space="preserve">
+    <value>Confirm (Enter)</value>
+  </data>
+  <data name="Editor.CancelCropToolTip" xml:space="preserve">
+    <value>Cancel (Esc)</value>
+  </data>
   <data name="Editor.TextFormatting" xml:space="preserve">
     <value>Text formatting</value>
   </data>
@@ -506,6 +512,12 @@
   </data>
   <data name="Editor.CancelAutomaticMask" xml:space="preserve">
     <value>Cancel masks</value>
+  </data>
+  <data name="Editor.ApplyAutomaticMaskToolTip" xml:space="preserve">
+    <value>Apply masks (Enter)</value>
+  </data>
+  <data name="Editor.CancelAutomaticMaskToolTip" xml:space="preserve">
+    <value>Cancel masks (Esc)</value>
   </data>
   <data name="Editor.AutomaticMaskApplied" xml:space="preserve">
     <value>Masks applied to image.</value>

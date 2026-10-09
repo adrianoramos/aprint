@@ -2400,9 +2400,9 @@ public sealed class EditorForm : Form
     {
         var automaticMaskActive = _isAutomaticMaskSelectionActive;
         _btnConfirmCrop.Text = AppLocalization.Translate(automaticMaskActive ? "Editor.ApplyAutomaticMask" : "Editor.ConfirmCrop");
-        _btnConfirmCrop.ToolTipText = AppLocalization.Translate(automaticMaskActive ? "Editor.ApplyAutomaticMask" : "Editor.ConfirmCrop");
+        _btnConfirmCrop.ToolTipText = AppLocalization.Translate(automaticMaskActive ? "Editor.ApplyAutomaticMaskToolTip" : "Editor.ConfirmCropToolTip");
         _btnCancelCrop.Text = AppLocalization.Translate(automaticMaskActive ? "Editor.CancelAutomaticMask" : "Editor.CancelCrop");
-        _btnCancelCrop.ToolTipText = AppLocalization.Translate(automaticMaskActive ? "Editor.CancelAutomaticMask" : "Editor.CancelCrop");
+        _btnCancelCrop.ToolTipText = AppLocalization.Translate(automaticMaskActive ? "Editor.CancelAutomaticMaskToolTip" : "Editor.CancelCropToolTip");
     }
 
     private void ApplyAutomaticMask()
