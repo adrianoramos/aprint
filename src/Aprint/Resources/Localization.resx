@@ -483,6 +483,36 @@
   <data name="Editor.SaveFilter" xml:space="preserve">
     <value>Imagem PNG|*.png|Imagem JPEG|*.jpg|Imagem Bitmap|*.bmp</value>
   </data>
+  <data name="Editor.AutomaticMask" xml:space="preserve">
+    <value>Máscara automática</value>
+  </data>
+  <data name="Editor.AutomaticMaskScanning" xml:space="preserve">
+    <value>Analisando texto para mascarar...</value>
+  </data>
+  <data name="Editor.AutomaticMaskReviewHint" xml:space="preserve">
+    <value>Segure Espaço para revelar e clique nas linhas que devem ficar visíveis. Arraste para incluir outras áreas; Enter aplica.</value>
+  </data>
+  <data name="Editor.AutomaticMaskRevealActive" xml:space="preserve">
+    <value>Espaço pressionado: clique no texto para mantê-lo visível; solte para revisar.</value>
+  </data>
+  <data name="Editor.AutomaticMaskNoRegions" xml:space="preserve">
+    <value>Nenhum texto detectado. Revise a imagem antes de compartilhar.</value>
+  </data>
+  <data name="Editor.AutomaticMaskUnavailable" xml:space="preserve">
+    <value>OCR indisponível. Nenhuma máscara de texto foi aplicada.</value>
+  </data>
+  <data name="Editor.ApplyAutomaticMask" xml:space="preserve">
+    <value>Aplicar máscaras</value>
+  </data>
+  <data name="Editor.CancelAutomaticMask" xml:space="preserve">
+    <value>Cancelar máscaras</value>
+  </data>
+  <data name="Editor.AutomaticMaskApplied" xml:space="preserve">
+    <value>Máscaras aplicadas à imagem.</value>
+  </data>
+  <data name="Editor.AutomaticMaskNoSelection" xml:space="preserve">
+    <value>Nenhuma área foi selecionada para mascarar.</value>
+  </data>
   <data name="Settings.RememberLastTool" xml:space="preserve">
     <value>Lembrar última ferramenta do editor</value>
   </data>
