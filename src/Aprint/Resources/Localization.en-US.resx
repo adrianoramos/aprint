@@ -483,6 +483,36 @@
   <data name="Editor.SaveFilter" xml:space="preserve">
     <value>PNG Image|*.png|JPEG Image|*.jpg|Bitmap Image|*.bmp</value>
   </data>
+  <data name="Editor.AutomaticMask" xml:space="preserve">
+    <value>Automatic mask</value>
+  </data>
+  <data name="Editor.AutomaticMaskScanning" xml:space="preserve">
+    <value>Detecting text to mask...</value>
+  </data>
+  <data name="Editor.AutomaticMaskReviewHint" xml:space="preserve">
+    <value>Hold Space to reveal and click lines to keep visible. Drag to add areas; press Enter to apply.</value>
+  </data>
+  <data name="Editor.AutomaticMaskRevealActive" xml:space="preserve">
+    <value>Space held: click text to keep it visible; release to review.</value>
+  </data>
+  <data name="Editor.AutomaticMaskNoRegions" xml:space="preserve">
+    <value>No text detected. Review the image before sharing.</value>
+  </data>
+  <data name="Editor.AutomaticMaskUnavailable" xml:space="preserve">
+    <value>OCR is unavailable. No text masks were applied.</value>
+  </data>
+  <data name="Editor.ApplyAutomaticMask" xml:space="preserve">
+    <value>Apply masks</value>
+  </data>
+  <data name="Editor.CancelAutomaticMask" xml:space="preserve">
+    <value>Cancel masks</value>
+  </data>
+  <data name="Editor.AutomaticMaskApplied" xml:space="preserve">
+    <value>Masks applied to image.</value>
+  </data>
+  <data name="Editor.AutomaticMaskNoSelection" xml:space="preserve">
+    <value>No areas were selected for masking.</value>
+  </data>
   <data name="Settings.RememberLastTool" xml:space="preserve">
     <value>Remember last used editor tool</value>
   </data>
