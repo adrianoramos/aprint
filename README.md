@@ -9,6 +9,7 @@ Depois da captura, a imagem pode ser copiada para o clipboard, salva em uma past
 - Captura de tela por atalho global, menu da bandeja ou tecla Print Screen.
 - Seleção da região da tela a ser capturada.
 - Editor integrado para anotações e ocultação de informações sensíveis.
+- Ferramenta opcional **Máscara automática** no editor; selecione as linhas detectadas, revele-as temporariamente com `Espaço` e confirme com `Enter` ou **Aplicar máscaras**.
 - Corte da captura no editor: pressione `,`, arraste as alças nas bordas e confirme com Enter ou cancele com Esc.
 - Cópia direta da imagem para o clipboard.
 - Salvamento em pasta configurável.
@@ -16,7 +17,7 @@ Depois da captura, a imagem pode ser copiada para o clipboard, salva em uma past
 - Abertura da imagem capturada, do arquivo salvo ou da pasta de destino pela notificação.
 - Preferências de idioma, atalhos, comportamento do editor e inicialização com o Windows.
 
-O Aprint foi desenvolvido para fluxos de trabalho que exigem capturas frequentes, como documentação, suporte técnico, desenvolvimento de software e comunicação entre equipes. A aplicação é executada localmente no Windows e não depende de um serviço externo para realizar as capturas.
+O Aprint foi desenvolvido para fluxos de trabalho que exigem capturas frequentes, como documentação, suporte técnico, desenvolvimento de software e comunicação entre equipes. A ferramenta opcional de mascaramento e as capturas são processadas localmente, sem enviar imagens ou texto a serviços externos. O idioma de OCR precisa estar disponível no Windows; se a ferramenta não puder ser executada, nenhuma máscara automática será aplicada e o usuário ainda poderá editar ou compartilhar a imagem normalmente.
 
 ## Requisitos
 
