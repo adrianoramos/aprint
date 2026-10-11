@@ -168,6 +168,7 @@ public sealed class EditorForm : Form
         Cancel,
         Filled,
         Pixelated,
+        AutomaticMask,
         Undo,
         Redo,
         Copy,
@@ -213,11 +214,8 @@ public sealed class EditorForm : Form
     private readonly Dictionary<string, Bitmap> _toolIconBitmaps = [];
     private readonly Dictionary<ToolIconKind, int> _colorizedToolIconColors = [];
     private readonly PictureBox _pictureBox;
-    private readonly ToolStripButton _btnFreehand;
-    private readonly ToolStripButton _btnLine;
-    private readonly ToolStripButton _btnArrow;
-    private readonly ToolStripButton _btnRectangle;
-    private readonly ToolStripButton _btnCircle;
+    private readonly ToolStripButton _btnDrawing;
+    private readonly ToolStripDropDownButton _btnDrawingDropdown;
     private readonly ToolStripButton _btnCounter;
     private readonly ToolStripButton _btnHighlight;
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
@@ -227,11 +225,12 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnCancelCrop;
     private readonly ToolStripDropDownButton _btnTextFormatDropdown;
     private readonly ToolStripButton _btnMask;
-    private readonly ToolStripButton _btnAutomaticMask;
     private readonly ToolStripDropDownButton _btnMaskModeDropdown;
     private readonly ToolStripMenuItem _filledModeMenuItem;
     private readonly ToolStripMenuItem _pixelatedModeMenuItem;
     private readonly ToolStripSeparator _pixelSizeSeparator;
+    private readonly ToolStripSeparator _automaticMaskSeparator;
+    private readonly ToolStripMenuItem _automaticMaskMenuItem;
     private readonly ToolStripControlHost _pixelSizeControlHost;
     private readonly ToolStripButton _btnColor;
     private readonly ToolStripButton _btnTextColor;
@@ -246,6 +245,7 @@ public sealed class EditorForm : Form
     private readonly EditHistory _editHistory;
     private Font _textFont = new("Segoe UI", 12F);
     private readonly List<Font> _textFormatButtonFonts = [];
+    private EditTool _selectedDrawingTool = EditTool.Freehand;
     private readonly ToolTip _textFormatToolTip = new();
     private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
     private readonly System.Windows.Forms.Timer? _inactivityTimer;
@@ -421,37 +421,32 @@ public sealed class EditorForm : Form
         });
         UpdateFillColorButtonAppearance();
 
-        _btnFreehand = CreateStandardToolButton(
+        _btnDrawing = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Freehand"),
             ToolIconKind.Freehand,
             Color.Black,
             isCheckable: true,
             isChecked: true,
             shortcut: "F2");
-        _btnLine = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.Line"),
-            ToolIconKind.Line,
-            Color.Black,
-            isCheckable: true,
-            shortcut: "F3");
-        _btnArrow = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.Arrow"),
-            ToolIconKind.Arrow,
-            Color.Black,
-            isCheckable: true,
-            shortcut: "F4");
-        _btnRectangle = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.Rectangle"),
-            ToolIconKind.Rectangle,
-            Color.Black,
-            isCheckable: true,
-            shortcut: "F5");
-        _btnCircle = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.Circle"),
-            ToolIconKind.Circle,
-            Color.Black,
-            isCheckable: true,
-            shortcut: "F6");
+        _btnDrawing.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
+        _btnDrawing.Click += (_, _) => SetActiveTool(_selectedDrawingTool);
+        _btnDrawingDropdown = new ToolStripDropDownButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(0, 0, ToolButtonMargin, 0),
+            AutoSize = false,
+            Width = ToolStripMetrics.DropdownButtonWidth,
+            Height = ToolStripMetrics.DropdownButtonHeight,
+            AutoToolTip = false,
+            ToolTipText = AppLocalization.Translate("Capture.Region.Drawing"),
+            AccessibleName = AppLocalization.Translate("Capture.Region.Drawing"),
+        };
+        AddDrawingToolMenuItem(EditTool.Freehand, ToolIconKind.Freehand, "Editor.Freehand", "F2");
+        AddDrawingToolMenuItem(EditTool.Line, ToolIconKind.Line, "Editor.Line", "F3");
+        AddDrawingToolMenuItem(EditTool.Arrow, ToolIconKind.Arrow, "Editor.Arrow", "F4");
+        AddDrawingToolMenuItem(EditTool.Rectangle, ToolIconKind.Rectangle, "Editor.Rectangle", "F5");
+        AddDrawingToolMenuItem(EditTool.Circle, ToolIconKind.Circle, "Editor.Circle", "F6");
         _btnCounter = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Counter"),
             ToolIconKind.Counter,
@@ -638,13 +633,6 @@ public sealed class EditorForm : Form
         _btnMask.Click += (_, _) => SetActiveTool(
             _maskMode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated);
 
-        _btnAutomaticMask = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.AutomaticMask"),
-            ToolIconKind.Pixelated,
-            Color.Black);
-        _btnAutomaticMask.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
-        _btnAutomaticMask.Click += async (_, _) => await StartAutomaticMaskAsync();
-
         _btnMaskModeDropdown = new ToolStripDropDownButton
         {
             ImageAlign = ContentAlignment.MiddleCenter,
@@ -719,7 +707,23 @@ public sealed class EditorForm : Form
             Size = pixelSizePanel.Size,
             Margin = Padding.Empty,
         };
-        _btnMaskModeDropdown.DropDownItems.Add(_pixelSizeControlHost);
+        _automaticMaskSeparator = new ToolStripSeparator();
+        _automaticMaskMenuItem = new ToolStripMenuItem(
+            AppLocalization.Translate("Editor.AutomaticMask"),
+            _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.AutomaticMask, Color.Black)])
+        {
+            ToolTipText = AppLocalization.Translate("Editor.AutomaticMask"),
+        };
+        _automaticMaskMenuItem.Click += async (_, _) =>
+        {
+            _btnMaskModeDropdown.DropDown.Close();
+            await StartAutomaticMaskAsync();
+        };
+        _btnMaskModeDropdown.DropDownItems.AddRange([
+            _pixelSizeControlHost,
+            _automaticMaskSeparator,
+            _automaticMaskMenuItem,
+        ]);
         _btnMaskModeDropdown.DropDown.AutoClose = false;
         var popupDismissMessageFilter = new PopupDismissMessageFilter(
             _btnTextFormatDropdown,
@@ -728,11 +732,6 @@ public sealed class EditorForm : Form
         Shown += (_, _) => System.Windows.Forms.Application.AddMessageFilter(popupDismissMessageFilter);
         FormClosed += (_, _) => System.Windows.Forms.Application.RemoveMessageFilter(popupDismissMessageFilter);
 
-        _btnFreehand.Click += (_, _) => SetActiveTool(EditTool.Freehand);
-        _btnLine.Click += (_, _) => SetActiveTool(EditTool.Line);
-        _btnArrow.Click += (_, _) => SetActiveTool(EditTool.Arrow);
-        _btnRectangle.Click += (_, _) => SetActiveTool(EditTool.Rectangle);
-        _btnCircle.Click += (_, _) => SetActiveTool(EditTool.Circle);
         _btnCounter.Click += (_, _) => SetActiveTool(EditTool.Counter);
         _btnHighlight.Click += (_, _) => SetActiveTool(EditTool.Highlight);
         _btnText.Click += (_, _) => SetActiveTool(EditTool.Text);
@@ -841,16 +840,12 @@ public sealed class EditorForm : Form
             shortcut: "Ctrl+S");
         btnSaveAs.Click += async (_, _) => await SaveAsAsync();
 
-        var actionGroupSeparator = CreateToolStripSeparator();
-        actionGroupSeparator.Alignment = ToolStripItemAlignment.Right;
         var copyGroupSeparator = CreateToolStripSeparator();
         copyGroupSeparator.Alignment = ToolStripItemAlignment.Right;
         foreach (var actionButton in new[] { btnCopy, btnSaveAs })
         {
             actionButton.Alignment = ToolStripItemAlignment.Right;
         }
-        actionGroupSeparator.Alignment = ToolStripItemAlignment.Left;
-
         _centerToolsSpacer = new ToolStripLabel
         {
             AutoSize = false,
@@ -867,21 +862,16 @@ public sealed class EditorForm : Form
             _btnFillColor,
             _btnFillColorDropdown,
             CreateToolStripSeparator(),
-            _btnFreehand,
-            _btnLine,
-            _btnArrow,
-            _btnRectangle,
-            _btnCircle,
+            _btnDrawing,
+            _btnDrawingDropdown,
             _btnHighlight,
             _btnHighlightSizeDropdown,
             _btnMask,
             _btnMaskModeDropdown,
-            _btnAutomaticMask,
             _btnCounter,
             _btnText,
             _btnTextFormatDropdown,
             _btnCrop,
-            actionGroupSeparator,
             _btnUndo,
             _btnRedo,
             _actionSpacerBefore,
@@ -893,6 +883,7 @@ public sealed class EditorForm : Form
             copyGroupSeparator,
         ]);
 
+        TrackToolGroupHover(toolStrip, _btnDrawing, _btnDrawingDropdown);
         TrackToolGroupHover(toolStrip, _btnFillColor, _btnFillColorDropdown);
         TrackToolGroupHover(toolStrip, _btnHighlight, _btnHighlightSizeDropdown);
         TrackToolGroupHover(toolStrip, _btnText, _btnTextFormatDropdown);
@@ -999,17 +990,56 @@ public sealed class EditorForm : Form
         dropdownButton.MouseLeave += (_, _) => ClearHoverIfOutsideGroup();
     }
 
-    private static void SetToolLabelsVisible(ToolStrip toolStrip, bool visible)
+    private void AddDrawingToolMenuItem(EditTool tool, ToolIconKind iconKind, string localizationKey, string shortcut)
+    {
+        var iconKey = EnsureToolIconKey(iconKind, Color.Black);
+        var label = AppLocalization.Translate(localizationKey);
+        var menuItem = new ToolStripMenuItem(label, _toolIconImageList.Images[iconKey])
+        {
+            Tag = tool,
+            AccessibleName = label,
+            Checked = tool == _selectedDrawingTool,
+            ShortcutKeyDisplayString = shortcut,
+        };
+        menuItem.Click += (_, _) => SetActiveTool(tool);
+        _btnDrawingDropdown.DropDownItems.Add(menuItem);
+    }
+
+    private static bool IsDrawingTool(EditTool tool) => tool is
+        EditTool.Freehand or EditTool.Line or EditTool.Arrow or EditTool.Rectangle or EditTool.Circle;
+
+    private void UpdateDrawingToolButton(EditTool tool)
+    {
+        var (iconKind, localizationKey, tooltipLocalizationKey, shortcut) = tool switch
+        {
+            EditTool.Freehand => (ToolIconKind.Freehand, "Editor.Freehand", "Capture.Region.Freehand", "F2"),
+            EditTool.Line => (ToolIconKind.Line, "Editor.Line", "Capture.Region.Line", "F3"),
+            EditTool.Arrow => (ToolIconKind.Arrow, "Editor.Arrow", "Capture.Region.Arrow", "F4"),
+            EditTool.Rectangle => (ToolIconKind.Rectangle, "Editor.Rectangle", "Capture.Region.Rectangle", "F5"),
+            EditTool.Circle => (ToolIconKind.Circle, "Editor.Circle", "Capture.Region.Circle", "F6"),
+            _ => throw new ArgumentOutOfRangeException(nameof(tool)),
+        };
+        var label = AppLocalization.Translate(localizationKey);
+        var tooltipToolLabel = AppLocalization.Translate(tooltipLocalizationKey);
+        var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
+        _selectedDrawingTool = tool;
+        _btnDrawing.Text = label;
+        _btnDrawing.ImageKey = EnsureToolIconKey(iconKind, Color.Black);
+        _btnDrawing.ToolTipText = $"{drawingLabel}: {tooltipToolLabel} ({shortcut})";
+        _btnDrawing.AccessibleName = label;
+
+        foreach (ToolStripMenuItem menuItem in _btnDrawingDropdown.DropDownItems)
+        {
+            menuItem.Checked = menuItem.Tag is EditTool menuTool && menuTool == tool;
+        }
+    }
+
+    private void SetToolLabelsVisible(ToolStrip toolStrip, bool visible)
     {
         var buttons = toolStrip.Items.OfType<ToolStripButton>().ToArray();
         foreach (var button in buttons)
         {
             button.AutoSize = visible;
-            if (!visible)
-            {
-                button.Width = ToolButtonSize;
-            }
-
             button.DisplayStyle = visible
                 ? ToolStripItemDisplayStyle.ImageAndText
                 : ToolStripItemDisplayStyle.Image;
@@ -1018,8 +1048,14 @@ public sealed class EditorForm : Form
         foreach (var button in buttons)
         {
             var preferredWidth = button.GetPreferredSize(Size.Empty).Width;
+            var itemIndex = toolStrip.Items.IndexOf(button);
+            var isSplitButton = itemIndex + 1 < toolStrip.Items.Count
+                && toolStrip.Items[itemIndex + 1] is ToolStripDropDownButton;
+            var width = visible
+                ? preferredWidth
+                : ToolStripMetrics.IconOnlyActionWidth - (isSplitButton ? ToolStripMetrics.DropdownButtonWidth : 0);
             button.AutoSize = false;
-            button.Size = new Size(preferredWidth, ToolStripMetrics.DropdownButtonHeight);
+            button.Size = new Size(width, ToolStripMetrics.DropdownButtonHeight);
         }
     }
 
@@ -1236,6 +1272,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Cancel => "Aprint.Resources.Icons.cancel.png",
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
+            ToolIconKind.AutomaticMask => "Aprint.Resources.Icons.automaticmask.png",
             ToolIconKind.Undo => "Aprint.Resources.Icons.undo.png",
             ToolIconKind.Redo => "Aprint.Resources.Icons.redo.png",
             ToolIconKind.Copy => "Aprint.Resources.Icons.copy.png",
@@ -1292,11 +1329,12 @@ public sealed class EditorForm : Form
                 _pictureBox.Invalidate();
             }
         }
-        _btnFreehand.Checked = tool == EditTool.Freehand;
-        _btnLine.Checked = tool == EditTool.Line;
-        _btnArrow.Checked = tool == EditTool.Arrow;
-        _btnRectangle.Checked = tool == EditTool.Rectangle;
-        _btnCircle.Checked = tool == EditTool.Circle;
+        var isDrawingTool = IsDrawingTool(tool);
+        if (isDrawingTool)
+        {
+            UpdateDrawingToolButton(tool);
+        }
+        _btnDrawing.Checked = isDrawingTool;
         _btnCounter.Checked = tool == EditTool.Counter;
         _btnHighlight.Checked = tool == EditTool.Highlight;
         _btnText.Checked = tool == EditTool.Text;
@@ -1306,7 +1344,12 @@ public sealed class EditorForm : Form
         UpdateMaskToolAppearance();
         ToolStripItem? activeGroupButton = null;
         ToolStripItem? activeGroupDropdown = null;
-        if (tool == EditTool.Highlight)
+        if (isDrawingTool)
+        {
+            activeGroupButton = _btnDrawing;
+            activeGroupDropdown = _btnDrawingDropdown;
+        }
+        else if (tool == EditTool.Highlight)
         {
             activeGroupButton = _btnHighlight;
             activeGroupDropdown = _btnHighlightSizeDropdown;
@@ -2427,7 +2470,7 @@ public sealed class EditorForm : Form
         SetAutomaticMaskSelectionActive(true);
         _btnConfirmCrop.Enabled = false;
         _btnCancelCrop.Enabled = false;
-        _btnAutomaticMask.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskScanning");
+        _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskScanning");
         _pictureBox.Invalidate();
 
         try
@@ -2444,7 +2487,7 @@ public sealed class EditorForm : Form
                 _textRegionDetectionInProgress = false;
                 _textRegionDetectionReady = true;
                 SetAutomaticMaskSelectionActive(true);
-                _btnAutomaticMask.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
+                _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
                 _pictureBox.Invalidate();
                 return;
             }
@@ -2454,7 +2497,7 @@ public sealed class EditorForm : Form
             _maskDetectionImageSize = source.Size;
             _textRegionDetectionInProgress = false;
             _textRegionDetectionReady = true;
-            _btnAutomaticMask.ToolTipText = AppLocalization.Translate(_maskRegions.Count == 0
+            _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate(_maskRegions.Count == 0
                 ? "Editor.AutomaticMaskNoRegions"
                 : "Editor.AutomaticMaskReviewHint");
             SetAutomaticMaskSelectionActive(true);
@@ -2468,7 +2511,7 @@ public sealed class EditorForm : Form
                 _textRegionDetectionInProgress = false;
                 _textRegionDetectionReady = true;
                 SetAutomaticMaskSelectionActive(true);
-                _btnAutomaticMask.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
+                _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
                 _pictureBox.Invalidate();
             }
         }
@@ -2482,8 +2525,8 @@ public sealed class EditorForm : Form
         _textRegionDetectionInProgress = false;
         _isAutomaticMaskRevealActive = false;
         SetAutomaticMaskSelectionActive(false);
-        _btnAutomaticMask.Enabled = true;
-        _btnAutomaticMask.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
+        _automaticMaskMenuItem.Enabled = true;
+        _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
         _pictureBox.Invalidate();
     }
 
@@ -2542,7 +2585,7 @@ public sealed class EditorForm : Form
 
         _btnConfirmCrop.Enabled = centeredActionMode;
         _btnCancelCrop.Enabled = centeredActionMode;
-        _btnAutomaticMask.Enabled = !_isAutomaticMaskSelectionActive;
+        _automaticMaskMenuItem.Enabled = !_isAutomaticMaskSelectionActive;
         UpdateAutomaticMaskActionButtons();
         toolStrip.PerformLayout();
         CenterActionButtons(toolStrip);
@@ -2619,7 +2662,7 @@ public sealed class EditorForm : Form
         _textRegionDetectionReady = false;
         _isAutomaticMaskRevealActive = false;
         SetAutomaticMaskSelectionActive(false);
-        _btnAutomaticMask.ToolTipText = AppLocalization.Translate(selectedRegions.Length > 0
+        _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate(selectedRegions.Length > 0
             ? "Editor.AutomaticMaskApplied"
             : "Editor.AutomaticMaskNoSelection");
         _pictureBox.Invalidate();
@@ -2637,7 +2680,7 @@ public sealed class EditorForm : Form
         _textRegionDetectionReady = false;
         _isAutomaticMaskRevealActive = false;
         SetAutomaticMaskSelectionActive(false);
-        _btnAutomaticMask.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
+        _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
         _pictureBox.Invalidate();
     }
 

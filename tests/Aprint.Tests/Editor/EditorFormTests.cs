@@ -45,7 +45,7 @@ public sealed class EditorFormTests
             .GetValue(capture)!;
         var captureDropdowns = captureActionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
 
-        Assert.Equal(4, editorDropdowns.Length);
+        Assert.Equal(5, editorDropdowns.Length);
         Assert.Equal(3, captureDropdowns.Length);
         Assert.All(editorDropdowns, button => Assert.Equal(14, button.Width));
         Assert.All(editorDropdowns, button => Assert.Equal(captureDropdowns[0].Width, button.Width));
@@ -55,6 +55,27 @@ public sealed class EditorFormTests
         Assert.All(
             editorToolStrip.Items.OfType<ToolStripButton>(),
             button => Assert.Equal(captureDropdowns[0].Height, button.Height));
+        if (!showLabels)
+        {
+            const int iconOnlyActionWidth = 52;
+            for (var index = 0; index < editorToolStrip.Items.Count; index++)
+            {
+                if (editorToolStrip.Items[index] is ToolStripButton button)
+                {
+                    if (index + 1 < editorToolStrip.Items.Count
+                        && editorToolStrip.Items[index + 1] is ToolStripDropDownButton dropdownButton)
+                    {
+                        Assert.Equal(iconOnlyActionWidth, button.Width + dropdownButton.Width);
+                        index++;
+                    }
+                    else
+                    {
+                        Assert.Equal(iconOnlyActionWidth, button.Width);
+                    }
+                }
+            }
+        }
+
         if (showLabels)
         {
             Assert.All(
@@ -67,6 +88,11 @@ public sealed class EditorFormTests
     }
 
     [Theory]
+    [InlineData(EditTool.Freehand, "_btnDrawing", "_btnDrawingDropdown")]
+    [InlineData(EditTool.Line, "_btnDrawing", "_btnDrawingDropdown")]
+    [InlineData(EditTool.Arrow, "_btnDrawing", "_btnDrawingDropdown")]
+    [InlineData(EditTool.Rectangle, "_btnDrawing", "_btnDrawingDropdown")]
+    [InlineData(EditTool.Circle, "_btnDrawing", "_btnDrawingDropdown")]
     [InlineData(EditTool.Highlight, "_btnHighlight", "_btnHighlightSizeDropdown")]
     [InlineData(EditTool.Text, "_btnText", "_btnTextFormatDropdown")]
     [InlineData(EditTool.Pixelated, "_btnMask", "_btnMaskModeDropdown")]
@@ -83,6 +109,66 @@ public sealed class EditorFormTests
 
         Assert.Same(mainButton, renderer.GetType().GetField("_activeMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
         Assert.Same(dropdownButton, renderer.GetType().GetField("_activeDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+    }
+
+    [Fact]
+    public void DrawingDropdownUpdatesMainIconAndRetainsLastDrawingToolWhenSwitchingModes()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty, initialTool: EditTool.Crop);
+        var drawingButton = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnDrawing", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var drawingDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnDrawingDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var freehandImageKey = drawingButton.ImageKey;
+        var lineMenuItem = Assert.Single(
+            drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag is EditTool tool && tool == EditTool.Line);
+        var freehandMenuItem = Assert.Single(
+            drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag is EditTool tool && tool == EditTool.Freehand);
+
+        Assert.False(drawingButton.Checked);
+        Assert.True(freehandMenuItem.Checked);
+
+        lineMenuItem.PerformClick();
+
+        var lineImageKey = drawingButton.ImageKey;
+        Assert.Equal(EditTool.Line, editor.SelectedTool);
+        Assert.NotEqual(freehandImageKey, lineImageKey);
+        Assert.True(drawingButton.Checked);
+        Assert.True(lineMenuItem.Checked);
+
+        typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, [EditTool.Crop]);
+
+        Assert.False(drawingButton.Checked);
+        Assert.Equal(lineImageKey, drawingButton.ImageKey);
+        Assert.Equal(EditTool.Crop, editor.SelectedTool);
+    }
+
+    [Theory]
+    [InlineData(EditTool.Freehand)]
+    [InlineData(EditTool.Line)]
+    [InlineData(EditTool.Arrow)]
+    [InlineData(EditTool.Rectangle)]
+    [InlineData(EditTool.Circle)]
+    public void EditorDrawingToolTipsMatchFloatingToolbar(EditTool tool)
+    {
+        using var editorBitmap = new Bitmap(20, 20);
+        using var captureBitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(editorBitmap, string.Empty, initialTool: tool);
+        using var capture = new RegionSelectorForm(captureBitmap, lastCaptureTool: tool);
+        var editorButton = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnDrawing", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var captureButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_drawingButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(capture)!;
+
+        Assert.Equal(captureButton.ToolTipText, editorButton.ToolTipText);
     }
 
     [Fact]
@@ -107,8 +193,18 @@ public sealed class EditorFormTests
         Assert.Equal(ToolStripItemAlignment.Right, saveButton.Alignment);
         Assert.True(cropButton.Bounds.Right < undoButton.Bounds.Left);
         Assert.True(undoButton.Bounds.Left < redoButton.Bounds.Left);
-        Assert.True(copyButton.Bounds.Left < saveButton.Bounds.Left);
-        Assert.Equal(toolStrip.DisplayRectangle.Right, saveButton.Bounds.Right + saveButton.Margin.Right);
+        Assert.Equal(ToolStripItemPlacement.Main, saveButton.Placement);
+        if (toolStrip.OverflowButton.Visible)
+        {
+            Assert.Equal(ToolStripItemPlacement.Overflow, copyButton.Placement);
+            Assert.Equal(toolStrip.OverflowButton.Bounds.Left, saveButton.Bounds.Right + saveButton.Margin.Right);
+        }
+        else
+        {
+            Assert.Equal(ToolStripItemPlacement.Main, copyButton.Placement);
+            Assert.True(copyButton.Bounds.Left < saveButton.Bounds.Left);
+            Assert.Equal(toolStrip.DisplayRectangle.Right, saveButton.Bounds.Right + saveButton.Margin.Right);
+        }
     }
 
     [Fact]
@@ -252,16 +348,35 @@ public sealed class EditorFormTests
         Assert.Equal(Color.White.ToArgb(), export.GetPixel(0, 0).ToArgb());
     }
 
-    [Fact]
-    public void AutomaticMaskToolIsAvailableButInactiveAtStartup()
+    [Theory]
+    [InlineData(EditTool.Blur)]
+    [InlineData(EditTool.Pixelated)]
+    public void AutomaticMaskMenuItemIsSeparatedAndAvailable(EditTool initialTool)
     {
         using var bitmap = new Bitmap(2, 2);
-        using var editor = new EditorForm(bitmap, string.Empty);
-        var button = (ToolStripButton)typeof(EditorForm)
-            .GetField("_btnAutomaticMask", BindingFlags.Instance | BindingFlags.NonPublic)!
+        using var editor = new EditorForm(bitmap, string.Empty, initialTool: initialTool);
+        var menuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_automaticMaskMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var separator = (ToolStripSeparator)typeof(EditorForm)
+            .GetField("_automaticMaskSeparator", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var maskDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnMaskModeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var pixelSizeSeparator = (ToolStripSeparator)typeof(EditorForm)
+            .GetField("_pixelSizeSeparator", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var pixelSizeControlHost = (ToolStripControlHost)typeof(EditorForm)
+            .GetField("_pixelSizeControlHost", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
 
-        Assert.True(button.Enabled);
+        Assert.True(menuItem.Enabled);
+        Assert.NotNull(menuItem.Image);
+        var menuItemIndex = maskDropdown.DropDownItems.IndexOf(menuItem);
+        Assert.Same(separator, maskDropdown.DropDownItems[menuItemIndex - 1]);
+        Assert.Same(pixelSizeControlHost, maskDropdown.DropDownItems[menuItemIndex - 2]);
+        Assert.Same(pixelSizeSeparator, maskDropdown.DropDownItems[menuItemIndex - 3]);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
     }
@@ -279,19 +394,20 @@ public sealed class EditorFormTests
         var toolStrip = editor.Controls.OfType<ToolStrip>().Single();
         var visibleItems = toolStrip.Items.Cast<ToolStripItem>().Where(item => item.Visible).ToArray();
         var spacerBefore = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerBefore", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
-        var automaticMaskButton = (ToolStripButton)typeof(EditorForm).GetField("_btnAutomaticMask", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+        var automaticMaskMenuItem = (ToolStripMenuItem)typeof(EditorForm).GetField("_automaticMaskMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var applyButton = (ToolStripButton)typeof(EditorForm).GetField("_btnConfirmCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var cancelButton = (ToolStripButton)typeof(EditorForm).GetField("_btnCancelCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
 
         Assert.Equal(new ToolStripItem[] { spacerBefore, applyButton, cancelButton, spacerAfter }, visibleItems);
+        Assert.False(automaticMaskMenuItem.Enabled);
         Assert.EndsWith("(Enter)", applyButton.ToolTipText);
         Assert.EndsWith("(Esc)", cancelButton.ToolTipText);
         var actionsCenter = (applyButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
         Assert.InRange(Math.Abs(actionsCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
 
         activateSelection.Invoke(editor, [false]);
-        Assert.True(automaticMaskButton.Enabled);
+        Assert.True(automaticMaskMenuItem.Enabled);
         Assert.False(applyButton.Visible);
         Assert.False(cancelButton.Visible);
     }

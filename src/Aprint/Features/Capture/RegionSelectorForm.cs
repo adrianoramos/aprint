@@ -188,7 +188,6 @@ public sealed class RegionSelectorForm : Form
     private const int MinimumSelectionSize = 3;
     private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ActionControlHeight = ToolStripMetrics.DropdownButtonHeight;
-    private const int IconOnlyActionWidth = 52;
     private readonly Rectangle _screenUnderCursorAtStart;
     private readonly Bitmap _background;
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
@@ -1319,7 +1318,7 @@ public sealed class RegionSelectorForm : Form
             ImageScaling = ToolStripItemImageScaling.None,
             AutoSize = _showToolLabels,
             CheckOnClick = false,
-            Size = new Size(IconOnlyActionWidth, ActionControlHeight),
+            Size = new Size(ToolStripMetrics.IconOnlyActionWidth, ActionControlHeight),
             AutoToolTip = true,
             ToolTipText = text,
         };
@@ -1361,7 +1360,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         button.AutoSize = false;
-        button.Size = new Size(IconOnlyActionWidth, ActionControlHeight);
+        button.Size = new Size(ToolStripMetrics.IconOnlyActionWidth, ActionControlHeight);
     }
 
     private void ApplyCaptureSplitButtonSize(ToolStripButton mainButton, ToolStripDropDownButton dropdownButton)
@@ -1375,7 +1374,7 @@ public sealed class RegionSelectorForm : Form
         }
 
         mainButton.AutoSize = false;
-        mainButton.Size = new Size(IconOnlyActionWidth - ToolStripMetrics.DropdownButtonWidth, ActionControlHeight);
+        mainButton.Size = new Size(ToolStripMetrics.IconOnlyActionWidth - ToolStripMetrics.DropdownButtonWidth, ActionControlHeight);
         dropdownButton.Size = new Size(ToolStripMetrics.DropdownButtonWidth, ActionControlHeight);
     }
 
