@@ -3,6 +3,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using Aprint.Features.Capture;
 using Aprint.Features.Settings;
+using Aprint.Infrastructure.Images;
 
 namespace Aprint.Features.Editor;
 
@@ -2170,7 +2171,7 @@ public sealed class EditorForm : Form
             await Task.Run(() =>
             {
                 using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
-                saveCopy.Save(output, format);
+                ImageMetadataWriter.SaveWithSoftwareMetadata(saveCopy, output, format);
             });
 
             var savedDirectory = Path.GetDirectoryName(destinationPath);

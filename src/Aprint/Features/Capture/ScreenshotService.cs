@@ -1,4 +1,5 @@
 using System.Drawing.Imaging;
+using Aprint.Infrastructure.Images;
 using Aprint.Features.Settings;
 
 namespace Aprint.Features.Capture;
@@ -29,7 +30,10 @@ public static class ScreenshotService
 
         var fileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png";
         var filePath = Path.Combine(saveFolder, fileName);
-        bitmap.Save(filePath, ImageFormat.Png);
+        using (var output = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+        {
+            ImageMetadataWriter.SaveWithSoftwareMetadata(bitmap, output, ImageFormat.Png);
+        }
 
         return filePath;
     }
@@ -57,7 +61,11 @@ public static class ScreenshotService
         };
 
         Directory.CreateDirectory(Path.GetDirectoryName(dialog.FileName)!);
-        bitmap.Save(dialog.FileName, format);
+        using (var output = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write))
+        {
+            ImageMetadataWriter.SaveWithSoftwareMetadata(bitmap, output, format);
+        }
+
         return dialog.FileName;
     }
 }
