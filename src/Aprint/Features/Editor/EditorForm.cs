@@ -66,6 +66,89 @@ public sealed class EditorForm : Form
         }
     }
 
+    private sealed class EditorToolStripRenderer() : ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable())
+    {
+        private ToolStripItem? _activeMainButton;
+        private ToolStripItem? _activeDropdownButton;
+        private ToolStripItem? _hoveredMainButton;
+        private ToolStripItem? _hoveredDropdownButton;
+
+        public bool SetActiveGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton)
+        {
+            if (ReferenceEquals(_activeMainButton, mainButton) && ReferenceEquals(_activeDropdownButton, dropdownButton))
+            {
+                return false;
+            }
+
+            _activeMainButton = mainButton;
+            _activeDropdownButton = dropdownButton;
+            return true;
+        }
+
+        public bool SetHoveredGroup(ToolStripItem? mainButton, ToolStripItem? dropdownButton)
+        {
+            if (ReferenceEquals(_hoveredMainButton, mainButton) && ReferenceEquals(_hoveredDropdownButton, dropdownButton))
+            {
+                return false;
+            }
+
+            _hoveredMainButton = mainButton;
+            _hoveredDropdownButton = dropdownButton;
+            return true;
+        }
+
+        protected override void OnRenderButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (IsActive(e.Item) || e.Item.Selected || e.Item.Pressed)
+            {
+                DrawBackground(e, omitRightBorder: ReferenceEquals(e.Item, _activeMainButton) || ReferenceEquals(e.Item, _hoveredMainButton));
+                return;
+            }
+
+            base.OnRenderButtonBackground(e);
+        }
+
+        protected override void OnRenderDropDownButtonBackground(ToolStripItemRenderEventArgs e)
+        {
+            if (IsActive(e.Item) || e.Item.Selected || e.Item.Pressed)
+            {
+                DrawBackground(e);
+                return;
+            }
+
+            base.OnRenderDropDownButtonBackground(e);
+        }
+
+        private bool IsActive(ToolStripItem item) =>
+            ReferenceEquals(item, _activeMainButton) ||
+            ReferenceEquals(item, _activeDropdownButton) ||
+            ReferenceEquals(item, _hoveredMainButton) ||
+            ReferenceEquals(item, _hoveredDropdownButton) ||
+            item is ToolStripButton { Checked: true };
+
+        private static void DrawBackground(ToolStripItemRenderEventArgs e, bool omitRightBorder = false)
+        {
+            var bounds = new Rectangle(Point.Empty, e.Item.Size);
+            using var fill = new SolidBrush(ToolStripColorPalette.ActiveBackground);
+            using var border = new Pen(ToolStripColorPalette.ActiveBorder);
+            e.Graphics.FillRectangle(fill, bounds);
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                return;
+            }
+
+            var right = bounds.Right - 1;
+            var bottom = bounds.Bottom - 1;
+            e.Graphics.DrawLine(border, bounds.Left, bounds.Top, right, bounds.Top);
+            e.Graphics.DrawLine(border, bounds.Left, bottom, right, bottom);
+            e.Graphics.DrawLine(border, bounds.Left, bounds.Top, bounds.Left, bottom);
+            if (!omitRightBorder)
+            {
+                e.Graphics.DrawLine(border, right, bounds.Top, right, bottom);
+            }
+        }
+    }
+
     private enum ToolIconKind
     {
         LineColor,
@@ -155,6 +238,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripDropDownButton _btnFillColorDropdown;
     private readonly ToolStripButton _btnUndo;
     private readonly ToolStripButton _btnRedo;
+    private readonly ToolStripLabel _centerToolsSpacer;
+    private readonly EditorToolStripRenderer _toolStripRenderer = new();
     private readonly ToolStripLabel _actionSpacerBefore;
     private readonly ToolStripLabel _actionSpacerAfter;
     private readonly EditHistory _editHistory;
@@ -286,7 +371,7 @@ public sealed class EditorForm : Form
             AutoSize = false,
             Height = ToolPanelHeight,
             ShowItemToolTips = true,
-            Renderer = new ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable()),
+            Renderer = _toolStripRenderer,
             Font = new Font("Segoe UI", 9F),
             BackColor = ToolStripColorPalette.BarBackground,
             ForeColor = ToolStripColorPalette.ButtonForeground,
@@ -312,6 +397,7 @@ public sealed class EditorForm : Form
             AppLocalization.Translate("Editor.FillColor"),
             ToolIconKind.FillColor,
             Color.Black);
+        _btnFillColor.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
         _btnFillColor.Click += (_, _) => PickFillColor();
         _btnFillColorDropdown = new ToolStripDropDownButton
         {
@@ -377,12 +463,14 @@ public sealed class EditorForm : Form
             Color.Black,
             isCheckable: true,
             shortcut: "F7");
+        _btnHighlight.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
         _btnText = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Text"),
             ToolIconKind.Text,
             Color.Black,
             isCheckable: true,
             shortcut: "F10");
+        _btnText.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
         _btnTextFormatDropdown = new ToolStripDropDownButton
         {
             ImageAlign = ContentAlignment.MiddleCenter,
@@ -545,6 +633,7 @@ public sealed class EditorForm : Form
             Color.Black,
             isCheckable: true,
             shortcut: "F8");
+        _btnMask.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
         _btnMask.Click += (_, _) => SetActiveTool(
             _maskMode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated);
 
@@ -751,9 +840,27 @@ public sealed class EditorForm : Form
             shortcut: "Ctrl+S");
         btnSaveAs.Click += async (_, _) => await SaveAsAsync();
 
+        var actionGroupSeparator = CreateToolStripSeparator();
+        actionGroupSeparator.Alignment = ToolStripItemAlignment.Right;
+        var copyGroupSeparator = CreateToolStripSeparator();
+        copyGroupSeparator.Alignment = ToolStripItemAlignment.Right;
+        foreach (var actionButton in new[] { btnCopy, btnSaveAs })
+        {
+            actionButton.Alignment = ToolStripItemAlignment.Right;
+        }
+        actionGroupSeparator.Alignment = ToolStripItemAlignment.Left;
+
+        _centerToolsSpacer = new ToolStripLabel
+        {
+            AutoSize = false,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            Width = 0,
+        };
         toolStrip.Items.AddRange([
             btnNewCapture,
             CreateToolStripSeparator(),
+            _centerToolsSpacer,
             _btnColor,
             _btnTextColor,
             _btnFillColor,
@@ -773,17 +880,22 @@ public sealed class EditorForm : Form
             _btnText,
             _btnTextFormatDropdown,
             _btnCrop,
+            actionGroupSeparator,
+            _btnUndo,
+            _btnRedo,
             _actionSpacerBefore,
             _btnConfirmCrop,
             _btnCancelCrop,
             _actionSpacerAfter,
-            CreateToolStripSeparator(),
-            _btnUndo,
-            _btnRedo,
-            CreateToolStripSeparator(),
-            btnCopy,
             btnSaveAs,
+            btnCopy,
+            copyGroupSeparator,
         ]);
+
+        TrackToolGroupHover(toolStrip, _btnFillColor, _btnFillColorDropdown);
+        TrackToolGroupHover(toolStrip, _btnHighlight, _btnHighlightSizeDropdown);
+        TrackToolGroupHover(toolStrip, _btnText, _btnTextFormatDropdown);
+        TrackToolGroupHover(toolStrip, _btnMask, _btnMaskModeDropdown);
 
         foreach (ToolStripItem item in toolStrip.Items)
         {
@@ -831,7 +943,11 @@ public sealed class EditorForm : Form
         scrollPanel.Controls.Add(_pictureBox);
         Controls.Add(scrollPanel);
         Controls.Add(toolStrip);
-        toolStrip.Resize += (_, _) => CenterActionButtons(toolStrip);
+        toolStrip.Resize += (_, _) =>
+        {
+            CenterActionButtons(toolStrip);
+            CenterEditorTools(toolStrip);
+        };
 
         SetToolLabelsVisible(toolStrip, showToolLabels);
         CenterPictureBox(scrollPanel);
@@ -854,6 +970,32 @@ public sealed class EditorForm : Form
         var x = Math.Max(0, (scrollPanel.ClientSize.Width - pictureBox.Width) / 2);
         var y = Math.Max(0, (scrollPanel.ClientSize.Height - pictureBox.Height) / 2);
         pictureBox.Location = new Point(x, y);
+    }
+
+    private void TrackToolGroupHover(ToolStrip toolStrip, ToolStripItem mainButton, ToolStripItem dropdownButton)
+    {
+        void SetHovered(bool hovered)
+        {
+            if (_toolStripRenderer.SetHoveredGroup(hovered ? mainButton : null, hovered ? dropdownButton : null))
+            {
+                toolStrip.Invalidate();
+            }
+        }
+
+        void ClearHoverIfOutsideGroup()
+        {
+            var point = toolStrip.PointToClient(Control.MousePosition);
+            var hoveredItem = toolStrip.GetItemAt(point);
+            if (!ReferenceEquals(hoveredItem, mainButton) && !ReferenceEquals(hoveredItem, dropdownButton))
+            {
+                SetHovered(false);
+            }
+        }
+
+        mainButton.MouseEnter += (_, _) => SetHovered(true);
+        dropdownButton.MouseEnter += (_, _) => SetHovered(true);
+        mainButton.MouseLeave += (_, _) => ClearHoverIfOutsideGroup();
+        dropdownButton.MouseLeave += (_, _) => ClearHoverIfOutsideGroup();
     }
 
     private static void SetToolLabelsVisible(ToolStrip toolStrip, bool visible)
@@ -1161,6 +1303,30 @@ public sealed class EditorForm : Form
         UpdateActionToolbarMode();
         _btnMask.Checked = tool is EditTool.Blur or EditTool.Pixelated;
         UpdateMaskToolAppearance();
+        ToolStripItem? activeGroupButton = null;
+        ToolStripItem? activeGroupDropdown = null;
+        if (tool == EditTool.Highlight)
+        {
+            activeGroupButton = _btnHighlight;
+            activeGroupDropdown = _btnHighlightSizeDropdown;
+        }
+        else if (tool == EditTool.Text)
+        {
+            activeGroupButton = _btnText;
+            activeGroupDropdown = _btnTextFormatDropdown;
+        }
+        else if (tool is EditTool.Blur or EditTool.Pixelated)
+        {
+            activeGroupButton = _btnMask;
+            activeGroupDropdown = _btnMaskModeDropdown;
+        }
+
+        if (_toolStripRenderer.SetActiveGroup(activeGroupButton, activeGroupDropdown) &&
+            Controls.OfType<ToolStrip>().FirstOrDefault() is { } toolStrip)
+        {
+            toolStrip.Invalidate();
+        }
+
         _pictureBox.Cursor = tool == EditTool.Text ? Cursors.IBeam : Cursors.Cross;
     }
 
@@ -2379,6 +2545,29 @@ public sealed class EditorForm : Form
         UpdateAutomaticMaskActionButtons();
         toolStrip.PerformLayout();
         CenterActionButtons(toolStrip);
+        CenterEditorTools(toolStrip);
+    }
+
+    private void CenterEditorTools(ToolStrip toolStrip)
+    {
+        if (_isAutomaticMaskSelectionActive || _currentTool == EditTool.Crop)
+        {
+            return;
+        }
+
+        var center = toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2F);
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var toolGroupCenter = (_btnColor.Bounds.Left + _btnRedo.Bounds.Right) / 2F;
+            var adjustment = (int)Math.Round(center - toolGroupCenter);
+            if (adjustment == 0)
+            {
+                break;
+            }
+
+            _centerToolsSpacer.Width = Math.Max(0, _centerToolsSpacer.Width + adjustment);
+            toolStrip.PerformLayout();
+        }
     }
 
     private void CenterActionButtons(ToolStrip toolStrip)

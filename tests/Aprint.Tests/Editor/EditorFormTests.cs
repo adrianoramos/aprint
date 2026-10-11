@@ -67,6 +67,75 @@ public sealed class EditorFormTests
     }
 
     [Theory]
+    [InlineData(EditTool.Highlight, "_btnHighlight", "_btnHighlightSizeDropdown")]
+    [InlineData(EditTool.Text, "_btnText", "_btnTextFormatDropdown")]
+    [InlineData(EditTool.Pixelated, "_btnMask", "_btnMaskModeDropdown")]
+    public void SelectedSplitToolActivatesMatchingToolbarGroup(EditTool tool, string buttonFieldName, string dropdownFieldName)
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var setActiveTool = typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        setActiveTool.Invoke(editor, [tool]);
+
+        var mainButton = typeof(EditorForm).GetField(buttonFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor);
+        var dropdownButton = typeof(EditorForm).GetField(dropdownFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor);
+        var renderer = typeof(EditorForm).GetField("_toolStripRenderer", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+
+        Assert.Same(mainButton, renderer.GetType().GetField("_activeMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+        Assert.Same(dropdownButton, renderer.GetType().GetField("_activeDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+    }
+
+    [Fact]
+    public void HistoryButtonsStayNearToolsAndExportsStayAtToolbarRightEdge()
+    {
+        using var bitmap = new Bitmap(1100, 600);
+        using var editor = new EditorForm(bitmap, string.Empty, showToolLabels: false);
+        editor.Show();
+        System.Windows.Forms.Application.DoEvents();
+
+        var toolStrip = editor.Controls.OfType<ToolStrip>().Single();
+        var buttons = toolStrip.Items.OfType<ToolStripButton>().ToArray();
+        var undoButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+Z)", StringComparison.Ordinal));
+        var redoButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+Y)", StringComparison.Ordinal));
+        var copyButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+C)", StringComparison.Ordinal));
+        var saveButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+S)", StringComparison.Ordinal));
+        var cropButton = (ToolStripButton)typeof(EditorForm).GetField("_btnCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+
+        Assert.Equal(ToolStripItemAlignment.Left, undoButton.Alignment);
+        Assert.Equal(ToolStripItemAlignment.Left, redoButton.Alignment);
+        Assert.Equal(ToolStripItemAlignment.Right, copyButton.Alignment);
+        Assert.Equal(ToolStripItemAlignment.Right, saveButton.Alignment);
+        Assert.True(cropButton.Bounds.Right < undoButton.Bounds.Left);
+        Assert.True(undoButton.Bounds.Left < redoButton.Bounds.Left);
+        Assert.True(copyButton.Bounds.Left < saveButton.Bounds.Left);
+        Assert.Equal(toolStrip.DisplayRectangle.Right, saveButton.Bounds.Right + saveButton.Margin.Right);
+    }
+
+    [Fact]
+    public void EditingToolsStayCenteredBetweenCaptureAndExportActions()
+    {
+        using var bitmap = new Bitmap(1600, 600);
+        using var editor = new EditorForm(bitmap, string.Empty, showToolLabels: false);
+        editor.Show();
+        System.Windows.Forms.Application.DoEvents();
+
+        var toolStrip = editor.Controls.OfType<ToolStrip>().Single();
+        var buttons = toolStrip.Items.OfType<ToolStripButton>().ToArray();
+        var captureButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+N)", StringComparison.Ordinal));
+        var copyButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+C)", StringComparison.Ordinal));
+        var saveButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+S)", StringComparison.Ordinal));
+        var firstTool = (ToolStripButton)typeof(EditorForm).GetField("_btnColor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+        var lastTool = (ToolStripButton)typeof(EditorForm).GetField("_btnRedo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+        var toolGroupCenter = (firstTool.Bounds.Left + lastTool.Bounds.Right) / 2;
+        var toolbarCenter = toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2);
+
+        Assert.InRange(Math.Abs(toolGroupCenter - toolbarCenter), 0, 1);
+        Assert.True(captureButton.Bounds.Right < firstTool.Bounds.Left);
+        Assert.True(lastTool.Bounds.Right < copyButton.Bounds.Left);
+        Assert.True(copyButton.Bounds.Left < saveButton.Bounds.Left);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ShowWithoutActivationIsEnabledOnlyWhenRequested(bool showWithoutActivation)
