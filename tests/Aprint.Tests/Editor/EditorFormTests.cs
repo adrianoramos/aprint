@@ -202,6 +202,11 @@ public sealed class EditorFormTests
         var colorDropdown = (ToolStripDropDownButton)typeof(EditorForm)
             .GetField("_btnColorDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
+        var renderer = typeof(EditorForm)
+            .GetField("_toolStripRenderer", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var setHoveredGroup = renderer.GetType()
+            .GetMethod("SetHoveredGroup", BindingFlags.Instance | BindingFlags.Public)!;
         var activeTargetField = typeof(EditorForm)
             .GetField("_activeColorTarget", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var textTarget = Assert.Single(
@@ -226,20 +231,36 @@ public sealed class EditorFormTests
             colorDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
             item => item.Tag?.ToString() == "Fill");
         Assert.NotNull(fillTarget.Image);
+        setHoveredGroup.Invoke(renderer, [colorButton, colorDropdown]);
         fillTarget.PerformClick();
 
         Assert.Equal("Fill", activeTargetField.GetValue(editor)!.ToString());
+        Assert.Null(renderer.GetType().GetField("_hoveredMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+        Assert.Null(renderer.GetType().GetField("_hoveredDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
         Assert.StartsWith(fillTarget.Text, colorButton.ToolTipText);
         Assert.True(fillTarget.Checked);
         Assert.True(
             colorButton.Width >= TextRenderer.MeasureText(colorButton.Text, colorButton.Font).Width,
             "The active color label must fit the split button.");
 
+        typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, [EditTool.Pixelated]);
+        Assert.Equal("Fill", activeTargetField.GetValue(editor)!.ToString());
+
+        textTarget.PerformClick();
+        typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, [EditTool.Pixelated]);
+        Assert.Equal("Text", activeTargetField.GetValue(editor)!.ToString());
+        Assert.StartsWith(textTarget.Text, colorButton.ToolTipText);
+
         var noFillItem = Assert.Single(
             colorDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
             item => item.Tag is null);
+        setHoveredGroup.Invoke(renderer, [colorButton, colorDropdown]);
         noFillItem.PerformClick();
 
+        Assert.Null(renderer.GetType().GetField("_hoveredMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+        Assert.Null(renderer.GetType().GetField("_hoveredDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
         Assert.Null(typeof(EditorForm)
             .GetField("_selectedFillColor", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor));
@@ -282,11 +303,13 @@ public sealed class EditorFormTests
         }
     }
 
-    [Fact]
-    public void EditingToolsStayCenteredBetweenCaptureAndExportActions()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EditingToolsStayCenteredBetweenCaptureAndExportActions(bool showLabels)
     {
         using var bitmap = new Bitmap(1600, 600);
-        using var editor = new EditorForm(bitmap, string.Empty, showToolLabels: false);
+        using var editor = new EditorForm(bitmap, string.Empty, showToolLabels: showLabels);
         editor.Show();
         System.Windows.Forms.Application.DoEvents();
 
@@ -300,6 +323,7 @@ public sealed class EditorFormTests
         var toolGroupCenter = (firstTool.Bounds.Left + lastTool.Bounds.Right) / 2;
         var toolbarCenter = toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2);
 
+        Assert.Equal(ToolStripItemAlignment.Left, captureButton.Alignment);
         Assert.InRange(Math.Abs(toolGroupCenter - toolbarCenter), 0, 1);
         Assert.True(captureButton.Bounds.Right < firstTool.Bounds.Left);
         Assert.True(lastTool.Bounds.Right < copyButton.Bounds.Left);

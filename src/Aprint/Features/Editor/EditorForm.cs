@@ -263,6 +263,7 @@ public sealed class EditorForm : Form
     private Color _selectedColor = Color.Red;
     private Color _selectedTextColor = Color.Red;
     private Color? _selectedFillColor;
+    private bool _isColorTargetManuallySelected;
     private ColorTarget _activeColorTarget = ColorTarget.Stroke;
     private EditTool _currentTool = EditTool.Freehand;
     private EditTool _toolBeforeCrop = EditTool.Freehand;
@@ -416,9 +417,10 @@ public sealed class EditorForm : Form
         _noFillColorMenuItem.Click += (_, _) =>
         {
             _selectedFillColor = null;
-            SelectColorTarget(ColorTarget.Fill);
+            SelectColorTarget(ColorTarget.Fill, manuallySelected: true);
             FillColorChanged?.Invoke(null);
             _btnColorDropdown.DropDown.Close();
+            ClearColorGroupHover();
         };
         _btnColorDropdown.DropDownItems.AddRange([
             _strokeColorMenuItem,
@@ -836,6 +838,7 @@ public sealed class EditorForm : Form
             ToolIconKind.NewCapture,
             Color.Black,
             shortcut: "Ctrl+N");
+        btnNewCapture.Alignment = ToolStripItemAlignment.Left;
         btnNewCapture.Click += (_, _) =>
         {
             NewCaptureRequested?.Invoke();
@@ -995,6 +998,15 @@ public sealed class EditorForm : Form
         dropdownButton.MouseLeave += (_, _) => ClearHoverIfOutsideGroup();
     }
 
+    private void ClearColorGroupHover()
+    {
+        if (_toolStripRenderer.SetHoveredGroup(null, null) &&
+            Controls.OfType<ToolStrip>().FirstOrDefault() is { } toolStrip)
+        {
+            toolStrip.Invalidate();
+        }
+    }
+
     private void AddDrawingToolMenuItem(EditTool tool, ToolIconKind iconKind, string localizationKey, string shortcut)
     {
         var iconKey = EnsureToolIconKey(iconKind, Color.Black);
@@ -1028,14 +1040,16 @@ public sealed class EditorForm : Form
         };
         menuItem.Click += (_, _) =>
         {
-            SelectColorTarget(target);
+            SelectColorTarget(target, manuallySelected: true);
             _btnColorDropdown.DropDown.Close();
+            ClearColorGroupHover();
         };
         return menuItem;
     }
 
-    private void SelectColorTarget(ColorTarget target)
+    private void SelectColorTarget(ColorTarget target, bool manuallySelected = false)
     {
+        _isColorTargetManuallySelected |= manuallySelected;
         _activeColorTarget = target;
         UpdateColorPickerButtonAppearance();
     }
@@ -1371,7 +1385,10 @@ public sealed class EditorForm : Form
         }
 
         _currentTool = tool;
-        SelectColorTarget(tool == EditTool.Text ? ColorTarget.Text : ColorTarget.Stroke);
+        if (!_isColorTargetManuallySelected)
+        {
+            SelectColorTarget(tool == EditTool.Text ? ColorTarget.Text : ColorTarget.Stroke);
+        }
         if (tool is EditTool.Blur or EditTool.Pixelated)
         {
             var mode = tool == EditTool.Blur ? MaskMode.Solid : MaskMode.Pixelate;
