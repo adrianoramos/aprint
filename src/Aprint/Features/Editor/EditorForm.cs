@@ -176,6 +176,13 @@ public sealed class EditorForm : Form
         NewCapture,
     }
 
+    private enum ColorTarget
+    {
+        Stroke,
+        Text,
+        Fill,
+    }
+
     private const int PenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ToolPanelHeight = 50;
     private const int ToolIconBaseSize = 24;
@@ -233,9 +240,11 @@ public sealed class EditorForm : Form
     private readonly ToolStripMenuItem _automaticMaskMenuItem;
     private readonly ToolStripControlHost _pixelSizeControlHost;
     private readonly ToolStripButton _btnColor;
-    private readonly ToolStripButton _btnTextColor;
-    private readonly ToolStripButton _btnFillColor;
-    private readonly ToolStripDropDownButton _btnFillColorDropdown;
+    private readonly ToolStripDropDownButton _btnColorDropdown;
+    private readonly ToolStripMenuItem _strokeColorMenuItem;
+    private readonly ToolStripMenuItem _textColorMenuItem;
+    private readonly ToolStripMenuItem _fillColorMenuItem;
+    private readonly ToolStripMenuItem _noFillColorMenuItem;
     private readonly ToolStripButton _btnUndo;
     private readonly ToolStripButton _btnRedo;
     private readonly ToolStripLabel _centerToolsSpacer;
@@ -254,6 +263,7 @@ public sealed class EditorForm : Form
     private Color _selectedColor = Color.Red;
     private Color _selectedTextColor = Color.Red;
     private Color? _selectedFillColor;
+    private ColorTarget _activeColorTarget = ColorTarget.Stroke;
     private EditTool _currentTool = EditTool.Freehand;
     private EditTool _toolBeforeCrop = EditTool.Freehand;
     private MaskMode _maskMode = MaskMode.Pixelate;
@@ -384,42 +394,40 @@ public sealed class EditorForm : Form
             AppLocalization.Translate("Editor.LineColor"),
             ToolIconKind.LineColor,
             _selectedColor);
-        UpdateColorButtonAppearance();
-        _btnColor.Click += (_, _) => PickColor();
-
-        _btnTextColor = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.TextColor"),
-            ToolIconKind.TextColor,
-            _selectedTextColor);
-        UpdateTextColorButtonAppearance();
-        _btnTextColor.Click += (_, _) => PickTextColor();
-
-        _btnFillColor = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.FillColor"),
-            ToolIconKind.FillColor,
-            Color.Black);
-        _btnFillColor.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
-        _btnFillColor.Click += (_, _) => PickFillColor();
-        _btnFillColorDropdown = new ToolStripDropDownButton
+        _btnColor.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
+        _btnColor.Click += (_, _) => PickActiveColor();
+        _btnColorDropdown = new ToolStripDropDownButton
         {
-            ImageAlign = ContentAlignment.MiddleCenter,
             DisplayStyle = ToolStripItemDisplayStyle.Image,
-            ImageKey = EnsureToolIconKey(ToolIconKind.FillColor, Color.Black),
+            ImageAlign = ContentAlignment.MiddleCenter,
             ImageScaling = ToolStripItemImageScaling.None,
             Margin = new Padding(0, 0, ToolButtonMargin, 0),
             AutoSize = false,
             Width = ToolStripMetrics.DropdownButtonWidth,
             Height = ToolStripMetrics.DropdownButtonHeight,
             AutoToolTip = false,
-            ToolTipText = AppLocalization.Translate("Editor.FillColor"),
+            ToolTipText = AppLocalization.Translate("Editor.LineColor"),
         };
-        _btnFillColorDropdown.DropDownItems.Add(AppLocalization.Translate("Editor.NoFill"), null, (_, _) =>
+        _btnColorDropdown.DropDown.AutoClose = true;
+        _strokeColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Stroke, "Editor.LineColor");
+        _textColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Text, "Editor.TextColor");
+        _fillColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Fill, "Editor.FillColor");
+        _noFillColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.NoFill"));
+        _noFillColorMenuItem.Click += (_, _) =>
         {
             _selectedFillColor = null;
-            UpdateFillColorButtonAppearance();
+            SelectColorTarget(ColorTarget.Fill);
             FillColorChanged?.Invoke(null);
-        });
-        UpdateFillColorButtonAppearance();
+            _btnColorDropdown.DropDown.Close();
+        };
+        _btnColorDropdown.DropDownItems.AddRange([
+            _strokeColorMenuItem,
+            _textColorMenuItem,
+            _fillColorMenuItem,
+            new ToolStripSeparator(),
+            _noFillColorMenuItem,
+        ]);
+        UpdateColorPickerButtonAppearance();
 
         _btnDrawing = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Freehand"),
@@ -447,6 +455,7 @@ public sealed class EditorForm : Form
         AddDrawingToolMenuItem(EditTool.Arrow, ToolIconKind.Arrow, "Editor.Arrow", "F4");
         AddDrawingToolMenuItem(EditTool.Rectangle, ToolIconKind.Rectangle, "Editor.Rectangle", "F5");
         AddDrawingToolMenuItem(EditTool.Circle, ToolIconKind.Circle, "Editor.Circle", "F6");
+
         _btnCounter = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Counter"),
             ToolIconKind.Counter,
@@ -858,9 +867,7 @@ public sealed class EditorForm : Form
             CreateToolStripSeparator(),
             _centerToolsSpacer,
             _btnColor,
-            _btnTextColor,
-            _btnFillColor,
-            _btnFillColorDropdown,
+            _btnColorDropdown,
             CreateToolStripSeparator(),
             _btnDrawing,
             _btnDrawingDropdown,
@@ -884,14 +891,14 @@ public sealed class EditorForm : Form
         ]);
 
         TrackToolGroupHover(toolStrip, _btnDrawing, _btnDrawingDropdown);
-        TrackToolGroupHover(toolStrip, _btnFillColor, _btnFillColorDropdown);
+        TrackToolGroupHover(toolStrip, _btnColor, _btnColorDropdown);
         TrackToolGroupHover(toolStrip, _btnHighlight, _btnHighlightSizeDropdown);
         TrackToolGroupHover(toolStrip, _btnText, _btnTextFormatDropdown);
         TrackToolGroupHover(toolStrip, _btnMask, _btnMaskModeDropdown);
 
         foreach (ToolStripItem item in toolStrip.Items)
         {
-            if (item is ToolStripButton or ToolStripDropDownButton)
+            if (item is ToolStripButton or ToolStripDropDownButton or ToolStripSplitButton)
             {
                 item.BackColor = ToolStripColorPalette.ButtonBackground;
                 item.ForeColor = ToolStripColorPalette.ButtonForeground;
@@ -1005,6 +1012,52 @@ public sealed class EditorForm : Form
         _btnDrawingDropdown.DropDownItems.Add(menuItem);
     }
 
+    private ToolStripMenuItem CreateColorTargetMenuItem(ColorTarget target, string localizationKey)
+    {
+        var (iconKind, color) = target switch
+        {
+            ColorTarget.Stroke => (ToolIconKind.LineColor, _selectedColor),
+            ColorTarget.Text => (ToolIconKind.TextColor, _selectedTextColor),
+            ColorTarget.Fill => (ToolIconKind.FillColor, _selectedFillColor ?? Color.Black),
+            _ => throw new ArgumentOutOfRangeException(nameof(target)),
+        };
+        var iconKey = EnsureToolIconKey(iconKind, color);
+        var menuItem = new ToolStripMenuItem(
+            AppLocalization.Translate(localizationKey),
+            _toolIconImageList.Images[iconKey])
+        {
+            Tag = target,
+        };
+        menuItem.Click += (_, _) =>
+        {
+            SelectColorTarget(target);
+            _btnColorDropdown.DropDown.Close();
+        };
+        return menuItem;
+    }
+
+    private void SelectColorTarget(ColorTarget target)
+    {
+        _activeColorTarget = target;
+        UpdateColorPickerButtonAppearance();
+    }
+
+    private void PickActiveColor()
+    {
+        switch (_activeColorTarget)
+        {
+            case ColorTarget.Stroke:
+                PickColor();
+                break;
+            case ColorTarget.Text:
+                PickTextColor();
+                break;
+            case ColorTarget.Fill:
+                PickFillColor();
+                break;
+        }
+    }
+
     private static bool IsDrawingTool(EditTool tool) => tool is
         EditTool.Freehand or EditTool.Line or EditTool.Arrow or EditTool.Rectangle or EditTool.Circle;
 
@@ -1057,6 +1110,7 @@ public sealed class EditorForm : Form
             button.AutoSize = false;
             button.Size = new Size(width, ToolStripMetrics.DropdownButtonHeight);
         }
+
     }
 
     private ToolStripButton CreateStandardToolButton(
@@ -1319,6 +1373,7 @@ public sealed class EditorForm : Form
         }
 
         _currentTool = tool;
+        SelectColorTarget(tool == EditTool.Text ? ColorTarget.Text : ColorTarget.Stroke);
         if (tool is EditTool.Blur or EditTool.Pixelated)
         {
             var mode = tool == EditTool.Blur ? MaskMode.Solid : MaskMode.Pixelate;
@@ -1398,7 +1453,7 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedColor = dialog.Color;
-            UpdateColorButtonAppearance();
+            UpdateColorPickerButtonAppearance();
             LineColorChanged?.Invoke(_selectedColor);
         }
     }
@@ -1409,22 +1464,10 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedTextColor = dialog.Color;
-            UpdateTextColorButtonAppearance();
+            UpdateColorPickerButtonAppearance();
             TextColorChanged?.Invoke(_selectedTextColor);
             _pictureBox.Invalidate();
         }
-    }
-
-    private void UpdateColorButtonAppearance()
-    {
-        _btnColor.ImageKey = EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor);
-        _btnColor.ToolTipText = $"{AppLocalization.Translate("Editor.LineColor")}: {_selectedColor.Name}";
-    }
-
-    private void UpdateTextColorButtonAppearance()
-    {
-        _btnTextColor.ImageKey = EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor);
-        _btnTextColor.ToolTipText = $"{AppLocalization.Translate("Editor.TextColor")}: {_selectedTextColor.Name}";
     }
 
     private void PickFillColor()
@@ -1433,18 +1476,46 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedFillColor = dialog.Color;
-            UpdateFillColorButtonAppearance();
+            UpdateColorPickerButtonAppearance();
             FillColorChanged?.Invoke(_selectedFillColor);
         }
     }
 
-    private void UpdateFillColorButtonAppearance()
+    private void UpdateColorPickerButtonAppearance()
     {
-        var iconKey = EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black);
-        _btnFillColor.ImageKey = iconKey;
-        _btnFillColorDropdown.ImageKey = iconKey;
-        var colorName = _selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill");
-        _btnFillColor.ToolTipText = $"{AppLocalization.Translate("Editor.FillColor")}: {colorName}";
+        var (iconKind, label, color, colorName) = _activeColorTarget switch
+        {
+            ColorTarget.Stroke => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.LineColor"), _selectedColor, _selectedColor.Name),
+            ColorTarget.Text => (ToolIconKind.TextColor, AppLocalization.Translate("Editor.TextColor"), _selectedTextColor, _selectedTextColor.Name),
+            ColorTarget.Fill => (
+                ToolIconKind.FillColor,
+                AppLocalization.Translate("Editor.FillColor"),
+                _selectedFillColor ?? Color.Black,
+                _selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill")),
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+
+        _btnColor.ImageKey = EnsureToolIconKey(iconKind, color);
+        _btnColor.Text = label;
+        _btnColor.ToolTipText = $"{label}: {colorName}";
+        _btnColor.AccessibleName = label;
+        _btnColorDropdown.ToolTipText = _btnColor.ToolTipText;
+        _strokeColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor)];
+        _textColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)];
+        _fillColorMenuItem.Image = _toolIconImageList.Images[
+            EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
+        _strokeColorMenuItem.Checked = _activeColorTarget == ColorTarget.Stroke;
+        _textColorMenuItem.Checked = _activeColorTarget == ColorTarget.Text;
+        _fillColorMenuItem.Checked = _activeColorTarget == ColorTarget.Fill;
+        _noFillColorMenuItem.Checked = false;
+
+        if (_btnColor.DisplayStyle == ToolStripItemDisplayStyle.ImageAndText)
+        {
+            _btnColor.AutoSize = true;
+            var preferredWidth = _btnColor.GetPreferredSize(Size.Empty).Width;
+            _btnColor.AutoSize = false;
+            _btnColor.Width = preferredWidth;
+        }
     }
 
     private void SaveUndoState()
@@ -2577,7 +2648,7 @@ public sealed class EditorForm : Form
                 ? centeredActionMode
                 : !centeredActionMode;
 
-            if (item is ToolStripButton or ToolStripDropDownButton)
+            if (item is ToolStripButton or ToolStripDropDownButton or ToolStripSplitButton)
             {
                 item.Enabled = !_isAutomaticMaskSelectionActive;
             }
