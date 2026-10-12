@@ -864,11 +864,9 @@ public sealed class EditorForm : Form
         };
         toolStrip.Items.AddRange([
             btnNewCapture,
-            CreateToolStripSeparator(),
             _centerToolsSpacer,
             _btnColor,
             _btnColorDropdown,
-            CreateToolStripSeparator(),
             _btnDrawing,
             _btnDrawingDropdown,
             _btnHighlight,
