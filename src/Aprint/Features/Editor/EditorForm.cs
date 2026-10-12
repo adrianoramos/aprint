@@ -724,6 +724,7 @@ public sealed class EditorForm : Form
             _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.AutomaticMask, Color.Black)])
         {
             ToolTipText = AppLocalization.Translate("Editor.AutomaticMask"),
+            ShortcutKeyDisplayString = "Ctrl+F8",
         };
         _automaticMaskMenuItem.Click += async (_, _) =>
         {
@@ -996,6 +997,10 @@ public sealed class EditorForm : Form
         dropdownButton.MouseEnter += (_, _) => SetHovered(true);
         mainButton.MouseLeave += (_, _) => ClearHoverIfOutsideGroup();
         dropdownButton.MouseLeave += (_, _) => ClearHoverIfOutsideGroup();
+        if (dropdownButton is ToolStripDropDownButton dropDownButton)
+        {
+            dropDownButton.DropDown.Closed += (_, _) => ClearHoverIfOutsideGroup();
+        }
     }
 
     private void ClearColorGroupHover()
@@ -2453,6 +2458,12 @@ public sealed class EditorForm : Form
                 ? (_currentTool == EditTool.Blur ? EditTool.Pixelated : EditTool.Blur)
                 : (_maskMode == MaskMode.Solid ? EditTool.Blur : EditTool.Pixelated);
             SetActiveTool(tool);
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.F8))
+        {
+            _ = StartAutomaticMaskAsync();
             return true;
         }
 

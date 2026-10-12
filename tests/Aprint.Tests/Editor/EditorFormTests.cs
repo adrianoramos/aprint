@@ -131,6 +131,49 @@ public sealed class EditorFormTests
     }
 
     [Fact]
+    public void ClosingMaskMenuOutsideGroupKeepsOnlyTheActiveToolHighlighted()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty, initialTool: EditTool.Highlight);
+        editor.Show();
+        System.Windows.Forms.Application.DoEvents();
+
+        var maskButton = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnMask", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var maskDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnMaskModeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var renderer = typeof(EditorForm)
+            .GetField("_toolStripRenderer", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var originalCursorPosition = Cursor.Position;
+
+        try
+        {
+            Cursor.Position = editor.PointToScreen(new Point(editor.ClientSize.Width - 5, editor.ClientSize.Height - 5));
+            maskDropdown.DropDown.Show(
+                maskDropdown.Owner!,
+                new Point(maskDropdown.Bounds.Left, maskDropdown.Bounds.Bottom));
+            System.Windows.Forms.Application.DoEvents();
+            renderer.GetType().GetMethod("SetHoveredGroup", BindingFlags.Instance | BindingFlags.Public)!
+                .Invoke(renderer, [maskButton, maskDropdown]);
+
+            maskDropdown.DropDown.Close();
+
+            Assert.Same(
+                typeof(EditorForm).GetField("_btnHighlight", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor),
+                renderer.GetType().GetField("_activeMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+            Assert.Null(renderer.GetType().GetField("_hoveredMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+            Assert.Null(renderer.GetType().GetField("_hoveredDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
+        }
+        finally
+        {
+            Cursor.Position = originalCursorPosition;
+        }
+    }
+
+    [Fact]
     public void DrawingDropdownUpdatesMainIconAndRetainsLastDrawingToolWhenSwitchingModes()
     {
         using var bitmap = new Bitmap(20, 20);
@@ -478,6 +521,30 @@ public sealed class EditorFormTests
         Assert.Same(pixelSizeSeparator, maskDropdown.DropDownItems[menuItemIndex - 3]);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
+    }
+
+    [Fact]
+    public void CtrlF8StartsAutomaticMaskAndIsShownInMenu()
+    {
+        using var bitmap = new Bitmap(2, 2);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var menuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_automaticMaskMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        typeof(EditorForm)
+            .GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(editor, true);
+        var processCmdKey = typeof(EditorForm).GetMethod("ProcessCmdKey", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object?[] arguments =
+        [
+            Message.Create(IntPtr.Zero, 0x0100, IntPtr.Zero, IntPtr.Zero),
+            Keys.Control | Keys.F8,
+        ];
+
+        var handled = (bool)processCmdKey.Invoke(editor, arguments)!;
+
+        Assert.Equal("Ctrl+F8", menuItem.ShortcutKeyDisplayString);
+        Assert.True(handled);
     }
 
     [Fact]
