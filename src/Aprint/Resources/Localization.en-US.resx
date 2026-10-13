@@ -423,6 +423,18 @@
   <data name="Editor.HighlightSize" xml:space="preserve">
     <value>Highlight size</value>
   </data>
+  <data name="Editor.HighlightColor" xml:space="preserve">
+    <value>Highlight color</value>
+  </data>
+  <data name="Editor.Customize" xml:space="preserve">
+    <value>Customize...</value>
+  </data>
+  <data name="Editor.Font" xml:space="preserve">
+    <value>Choose font...</value>
+  </data>
+  <data name="Editor.FontSize" xml:space="preserve">
+    <value>Font size</value>
+  </data>
   <data name="Editor.Text" xml:space="preserve">
     <value>Text</value>
   </data>

@@ -222,6 +222,7 @@ public sealed class RegionSelectorForm : Form
     private Image? _filledIcon;
     private MaskMode _maskMode = MaskMode.Pixelate;
     private Color _lineColor = Color.Red;
+    private Color _highlightColor = Color.Yellow;
     private int _maskPixelSize = 6;
     private int _highlightWidth = 18;
     private Color? _fillColor;
@@ -276,7 +277,7 @@ public sealed class RegionSelectorForm : Form
 
     public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256)
     {
         _background = background;
         _screenUnderCursorAtStart = Screen.FromPoint(Cursor.Position).Bounds;
@@ -285,6 +286,7 @@ public sealed class RegionSelectorForm : Form
         _maskMode = maskMode;
         _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
         _lineColor = Color.FromArgb(lineColorArgb);
+        _highlightColor = Color.FromArgb(highlightColorArgb);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
         _fillColor = fillColorArgb is int selectedFillColorArgb ? Color.FromArgb(selectedFillColorArgb) : null;
         _textFont.Dispose();
@@ -2075,7 +2077,7 @@ public sealed class RegionSelectorForm : Form
     {
         foreach (var stroke in _highlightStrokes)
         {
-            ImageEditingService.DrawHighlighter(graphics, stroke, _lineColor, _highlightWidth, _selection);
+            ImageEditingService.DrawHighlighter(graphics, stroke, _highlightColor, _highlightWidth, _selection);
         }
     }
 

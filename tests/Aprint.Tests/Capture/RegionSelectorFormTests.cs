@@ -21,6 +21,43 @@ public sealed class RegionSelectorFormTests
         Assert.Equal(EditTool.Freehand, selector.LastUsedTool);
     }
 
+    [Fact]
+    public void HighlightStrokesUseTheirOwnConfiguredColor()
+    {
+        using var bitmap = new Bitmap(40, 40);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(
+            bitmap,
+            lineColorArgb: Color.Red.ToArgb(),
+            highlightColorArgb: Color.Blue.ToArgb(),
+            highlightWidth: 12);
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
+        var highlightStrokes = (List<List<Point>>)typeof(RegionSelectorForm)
+            .GetField("_highlightStrokes", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        highlightStrokes.Add([new Point(4, 20), new Point(36, 20)]);
+
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            typeof(RegionSelectorForm)
+                .GetMethod("DrawHighlightStrokes", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(selector, [graphics]);
+        }
+
+        var highlightedPixel = bitmap.GetPixel(20, 20);
+        Assert.True(highlightedPixel.B > highlightedPixel.R);
+        Assert.True(highlightedPixel.B > highlightedPixel.G);
+        Assert.Equal(Color.Red.ToArgb(), ((Color)typeof(RegionSelectorForm)
+            .GetField("_lineColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!).ToArgb());
+    }
+
     [Theory]
     [InlineData(EditTool.Blur, MaskMode.Solid)]
     [InlineData(EditTool.Pixelated, MaskMode.Pixelate)]

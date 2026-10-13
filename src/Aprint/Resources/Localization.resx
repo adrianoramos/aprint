@@ -423,6 +423,18 @@
   <data name="Editor.HighlightSize" xml:space="preserve">
     <value>Tamanho do realce</value>
   </data>
+  <data name="Editor.HighlightColor" xml:space="preserve">
+    <value>Cor do realce</value>
+  </data>
+  <data name="Editor.Customize" xml:space="preserve">
+    <value>Personalizar...</value>
+  </data>
+  <data name="Editor.Font" xml:space="preserve">
+    <value>Escolher fonte...</value>
+  </data>
+  <data name="Editor.FontSize" xml:space="preserve">
+    <value>Tamanho da fonte</value>
+  </data>
   <data name="Editor.Text" xml:space="preserve">
     <value>Texto</value>
   </data>

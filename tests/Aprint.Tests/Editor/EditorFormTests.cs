@@ -509,18 +509,167 @@ public sealed class EditorFormTests
         var pixelSizeSeparator = (ToolStripSeparator)typeof(EditorForm)
             .GetField("_pixelSizeSeparator", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
-        var pixelSizeControlHost = (ToolStripControlHost)typeof(EditorForm)
-            .GetField("_pixelSizeControlHost", BindingFlags.Instance | BindingFlags.NonPublic)!
+        var pixelSizeMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_pixelSizeMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
 
         Assert.True(menuItem.Enabled);
         Assert.NotNull(menuItem.Image);
         var menuItemIndex = maskDropdown.DropDownItems.IndexOf(menuItem);
         Assert.Same(separator, maskDropdown.DropDownItems[menuItemIndex - 1]);
-        Assert.Same(pixelSizeControlHost, maskDropdown.DropDownItems[menuItemIndex - 2]);
+        Assert.Same(pixelSizeMenuItem, maskDropdown.DropDownItems[menuItemIndex - 2]);
         Assert.Same(pixelSizeSeparator, maskDropdown.DropDownItems[menuItemIndex - 3]);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
+    }
+
+    [Fact]
+    public void SizeAndFontMenusUsePresetsAndCustomizationCommands()
+    {
+        using var bitmap = new Bitmap(2, 2);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var highlightDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnHighlightSizeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var maskDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnMaskModeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var pixelSizeMenu = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_pixelSizeMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var textDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnTextFormatDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var textFontSizeMenu = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_textFontSizeMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+
+        Assert.Empty(highlightDropdown.DropDownItems.OfType<ToolStripControlHost>());
+        Assert.Empty(maskDropdown.DropDownItems.OfType<ToolStripControlHost>());
+        Assert.Empty(pixelSizeMenu.DropDownItems.OfType<ToolStripControlHost>());
+        Assert.Empty(textDropdown.DropDownItems.OfType<ToolStripControlHost>());
+        Assert.Equal(
+            new[] { 4, 8, 16, 32 },
+            highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>()
+                .Where(item => item.Tag is int)
+                .Select(item => (int)item.Tag!));
+        Assert.Contains(
+            highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "custom-size");
+        Assert.Contains(
+            pixelSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "custom-size");
+        Assert.Contains(
+            textDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "font-dialog");
+        Assert.Contains(
+            textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "custom-size");
+
+        var highlightPreset = Assert.Single(
+            highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag is int size && size == 16);
+        highlightPreset.PerformClick();
+        Assert.Equal(16, typeof(EditorForm)
+            .GetField("_highlightWidth", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
+
+        var pixelSizePreset = Assert.Single(
+            pixelSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag is int size && size == 12);
+        pixelSizePreset.PerformClick();
+        Assert.Equal(12, typeof(EditorForm)
+            .GetField("_maskPixelSize", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
+
+        var fontSizePreset = Assert.Single(
+            textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag is float size && size == 16F);
+        fontSizePreset.PerformClick();
+        Assert.Equal(16F, typeof(EditorForm)
+            .GetField("_textFontSize", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
+    }
+
+    [Fact]
+    public void HighlightMenuColorIsIndependentFromStrokeColor()
+    {
+        using var bitmap = new Bitmap(2, 2);
+        using var editor = new EditorForm(
+            bitmap,
+            string.Empty,
+            initialTool: EditTool.Highlight,
+            lineColorArgb: Color.Red.ToArgb(),
+            highlightColorArgb: Color.Blue.ToArgb());
+        var highlightDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnHighlightSizeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var colorButton = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var highlightMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_highlightColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var highlightTargetMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_highlightTargetMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var strokeMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_strokeColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+
+        Assert.Contains(highlightMenuItem, highlightDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.NotNull(highlightMenuItem.Image);
+        Assert.Equal(Color.Red.ToArgb(), ((Color)typeof(EditorForm)
+            .GetField("_selectedColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!).ToArgb());
+        Assert.Equal(Color.Blue.ToArgb(), ((Color)typeof(EditorForm)
+            .GetField("_selectedHighlightColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!).ToArgb());
+        Assert.Equal("Highlight", typeof(EditorForm)
+            .GetField("_activeColorTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!.ToString());
+        Assert.StartsWith(highlightTargetMenuItem.Text, colorButton.ToolTipText);
+
+        var originalPreviewColor = GetFirstVisiblePixelColor(highlightMenuItem.Image!);
+        var originalLineColor = GetFirstVisiblePixelColor(strokeMenuItem.Image!);
+        typeof(EditorForm).GetField("_selectedColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(editor, Color.Lime);
+        typeof(EditorForm).GetMethod("UpdateColorPickerButtonAppearance", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, null);
+
+        var updatedPreviewColor = GetFirstVisiblePixelColor(highlightMenuItem.Image!);
+        var updatedLineColor = GetFirstVisiblePixelColor(strokeMenuItem.Image!);
+        Assert.Equal(originalPreviewColor, updatedPreviewColor);
+        Assert.NotEqual(originalLineColor, updatedLineColor);
+        Assert.True(updatedLineColor.G > updatedLineColor.R);
+        Assert.True(updatedLineColor.G > updatedLineColor.B);
+        var highlightColor = (Color)typeof(EditorForm)
+            .GetField("_selectedHighlightColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var lineColor = (Color)typeof(EditorForm)
+            .GetField("_selectedColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        Assert.EndsWith(highlightColor.Name, highlightMenuItem.ToolTipText);
+        Assert.Equal(Color.Lime.ToArgb(), lineColor.ToArgb());
+        Assert.EndsWith(highlightColor.Name, highlightTargetMenuItem.ToolTipText);
+
+        static Color GetFirstVisiblePixelColor(Image image)
+        {
+            var bitmap = (Bitmap)image;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                for (var x = 0; x < bitmap.Width; x++)
+                {
+                    var pixel = bitmap.GetPixel(x, y);
+                    if (pixel.A > 0)
+                    {
+                        return Color.FromArgb(pixel.R, pixel.G, pixel.B);
+                    }
+                }
+            }
+
+            throw new InvalidOperationException("The line color icon has no visible pixels.");
+        }
     }
 
     [Fact]

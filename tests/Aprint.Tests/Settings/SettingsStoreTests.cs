@@ -33,6 +33,7 @@ public sealed class SettingsStoreTests : IDisposable
             LastTextFontSize = 18F,
             LastTextFontStyle = FontStyle.Bold | FontStyle.Italic,
             LastHighlightWidth = 32,
+            LastHighlightColorArgb = Color.Magenta.ToArgb(),
             LastLineColorArgb = Color.Blue.ToArgb(),
             LastTextColorArgb = Color.Green.ToArgb(),
             LastFillColorArgb = Color.Yellow.ToArgb(),

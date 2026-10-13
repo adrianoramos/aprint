@@ -22,7 +22,7 @@ public sealed class CaptureWorkflow
 
         try
         {
-            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.MaskMode, settings.LastMaskPixelSize, settings.LastLineColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, settings.ShowToolLabels, settings.LastCaptureTool, sendToEditor, out var lastCaptureTool, out var wasCancelled, out regionAction);
+            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.MaskMode, settings.LastMaskPixelSize, settings.LastLineColorArgb, settings.LastHighlightColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, settings.ShowToolLabels, settings.LastCaptureTool, sendToEditor, out var lastCaptureTool, out var wasCancelled, out regionAction);
             settings.LastCaptureTool = lastCaptureTool;
             if (wasCancelled)
             {
@@ -100,7 +100,7 @@ public sealed class CaptureWorkflow
         return (openEditor, copyToClipboard, saveToDisk);
     }
 
-    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, MaskMode maskMode, int maskPixelSize, int lineColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showToolLabels, EditTool lastCaptureTool, Action<Bitmap>? sendToEditor, out EditTool selectedCaptureTool, out bool wasCancelled, out RegionSelectionAction? selectedAction)
+    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, MaskMode maskMode, int maskPixelSize, int lineColorArgb, int highlightColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showToolLabels, EditTool lastCaptureTool, Action<Bitmap>? sendToEditor, out EditTool selectedCaptureTool, out bool wasCancelled, out RegionSelectionAction? selectedAction)
     {
         wasCancelled = false;
         selectedCaptureTool = lastCaptureTool;
@@ -110,7 +110,7 @@ public sealed class CaptureWorkflow
             return null;
         }
 
-        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, maskMode, maskPixelSize, lineColorArgb, highlightWidth, fillColorArgb, textFontFamily, textFontSize, textFontStyle, textColorArgb, showToolLabels, lastCaptureTool);
+        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, maskMode, maskPixelSize, lineColorArgb, highlightWidth, fillColorArgb, textFontFamily, textFontSize, textFontStyle, textColorArgb, showToolLabels, lastCaptureTool, highlightColorArgb);
         if (sendToEditor is not null)
         {
             selector.SendToEditorRequested += sendToEditor;

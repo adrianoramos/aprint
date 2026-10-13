@@ -179,6 +179,7 @@ public sealed class EditorForm : Form
     private enum ColorTarget
     {
         Stroke,
+        Highlight,
         Text,
         Fill,
     }
@@ -226,6 +227,7 @@ public sealed class EditorForm : Form
     private readonly ToolStripButton _btnCounter;
     private readonly ToolStripButton _btnHighlight;
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
+    private readonly ToolStripMenuItem _highlightColorMenuItem;
     private readonly ToolStripButton _btnText;
     private readonly ToolStripButton _btnCrop;
     private readonly ToolStripButton _btnConfirmCrop;
@@ -236,12 +238,16 @@ public sealed class EditorForm : Form
     private readonly ToolStripMenuItem _filledModeMenuItem;
     private readonly ToolStripMenuItem _pixelatedModeMenuItem;
     private readonly ToolStripSeparator _pixelSizeSeparator;
+    private readonly ToolStripMenuItem _pixelSizeMenuItem;
     private readonly ToolStripSeparator _automaticMaskSeparator;
     private readonly ToolStripMenuItem _automaticMaskMenuItem;
-    private readonly ToolStripControlHost _pixelSizeControlHost;
+    private readonly ToolStripMenuItem _fontDialogMenuItem;
+    private readonly ToolStripMenuItem _textFontSizeMenuItem;
+    private readonly List<ToolStripMenuItem> _textStyleMenuItems = [];
     private readonly ToolStripButton _btnColor;
     private readonly ToolStripDropDownButton _btnColorDropdown;
     private readonly ToolStripMenuItem _strokeColorMenuItem;
+    private readonly ToolStripMenuItem _highlightTargetMenuItem;
     private readonly ToolStripMenuItem _textColorMenuItem;
     private readonly ToolStripMenuItem _fillColorMenuItem;
     private readonly ToolStripMenuItem _noFillColorMenuItem;
@@ -253,14 +259,13 @@ public sealed class EditorForm : Form
     private readonly ToolStripLabel _actionSpacerAfter;
     private readonly EditHistory _editHistory;
     private Font _textFont = new("Segoe UI", 12F);
-    private readonly List<Font> _textFormatButtonFonts = [];
     private EditTool _selectedDrawingTool = EditTool.Freehand;
-    private readonly ToolTip _textFormatToolTip = new();
     private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
     private readonly System.Windows.Forms.Timer? _inactivityTimer;
     private readonly IMessageFilter? _activityMessageFilter;
 
     private Color _selectedColor = Color.Red;
+    private Color _selectedHighlightColor = Color.Yellow;
     private Color _selectedTextColor = Color.Red;
     private Color? _selectedFillColor;
     private bool _isColorTargetManuallySelected;
@@ -300,6 +305,7 @@ public sealed class EditorForm : Form
     public event Action? Copied;
     public event Action<MaskMode>? MaskModeChanged;
     public event Action<Color>? LineColorChanged;
+    public event Action<Color>? HighlightColorChanged;
     public event Action<Color>? TextColorChanged;
     public event Action<Color?>? FillColorChanged;
     public event Action<int>? MaskPixelSizeChanged;
@@ -307,11 +313,12 @@ public sealed class EditorForm : Form
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
         _selectedColor = Color.FromArgb(lineColorArgb);
+        _selectedHighlightColor = Color.FromArgb(highlightColorArgb);
         _selectedTextColor = Color.FromArgb(textColorArgb);
         _selectedFillColor = fillColorArgb.HasValue ? Color.FromArgb(fillColorArgb.Value) : null;
         _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
@@ -412,6 +419,7 @@ public sealed class EditorForm : Form
         _btnColorDropdown.DropDown.AutoClose = true;
         _strokeColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Stroke, "Editor.LineColor");
         _textColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Text, "Editor.TextColor");
+        _highlightTargetMenuItem = CreateColorTargetMenuItem(ColorTarget.Highlight, "Editor.HighlightColor");
         _fillColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Fill, "Editor.FillColor");
         _noFillColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.NoFill"));
         _noFillColorMenuItem.Click += (_, _) =>
@@ -424,13 +432,21 @@ public sealed class EditorForm : Form
         };
         _btnColorDropdown.DropDownItems.AddRange([
             _strokeColorMenuItem,
+            _highlightTargetMenuItem,
             _textColorMenuItem,
             _fillColorMenuItem,
             new ToolStripSeparator(),
             _noFillColorMenuItem,
         ]);
-        UpdateColorPickerButtonAppearance();
-
+        _highlightColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.HighlightColor"))
+        {
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedHighlightColor)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.HighlightColor")}: {_selectedHighlightColor.Name}",
+        };
+        _highlightColorMenuItem.Click += (_, _) =>
+        {
+            PickHighlightColor();
+        };
         _btnDrawing = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Freehand"),
             ToolIconKind.Freehand,
@@ -438,7 +454,6 @@ public sealed class EditorForm : Form
             isCheckable: true,
             isChecked: true,
             shortcut: "F2");
-        _btnDrawing.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
         _btnDrawing.Click += (_, _) => SetActiveTool(_selectedDrawingTool);
         _btnDrawingDropdown = new ToolStripDropDownButton
         {
@@ -491,84 +506,45 @@ public sealed class EditorForm : Form
             AutoToolTip = false,
             ToolTipText = AppLocalization.Translate("Editor.TextFormatting"),
         };
-        var textFormatPanel = new Panel
+        _fontDialogMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.Font"))
         {
-            Size = new Size(400, 42),
-            Padding = new Padding(4),
-            BackColor = SystemColors.Control,
+            Tag = "font-dialog",
         };
-        var textFontFamilyCombo = new ComboBox
+        _fontDialogMenuItem.Click += (_, _) =>
         {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Location = new Point(4, 8),
-            Size = new Size(170, 25),
+            _btnTextFormatDropdown.DropDown.Close();
+            ShowTextFontDialog();
         };
-        var textFontFamilies = FontFamily.Families;
-        var fontFamilyNames = textFontFamilies
-            .Select(fontFamily => fontFamily.Name)
-            .OrderBy(fontFamilyName => fontFamilyName, StringComparer.CurrentCultureIgnoreCase)
-            .ToArray();
-        foreach (var fontFamily in textFontFamilies)
+        _textFontSizeMenuItem = new ToolStripMenuItem();
+        foreach (var fontSize in new[] { 8F, 10F, 12F, 14F, 16F, 18F, 24F, 32F, 48F, 72F })
         {
-            fontFamily.Dispose();
+            _textFontSizeMenuItem.DropDownItems.Add(CreateTextFontSizeMenuItem(fontSize));
         }
 
-        textFontFamilyCombo.Items.AddRange(fontFamilyNames);
-        textFontFamilyCombo.SelectedItem = _textFontFamily;
-        if (textFontFamilyCombo.SelectedIndex < 0 && textFontFamilyCombo.Items.Count > 0)
-        {
-            textFontFamilyCombo.SelectedIndex = 0;
-        }
-
-        textFontFamilyCombo.SelectedIndexChanged += (_, _) =>
-        {
-            if (textFontFamilyCombo.SelectedItem is string fontFamilyName)
-            {
-                _textFontFamily = fontFamilyName;
-                UpdateTextFont();
-            }
-        };
-        var textFontSizeInput = new NumericUpDown
-        {
-            Minimum = 6,
-            Maximum = 72,
-            Value = (decimal)_textFontSize,
-            Location = new Point(180, 8),
-            Size = new Size(56, 25),
-        };
-        textFontSizeInput.ValueChanged += (_, _) =>
-        {
-            _textFontSize = (float)textFontSizeInput.Value;
-            UpdateTextFont();
-        };
-        var textFontSizeUnit = new Label
-        {
-            AutoSize = false,
-            Text = "pt",
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location = new Point(238, 9),
-            Size = new Size(20, 22),
-        };
-        var boldButton = CreateTextFormatButton("B", "Editor.TextBold", FontStyle.Bold, new Point(268, 8));
-        var italicButton = CreateTextFormatButton("I", "Editor.TextItalic", FontStyle.Italic, new Point(300, 8));
-        var underlineButton = CreateTextFormatButton("U", "Editor.TextUnderline", FontStyle.Underline, new Point(332, 8));
-        var strikeoutButton = CreateTextFormatButton("S", "Editor.TextStrikeout", FontStyle.Strikeout, new Point(364, 8));
-        textFormatPanel.Controls.AddRange([
-            textFontFamilyCombo,
-            textFontSizeInput,
-            textFontSizeUnit,
-            boldButton,
-            italicButton,
-            underlineButton,
-            strikeoutButton,
+        _textFontSizeMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        _textFontSizeMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
+            _btnTextFormatDropdown,
+            "Editor.TextFormatting",
+            6,
+            72,
+            () => (int)Math.Round(_textFontSize),
+            "pt",
+            size => SetTextFontSize(size)));
+        var boldMenuItem = CreateTextStyleMenuItem("Editor.TextBold", FontStyle.Bold);
+        var italicMenuItem = CreateTextStyleMenuItem("Editor.TextItalic", FontStyle.Italic);
+        var underlineMenuItem = CreateTextStyleMenuItem("Editor.TextUnderline", FontStyle.Underline);
+        var strikeoutMenuItem = CreateTextStyleMenuItem("Editor.TextStrikeout", FontStyle.Strikeout);
+        _btnTextFormatDropdown.DropDownItems.AddRange([
+            _fontDialogMenuItem,
+            new ToolStripSeparator(),
+            _textFontSizeMenuItem,
+            new ToolStripSeparator(),
+            boldMenuItem,
+            italicMenuItem,
+            underlineMenuItem,
+            strikeoutMenuItem,
         ]);
-        _btnTextFormatDropdown.DropDownItems.Add(new ToolStripControlHost(textFormatPanel)
-        {
-            AutoSize = false,
-            Size = textFormatPanel.Size,
-            Margin = Padding.Empty,
-        });
-        _btnTextFormatDropdown.DropDown.AutoClose = false;
+        UpdateTextFormattingMenu();
         _btnTextFormatDropdown.DropDownOpening += (_, _) => _isTextFormatMenuOpen = true;
         _btnTextFormatDropdown.DropDownClosed += (_, _) =>
         {
@@ -591,48 +567,28 @@ public sealed class EditorForm : Form
             AutoToolTip = false,
             ToolTipText = AppLocalization.Translate("Editor.HighlightSize"),
         };
-        var highlightSizePanel = new Panel
+        foreach (var width in new[] { 4, 8, 16, 32 })
         {
-            Size = new Size(186, 48),
-            Padding = new Padding(4),
-            BackColor = SystemColors.Control,
-        };
-        var highlightSizeSlider = new TrackBar
-        {
-            Minimum = 4,
-            Maximum = 48,
-            Value = _highlightWidth,
-            TickFrequency = 4,
-            SmallChange = 1,
-            LargeChange = 4,
-            TickStyle = TickStyle.BottomRight,
-            AutoSize = false,
-            Size = new Size(138, 40),
-            Location = new Point(4, 4),
-        };
-        var highlightSizeLabel = new Label
-        {
-            AutoSize = false,
-            Text = $"{_highlightWidth} px",
-            TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(38, 22),
-            Location = new Point(144, 13),
-        };
-        highlightSizeSlider.ValueChanged += (_, _) =>
-        {
-            _highlightWidth = highlightSizeSlider.Value;
-            highlightSizeLabel.Text = $"{_highlightWidth} px";
-            HighlightWidthChanged?.Invoke(_highlightWidth);
-        };
-        highlightSizePanel.Controls.Add(highlightSizeSlider);
-        highlightSizePanel.Controls.Add(highlightSizeLabel);
-        _btnHighlightSizeDropdown.DropDownItems.Add(new ToolStripControlHost(highlightSizePanel)
-        {
-            AutoSize = false,
-            Size = highlightSizePanel.Size,
-            Margin = Padding.Empty,
-        });
-        _btnHighlightSizeDropdown.DropDown.AutoClose = false;
+            _btnHighlightSizeDropdown.DropDownItems.Add(CreateSizePresetMenuItem(
+                _btnHighlightSizeDropdown,
+                width,
+                _highlightWidth,
+                "px",
+                SetHighlightWidth));
+        }
+
+        _btnHighlightSizeDropdown.DropDownItems.Add(new ToolStripSeparator());
+        _btnHighlightSizeDropdown.DropDownItems.Add(CreateCustomSizeMenuItem(
+            _btnHighlightSizeDropdown,
+            "Editor.HighlightSize",
+            4,
+            48,
+            () => _highlightWidth,
+            "px",
+            SetHighlightWidth));
+        _btnHighlightSizeDropdown.DropDownItems.Add(new ToolStripSeparator());
+        _btnHighlightSizeDropdown.DropDownItems.Add(_highlightColorMenuItem);
+        UpdateHighlightSizeMenu();
 
         _btnMask = CreateStandardToolButton(
             AppLocalization.Translate(_maskMode == MaskMode.Solid ? "Editor.Filled" : "Editor.Pixelated"),
@@ -672,52 +628,26 @@ public sealed class EditorForm : Form
             _btnMaskModeDropdown.DropDown.Close();
         };
         _pixelSizeSeparator = new ToolStripSeparator();
-        _btnMaskModeDropdown.DropDownItems.AddRange([
-            _filledModeMenuItem,
-            _pixelatedModeMenuItem,
-            _pixelSizeSeparator,
-        ]);
-        var pixelSizePanel = new Panel
+        _pixelSizeMenuItem = new ToolStripMenuItem();
+        foreach (var size in new[] { 4, 6, 8, 12, 16, 24, 32 })
         {
-            Size = new Size(186, 48),
-            Padding = new Padding(4),
-            BackColor = SystemColors.Control,
-        };
-        var pixelSizeSlider = new TrackBar
-        {
-            Minimum = 4,
-            Maximum = 32,
-            Value = _maskPixelSize,
-            TickFrequency = 4,
-            SmallChange = 1,
-            LargeChange = 4,
-            TickStyle = TickStyle.BottomRight,
-            AutoSize = false,
-            Size = new Size(138, 40),
-            Location = new Point(4, 4),
-        };
-        var pixelSizeLabel = new Label
-        {
-            AutoSize = false,
-            Text = $"{_maskPixelSize} px",
-            TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(38, 22),
-            Location = new Point(144, 13),
-        };
-        pixelSizeSlider.ValueChanged += (_, _) =>
-        {
-            _maskPixelSize = pixelSizeSlider.Value;
-            pixelSizeLabel.Text = $"{_maskPixelSize} px";
-            MaskPixelSizeChanged?.Invoke(_maskPixelSize);
-        };
-        pixelSizePanel.Controls.Add(pixelSizeSlider);
-        pixelSizePanel.Controls.Add(pixelSizeLabel);
-        _pixelSizeControlHost = new ToolStripControlHost(pixelSizePanel)
-        {
-            AutoSize = false,
-            Size = pixelSizePanel.Size,
-            Margin = Padding.Empty,
-        };
+            _pixelSizeMenuItem.DropDownItems.Add(CreateSizePresetMenuItem(
+                _btnMaskModeDropdown,
+                size,
+                _maskPixelSize,
+                "px",
+                SetMaskPixelSize));
+        }
+
+        _pixelSizeMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        _pixelSizeMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
+            _btnMaskModeDropdown,
+            "Editor.PixelatedSize",
+            4,
+            32,
+            () => _maskPixelSize,
+            "px",
+            SetMaskPixelSize));
         _automaticMaskSeparator = new ToolStripSeparator();
         _automaticMaskMenuItem = new ToolStripMenuItem(
             AppLocalization.Translate("Editor.AutomaticMask"),
@@ -732,11 +662,14 @@ public sealed class EditorForm : Form
             await StartAutomaticMaskAsync();
         };
         _btnMaskModeDropdown.DropDownItems.AddRange([
-            _pixelSizeControlHost,
+            _filledModeMenuItem,
+            _pixelatedModeMenuItem,
+            _pixelSizeSeparator,
+            _pixelSizeMenuItem,
             _automaticMaskSeparator,
             _automaticMaskMenuItem,
         ]);
-        _btnMaskModeDropdown.DropDown.AutoClose = false;
+        UpdatePixelSizeMenu();
         var popupDismissMessageFilter = new PopupDismissMessageFilter(
             _btnTextFormatDropdown,
             _btnHighlightSizeDropdown,
@@ -1032,6 +965,7 @@ public sealed class EditorForm : Form
         var (iconKind, color) = target switch
         {
             ColorTarget.Stroke => (ToolIconKind.LineColor, _selectedColor),
+            ColorTarget.Highlight => (ToolIconKind.LineColor, _selectedHighlightColor),
             ColorTarget.Text => (ToolIconKind.TextColor, _selectedTextColor),
             ColorTarget.Fill => (ToolIconKind.FillColor, _selectedFillColor ?? Color.Black),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
@@ -1065,6 +999,9 @@ public sealed class EditorForm : Form
         {
             case ColorTarget.Stroke:
                 PickColor();
+                break;
+            case ColorTarget.Highlight:
+                PickHighlightColor();
                 break;
             case ColorTarget.Text:
                 PickTextColor();
@@ -1392,7 +1329,12 @@ public sealed class EditorForm : Form
         _currentTool = tool;
         if (!_isColorTargetManuallySelected)
         {
-            SelectColorTarget(tool == EditTool.Text ? ColorTarget.Text : ColorTarget.Stroke);
+            SelectColorTarget(tool switch
+            {
+                EditTool.Text => ColorTarget.Text,
+                EditTool.Highlight => ColorTarget.Highlight,
+                _ => ColorTarget.Stroke,
+            });
         }
         if (tool is EditTool.Blur or EditTool.Pixelated)
         {
@@ -1464,7 +1406,7 @@ public sealed class EditorForm : Form
         _filledModeMenuItem.Checked = isFilled;
         _pixelatedModeMenuItem.Checked = !isFilled;
         _pixelSizeSeparator.Visible = !isFilled;
-        _pixelSizeControlHost.Visible = !isFilled;
+        _pixelSizeMenuItem.Visible = !isFilled;
     }
 
     private void PickColor()
@@ -1490,6 +1432,18 @@ public sealed class EditorForm : Form
         }
     }
 
+    private void PickHighlightColor()
+    {
+        using var dialog = new ColorDialog { Color = _selectedHighlightColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedHighlightColor = dialog.Color;
+            UpdateColorPickerButtonAppearance();
+            HighlightColorChanged?.Invoke(_selectedHighlightColor);
+            _pictureBox.Invalidate();
+        }
+    }
+
     private void PickFillColor()
     {
         using var dialog = new ColorDialog { Color = _selectedFillColor ?? Color.White, FullOpen = true };
@@ -1506,6 +1460,7 @@ public sealed class EditorForm : Form
         var (iconKind, label, color, colorName) = _activeColorTarget switch
         {
             ColorTarget.Stroke => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.LineColor"), _selectedColor, _selectedColor.Name),
+            ColorTarget.Highlight => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.HighlightColor"), _selectedHighlightColor, _selectedHighlightColor.Name),
             ColorTarget.Text => (ToolIconKind.TextColor, AppLocalization.Translate("Editor.TextColor"), _selectedTextColor, _selectedTextColor.Name),
             ColorTarget.Fill => (
                 ToolIconKind.FillColor,
@@ -1524,7 +1479,14 @@ public sealed class EditorForm : Form
         _textColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)];
         _fillColorMenuItem.Image = _toolIconImageList.Images[
             EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
+        _highlightTargetMenuItem.Image =
+            _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedHighlightColor)];
+        _highlightTargetMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.HighlightColor")}: {_selectedHighlightColor.Name}";
+        _highlightColorMenuItem.Image = _highlightTargetMenuItem.Image;
+        _highlightColorMenuItem.ToolTipText = _highlightTargetMenuItem.ToolTipText;
         _strokeColorMenuItem.Checked = _activeColorTarget == ColorTarget.Stroke;
+        _highlightTargetMenuItem.Checked = _activeColorTarget == ColorTarget.Highlight;
         _textColorMenuItem.Checked = _activeColorTarget == ColorTarget.Text;
         _fillColorMenuItem.Checked = _activeColorTarget == ColorTarget.Fill;
         _noFillColorMenuItem.Checked = false;
@@ -1798,7 +1760,7 @@ public sealed class EditorForm : Form
                 _highlighterPoints.Add(e.Location);
             }
 
-            ImageEditingService.ApplyHighlighter(_workingBitmap, _highlighterPoints, _selectedColor, _highlightWidth);
+            ImageEditingService.ApplyHighlighter(_workingBitmap, _highlighterPoints, _selectedHighlightColor, _highlightWidth);
             _highlighterPoints.Clear();
             _pictureBox.Image = _workingBitmap;
             _pictureBox.Invalidate();
@@ -1879,7 +1841,7 @@ public sealed class EditorForm : Form
             ImageEditingService.DrawHighlighter(
                 e.Graphics,
                 _highlighterPoints,
-                _selectedColor,
+                _selectedHighlightColor,
                 _highlightWidth,
                 new Rectangle(Point.Empty, _workingBitmap.Size));
             DrawAutomaticMaskPreview(e.Graphics, e.ClipRectangle);
@@ -2083,25 +2045,246 @@ public sealed class EditorForm : Form
         ResizeTextBoundsToContent();
     }
 
-    private CheckBox CreateTextFormatButton(string text, string tooltipKey, FontStyle style, Point location)
+    private ToolStripMenuItem CreateTextFontSizeMenuItem(float size)
     {
-        var buttonFont = new Font("Segoe UI", 9F, style, GraphicsUnit.Point);
-        var button = new CheckBox
+        var menuItem = new ToolStripMenuItem($"{size:0.#} pt")
         {
-            Appearance = Appearance.Button,
-            AutoSize = false,
-            Font = buttonFont,
-            Text = text,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location = location,
-            Size = new Size(28, 25),
-            TabStop = false,
+            Tag = size,
+            Checked = Math.Abs(_textFontSize - size) < 0.05F,
+        };
+        menuItem.Click += (_, _) =>
+        {
+            SetTextFontSize(size);
+            _btnTextFormatDropdown.DropDown.Close();
+        };
+        return menuItem;
+    }
+
+    private ToolStripMenuItem CreateTextStyleMenuItem(string localizationKey, FontStyle style)
+    {
+        var menuItem = new ToolStripMenuItem(AppLocalization.Translate(localizationKey))
+        {
+            Tag = style,
+            CheckOnClick = true,
             Checked = (_textFontStyle & style) != 0,
         };
-        _textFormatButtonFonts.Add(buttonFont);
-        _textFormatToolTip.SetToolTip(button, AppLocalization.Translate(tooltipKey));
-        button.CheckedChanged += (_, _) => SetTextFontStyle(style, button.Checked);
-        return button;
+        menuItem.Click += (_, _) => SetTextFontStyle(style, menuItem.Checked);
+        _textStyleMenuItems.Add(menuItem);
+        return menuItem;
+    }
+
+    private ToolStripMenuItem CreateSizePresetMenuItem(
+        ToolStripDropDownButton owner,
+        int size,
+        int selectedSize,
+        string unit,
+        Action<int> applySize)
+    {
+        var menuItem = new ToolStripMenuItem($"{size} {unit}")
+        {
+            Tag = size,
+            Checked = size == selectedSize,
+        };
+        menuItem.Click += (_, _) =>
+        {
+            applySize(size);
+            owner.DropDown.Close();
+        };
+        return menuItem;
+    }
+
+    private ToolStripMenuItem CreateCustomSizeMenuItem(
+        ToolStripDropDownButton owner,
+        string titleKey,
+        int minimum,
+        int maximum,
+        Func<int> getCurrentSize,
+        string unit,
+        Action<int> applySize)
+    {
+        var menuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.Customize"))
+        {
+            Tag = "custom-size",
+        };
+        menuItem.Click += (_, _) =>
+        {
+            owner.DropDown.Close();
+            if (ShowIntegerSizeDialog(titleKey, minimum, maximum, getCurrentSize(), unit) is int size)
+            {
+                applySize(size);
+            }
+        };
+        return menuItem;
+    }
+
+    private int? ShowIntegerSizeDialog(string titleKey, int minimum, int maximum, int initialValue, string unit)
+    {
+        using var dialog = new Form
+        {
+            Text = AppLocalization.Translate(titleKey),
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterParent,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            ShowIcon = false,
+            AutoScaleMode = AutoScaleMode.Font,
+            ClientSize = new Size(360, 118),
+        };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(14),
+            ColumnCount = 2,
+            RowCount = 2,
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        var slider = new TrackBar
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            Value = Math.Clamp(initialValue, minimum, maximum),
+            TickFrequency = Math.Max(1, (maximum - minimum) / 8),
+            SmallChange = 1,
+            LargeChange = Math.Max(1, (maximum - minimum) / 8),
+            TickStyle = TickStyle.BottomRight,
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 0, 12, 0),
+        };
+        var valueInput = new NumericUpDown
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            Value = Math.Clamp(initialValue, minimum, maximum),
+            TextAlign = HorizontalAlignment.Right,
+            Size = new Size(68, 24),
+            Margin = new Padding(0, 0, 6, 0),
+        };
+        var unitLabel = new Label
+        {
+            AutoSize = true,
+            Text = unit,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 4, 0, 0),
+        };
+        var valuePanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoSize = false,
+            Padding = new Padding(0, 19, 0, 0),
+            Margin = Padding.Empty,
+        };
+        valuePanel.Controls.AddRange([valueInput, unitLabel]);
+        var acceptButton = new Button
+        {
+            Text = AppLocalization.Translate("Editor.ConfirmCrop"),
+            DialogResult = DialogResult.OK,
+            Size = new Size(88, 28),
+            Margin = new Padding(8, 0, 0, 0),
+        };
+        var cancelButton = new Button
+        {
+            Text = AppLocalization.Translate("Editor.CancelCrop"),
+            DialogResult = DialogResult.Cancel,
+            Size = new Size(88, 28),
+            Margin = new Padding(8, 0, 0, 0),
+        };
+        var buttonPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            AutoSize = false,
+            Padding = Padding.Empty,
+            Margin = Padding.Empty,
+        };
+        buttonPanel.Controls.AddRange([cancelButton, acceptButton]);
+        slider.ValueChanged += (_, _) => valueInput.Value = slider.Value;
+        valueInput.ValueChanged += (_, _) => slider.Value = (int)valueInput.Value;
+        layout.Controls.Add(slider, 0, 0);
+        layout.Controls.Add(valuePanel, 1, 0);
+        layout.Controls.Add(buttonPanel, 0, 1);
+        layout.SetColumnSpan(buttonPanel, 2);
+        dialog.Controls.Add(layout);
+        dialog.AcceptButton = acceptButton;
+        dialog.CancelButton = cancelButton;
+
+        return dialog.ShowDialog(this) == DialogResult.OK ? (int)valueInput.Value : null;
+    }
+
+    private void ShowTextFontDialog()
+    {
+        using var dialog = new FontDialog
+        {
+            Font = _textFont,
+            MinSize = 6,
+            MaxSize = 72,
+            ShowColor = false,
+            ShowEffects = true,
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        _textFontFamily = dialog.Font.FontFamily.Name;
+        _textFontSize = Math.Clamp(dialog.Font.Size, 6F, 72F);
+        _textFontStyle = dialog.Font.Style &
+            (FontStyle.Bold | FontStyle.Italic | FontStyle.Underline | FontStyle.Strikeout);
+        UpdateTextFont();
+    }
+
+    private void SetTextFontSize(float size)
+    {
+        _textFontSize = Math.Clamp(size, 6F, 72F);
+        UpdateTextFont();
+    }
+
+    private void SetHighlightWidth(int width)
+    {
+        _highlightWidth = Math.Clamp(width, 4, 48);
+        UpdateHighlightSizeMenu();
+        HighlightWidthChanged?.Invoke(_highlightWidth);
+    }
+
+    private void UpdateHighlightSizeMenu()
+    {
+        foreach (var menuItem in _btnHighlightSizeDropdown.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            if (menuItem.Tag is int size)
+            {
+                menuItem.Checked = size == _highlightWidth;
+            }
+        }
+
+        _btnHighlightSizeDropdown.ToolTipText =
+            $"{AppLocalization.Translate("Editor.HighlightSize")}: {_highlightWidth} px";
+    }
+
+    private void SetMaskPixelSize(int size)
+    {
+        _maskPixelSize = Math.Clamp(size, 4, 32);
+        UpdatePixelSizeMenu();
+        MaskPixelSizeChanged?.Invoke(_maskPixelSize);
+    }
+
+    private void UpdatePixelSizeMenu()
+    {
+        _pixelSizeMenuItem.Text =
+            $"{AppLocalization.Translate("Editor.PixelatedSize")} ({_maskPixelSize} px)";
+        foreach (var menuItem in _pixelSizeMenuItem.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            if (menuItem.Tag is int size)
+            {
+                menuItem.Checked = size == _maskPixelSize;
+            }
+        }
     }
 
     private void SetTextFontStyle(FontStyle style, bool enabled)
@@ -2117,11 +2300,33 @@ public sealed class EditorForm : Form
         previousFont.Dispose();
 
         TextFormattingChanged?.Invoke(_textFontFamily, _textFontSize, _textFontStyle);
+        UpdateTextFormattingMenu();
 
         if (_isEditingText)
         {
             _textCaretVisible = true;
             ResizeTextBoundsToContent();
+        }
+    }
+
+    private void UpdateTextFormattingMenu()
+    {
+        _textFontSizeMenuItem.Text =
+            $"{AppLocalization.Translate("Editor.FontSize")} ({_textFontSize:0.#} pt)";
+        foreach (var menuItem in _textFontSizeMenuItem.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            if (menuItem.Tag is float size)
+            {
+                menuItem.Checked = Math.Abs(size - _textFontSize) < 0.05F;
+            }
+        }
+
+        foreach (var menuItem in _textStyleMenuItems)
+        {
+            if (menuItem.Tag is FontStyle style)
+            {
+                menuItem.Checked = (_textFontStyle & style) != 0;
+            }
         }
     }
 
@@ -2864,12 +3069,6 @@ public sealed class EditorForm : Form
             _textCaretTimer.Stop();
             _textCaretTimer.Dispose();
             _textFont.Dispose();
-            foreach (var buttonFont in _textFormatButtonFonts)
-            {
-                buttonFont.Dispose();
-            }
-
-            _textFormatToolTip.Dispose();
             _automaticMaskToolTip.Dispose();
             _toolIconImageList.Dispose();
             foreach (var icon in _toolIconBitmaps.Values)

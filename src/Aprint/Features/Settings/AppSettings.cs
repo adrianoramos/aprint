@@ -61,6 +61,8 @@ public sealed class AppSettings
 
     public int LastHighlightWidth { get; set; } = 18;
 
+    public int LastHighlightColorArgb { get; set; } = Color.Yellow.ToArgb();
+
     public int LastLineColorArgb { get; set; } = Color.Red.ToArgb();
 
     public int LastTextColorArgb { get; set; } = Color.Red.ToArgb();
