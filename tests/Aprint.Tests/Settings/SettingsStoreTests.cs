@@ -35,6 +35,7 @@ public sealed class SettingsStoreTests : IDisposable
             LastHighlightWidth = 32,
             LastHighlightColorArgb = Color.Magenta.ToArgb(),
             LastLineColorArgb = Color.Blue.ToArgb(),
+            LastMaskColorArgb = Color.Cyan.ToArgb(),
             LastTextColorArgb = Color.Green.ToArgb(),
             LastFillColorArgb = Color.Yellow.ToArgb(),
             LastMaskPixelSize = 24,

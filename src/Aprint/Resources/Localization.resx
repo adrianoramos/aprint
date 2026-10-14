@@ -417,6 +417,9 @@
   <data name="Editor.MaskOptions" xml:space="preserve">
     <value>Opções de máscara</value>
   </data>
+  <data name="Editor.MaskColor" xml:space="preserve">
+    <value>Cor da máscara</value>
+  </data>
   <data name="Editor.Highlight" xml:space="preserve">
     <value>Realçar</value>
   </data>

@@ -58,6 +58,38 @@ public sealed class RegionSelectorFormTests
             .GetValue(selector)!).ToArgb());
     }
 
+    [Fact]
+    public void CoverMaskUsesItsOwnConfiguredColor()
+    {
+        using var bitmap = new Bitmap(8, 8);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(
+            bitmap,
+            maskMode: MaskMode.Solid,
+            lineColorArgb: Color.Red.ToArgb(),
+            maskColorArgb: Color.Blue.ToArgb());
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, 8, 8));
+        typeof(RegionSelectorForm).GetField("_maskStart", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Point(1, 1));
+        typeof(RegionSelectorForm).GetField("_maskEnd", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Point(5, 5));
+        typeof(RegionSelectorForm).GetField("_isDrawingMaskRegion", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, true);
+
+        typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 5, 5, 0)]);
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(2, 2).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), ((Color)typeof(RegionSelectorForm)
+            .GetField("_lineColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!).ToArgb());
+    }
+
     [Theory]
     [InlineData(EditTool.Blur, MaskMode.Solid)]
     [InlineData(EditTool.Pixelated, MaskMode.Pixelate)]

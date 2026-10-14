@@ -170,7 +170,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize, showWithoutActivation, _settings.LastHighlightColorArgb);
+        var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize, showWithoutActivation, _settings.LastHighlightColorArgb, _settings.LastMaskColorArgb);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 
@@ -197,6 +197,12 @@ public sealed class TrayApplicationContext : ApplicationContext
         editor.HighlightColorChanged += color =>
         {
             _settings.LastHighlightColorArgb = color.ToArgb();
+            _settingsStore.Save(_settings);
+        };
+
+        editor.MaskColorChanged += color =>
+        {
+            _settings.LastMaskColorArgb = color.ToArgb();
             _settingsStore.Save(_settings);
         };
 

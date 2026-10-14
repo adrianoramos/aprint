@@ -180,6 +180,7 @@ public sealed class EditorForm : Form
     {
         Stroke,
         Highlight,
+        Mask,
         Text,
         Fill,
     }
@@ -239,6 +240,8 @@ public sealed class EditorForm : Form
     private readonly ToolStripMenuItem _pixelatedModeMenuItem;
     private readonly ToolStripSeparator _pixelSizeSeparator;
     private readonly ToolStripMenuItem _pixelSizeMenuItem;
+    private readonly ToolStripSeparator _maskColorSeparator;
+    private readonly ToolStripMenuItem _maskColorMenuItem;
     private readonly ToolStripSeparator _automaticMaskSeparator;
     private readonly ToolStripMenuItem _automaticMaskMenuItem;
     private readonly ToolStripMenuItem _fontDialogMenuItem;
@@ -248,6 +251,7 @@ public sealed class EditorForm : Form
     private readonly ToolStripDropDownButton _btnColorDropdown;
     private readonly ToolStripMenuItem _strokeColorMenuItem;
     private readonly ToolStripMenuItem _highlightTargetMenuItem;
+    private readonly ToolStripMenuItem _maskColorTargetMenuItem;
     private readonly ToolStripMenuItem _textColorMenuItem;
     private readonly ToolStripMenuItem _fillColorMenuItem;
     private readonly ToolStripMenuItem _noFillColorMenuItem;
@@ -266,6 +270,7 @@ public sealed class EditorForm : Form
 
     private Color _selectedColor = Color.Red;
     private Color _selectedHighlightColor = Color.Yellow;
+    private Color _selectedMaskColor = Color.Red;
     private Color _selectedTextColor = Color.Red;
     private Color? _selectedFillColor;
     private bool _isColorTargetManuallySelected;
@@ -306,6 +311,7 @@ public sealed class EditorForm : Form
     public event Action<MaskMode>? MaskModeChanged;
     public event Action<Color>? LineColorChanged;
     public event Action<Color>? HighlightColorChanged;
+    public event Action<Color>? MaskColorChanged;
     public event Action<Color>? TextColorChanged;
     public event Action<Color?>? FillColorChanged;
     public event Action<int>? MaskPixelSizeChanged;
@@ -313,12 +319,13 @@ public sealed class EditorForm : Form
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
         _selectedColor = Color.FromArgb(lineColorArgb);
         _selectedHighlightColor = Color.FromArgb(highlightColorArgb);
+        _selectedMaskColor = Color.FromArgb(maskColorArgb);
         _selectedTextColor = Color.FromArgb(textColorArgb);
         _selectedFillColor = fillColorArgb.HasValue ? Color.FromArgb(fillColorArgb.Value) : null;
         _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
@@ -420,6 +427,7 @@ public sealed class EditorForm : Form
         _strokeColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Stroke, "Editor.LineColor");
         _textColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Text, "Editor.TextColor");
         _highlightTargetMenuItem = CreateColorTargetMenuItem(ColorTarget.Highlight, "Editor.HighlightColor");
+        _maskColorTargetMenuItem = CreateColorTargetMenuItem(ColorTarget.Mask, "Editor.MaskColor");
         _fillColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Fill, "Editor.FillColor");
         _noFillColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.NoFill"));
         _noFillColorMenuItem.Click += (_, _) =>
@@ -433,6 +441,7 @@ public sealed class EditorForm : Form
         _btnColorDropdown.DropDownItems.AddRange([
             _strokeColorMenuItem,
             _highlightTargetMenuItem,
+            _maskColorTargetMenuItem,
             _textColorMenuItem,
             _fillColorMenuItem,
             new ToolStripSeparator(),
@@ -648,6 +657,17 @@ public sealed class EditorForm : Form
             () => _maskPixelSize,
             "px",
             SetMaskPixelSize));
+        _maskColorSeparator = new ToolStripSeparator();
+        _maskColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.MaskColor"))
+        {
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.FillColor, _selectedMaskColor)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.MaskColor")}: {_selectedMaskColor.Name}",
+        };
+        _maskColorMenuItem.Click += (_, _) =>
+        {
+            _btnMaskModeDropdown.DropDown.Close();
+            PickMaskColor();
+        };
         _automaticMaskSeparator = new ToolStripSeparator();
         _automaticMaskMenuItem = new ToolStripMenuItem(
             AppLocalization.Translate("Editor.AutomaticMask"),
@@ -666,6 +686,8 @@ public sealed class EditorForm : Form
             _pixelatedModeMenuItem,
             _pixelSizeSeparator,
             _pixelSizeMenuItem,
+            _maskColorSeparator,
+            _maskColorMenuItem,
             _automaticMaskSeparator,
             _automaticMaskMenuItem,
         ]);
@@ -966,6 +988,7 @@ public sealed class EditorForm : Form
         {
             ColorTarget.Stroke => (ToolIconKind.LineColor, _selectedColor),
             ColorTarget.Highlight => (ToolIconKind.LineColor, _selectedHighlightColor),
+            ColorTarget.Mask => (ToolIconKind.FillColor, _selectedMaskColor),
             ColorTarget.Text => (ToolIconKind.TextColor, _selectedTextColor),
             ColorTarget.Fill => (ToolIconKind.FillColor, _selectedFillColor ?? Color.Black),
             _ => throw new ArgumentOutOfRangeException(nameof(target)),
@@ -1002,6 +1025,9 @@ public sealed class EditorForm : Form
                 break;
             case ColorTarget.Highlight:
                 PickHighlightColor();
+                break;
+            case ColorTarget.Mask:
+                PickMaskColor();
                 break;
             case ColorTarget.Text:
                 PickTextColor();
@@ -1333,6 +1359,7 @@ public sealed class EditorForm : Form
             {
                 EditTool.Text => ColorTarget.Text,
                 EditTool.Highlight => ColorTarget.Highlight,
+                EditTool.Blur or EditTool.Pixelated => ColorTarget.Mask,
                 _ => ColorTarget.Stroke,
             });
         }
@@ -1407,6 +1434,8 @@ public sealed class EditorForm : Form
         _pixelatedModeMenuItem.Checked = !isFilled;
         _pixelSizeSeparator.Visible = !isFilled;
         _pixelSizeMenuItem.Visible = !isFilled;
+        _maskColorSeparator.Visible = isFilled;
+        _maskColorMenuItem.Visible = isFilled;
     }
 
     private void PickColor()
@@ -1444,6 +1473,19 @@ public sealed class EditorForm : Form
         }
     }
 
+    private void PickMaskColor()
+    {
+        SelectColorTarget(ColorTarget.Mask, manuallySelected: true);
+        using var dialog = new ColorDialog { Color = _selectedMaskColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedMaskColor = dialog.Color;
+            UpdateColorPickerButtonAppearance();
+            MaskColorChanged?.Invoke(_selectedMaskColor);
+            _pictureBox.Invalidate();
+        }
+    }
+
     private void PickFillColor()
     {
         using var dialog = new ColorDialog { Color = _selectedFillColor ?? Color.White, FullOpen = true };
@@ -1461,6 +1503,7 @@ public sealed class EditorForm : Form
         {
             ColorTarget.Stroke => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.LineColor"), _selectedColor, _selectedColor.Name),
             ColorTarget.Highlight => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.HighlightColor"), _selectedHighlightColor, _selectedHighlightColor.Name),
+            ColorTarget.Mask => (ToolIconKind.FillColor, AppLocalization.Translate("Editor.MaskColor"), _selectedMaskColor, _selectedMaskColor.Name),
             ColorTarget.Text => (ToolIconKind.TextColor, AppLocalization.Translate("Editor.TextColor"), _selectedTextColor, _selectedTextColor.Name),
             ColorTarget.Fill => (
                 ToolIconKind.FillColor,
@@ -1485,8 +1528,15 @@ public sealed class EditorForm : Form
             $"{AppLocalization.Translate("Editor.HighlightColor")}: {_selectedHighlightColor.Name}";
         _highlightColorMenuItem.Image = _highlightTargetMenuItem.Image;
         _highlightColorMenuItem.ToolTipText = _highlightTargetMenuItem.ToolTipText;
+        _maskColorTargetMenuItem.Image = _toolIconImageList.Images[
+            EnsureToolIconKey(ToolIconKind.FillColor, _selectedMaskColor)];
+        _maskColorTargetMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.MaskColor")}: {_selectedMaskColor.Name}";
+        _maskColorMenuItem.Image = _maskColorTargetMenuItem.Image;
+        _maskColorMenuItem.ToolTipText = _maskColorTargetMenuItem.ToolTipText;
         _strokeColorMenuItem.Checked = _activeColorTarget == ColorTarget.Stroke;
         _highlightTargetMenuItem.Checked = _activeColorTarget == ColorTarget.Highlight;
+        _maskColorTargetMenuItem.Checked = _activeColorTarget == ColorTarget.Mask;
         _textColorMenuItem.Checked = _activeColorTarget == ColorTarget.Text;
         _fillColorMenuItem.Checked = _activeColorTarget == ColorTarget.Fill;
         _noFillColorMenuItem.Checked = false;
@@ -1991,7 +2041,7 @@ public sealed class EditorForm : Form
 
     private void ApplyMaskToSelection(Rectangle area)
     {
-        ImageEditingService.ApplyMask(_workingBitmap, area, _maskMode, _selectedColor, _maskPixelSize);
+        ImageEditingService.ApplyMask(_workingBitmap, area, _maskMode, _selectedMaskColor, _maskPixelSize);
         _pictureBox.Image = _workingBitmap;
         InvalidatePictureBoxRegion(InflateRectangle(area, 2));
     }
@@ -2953,7 +3003,7 @@ public sealed class EditorForm : Form
             SaveUndoState();
             foreach (var region in selectedRegions)
             {
-                ImageEditingService.ApplyMask(_workingBitmap, region.Bounds, _maskMode, _selectedColor, _maskPixelSize);
+                ImageEditingService.ApplyMask(_workingBitmap, region.Bounds, _maskMode, _selectedMaskColor, _maskPixelSize);
             }
 
             _pictureBox.Image = _workingBitmap;
@@ -3028,7 +3078,7 @@ public sealed class EditorForm : Form
                 maskedRegion,
                 new Rectangle(Point.Empty, maskedRegion.Size),
                 _maskMode,
-                _selectedColor,
+                _selectedMaskColor,
                 _maskPixelSize);
             graphics.DrawImageUnscaled(maskedRegion, bounds.Location);
         }
@@ -3053,7 +3103,7 @@ public sealed class EditorForm : Form
                 protectedImage,
                 region.Bounds,
                 _maskMode,
-                _selectedColor,
+                _selectedMaskColor,
                 _maskPixelSize);
         }
 

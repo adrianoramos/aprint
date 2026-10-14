@@ -417,6 +417,9 @@
   <data name="Editor.MaskOptions" xml:space="preserve">
     <value>Mask options</value>
   </data>
+  <data name="Editor.MaskColor" xml:space="preserve">
+    <value>Mask color</value>
+  </data>
   <data name="Editor.Highlight" xml:space="preserve">
     <value>Highlight</value>
   </data>

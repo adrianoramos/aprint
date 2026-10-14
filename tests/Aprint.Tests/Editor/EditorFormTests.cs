@@ -394,7 +394,7 @@ public sealed class EditorFormTests
             graphics.Clear(Color.White);
         }
 
-        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Solid, lineColorArgb: Color.Black.ToArgb());
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Solid, maskColorArgb: Color.Black.ToArgb());
         SetMaskRegions(editor, bitmap.Size, new Rectangle(1, 1, 2, 2));
         typeof(EditorForm).GetMethod("SetAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(editor, [true]);
         var pictureBox = (PictureBox)typeof(EditorForm).GetField("_pictureBox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
@@ -448,7 +448,7 @@ public sealed class EditorFormTests
             graphics.Clear(Color.White);
         }
 
-        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Solid, lineColorArgb: Color.Black.ToArgb());
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Solid, maskColorArgb: Color.Black.ToArgb());
         SetMaskRegions(editor, bitmap.Size, new Rectangle(1, 1, 3, 3));
         typeof(EditorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(editor, true);
         var pictureBox = (PictureBox)typeof(EditorForm).GetField("_pictureBox", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
@@ -512,13 +512,21 @@ public sealed class EditorFormTests
         var pixelSizeMenuItem = (ToolStripMenuItem)typeof(EditorForm)
             .GetField("_pixelSizeMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
+        var maskColorSeparator = (ToolStripSeparator)typeof(EditorForm)
+            .GetField("_maskColorSeparator", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var maskColorMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_maskColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
 
         Assert.True(menuItem.Enabled);
         Assert.NotNull(menuItem.Image);
         var menuItemIndex = maskDropdown.DropDownItems.IndexOf(menuItem);
         Assert.Same(separator, maskDropdown.DropDownItems[menuItemIndex - 1]);
-        Assert.Same(pixelSizeMenuItem, maskDropdown.DropDownItems[menuItemIndex - 2]);
-        Assert.Same(pixelSizeSeparator, maskDropdown.DropDownItems[menuItemIndex - 3]);
+        Assert.Same(maskColorMenuItem, maskDropdown.DropDownItems[menuItemIndex - 2]);
+        Assert.Same(maskColorSeparator, maskDropdown.DropDownItems[menuItemIndex - 3]);
+        Assert.Same(pixelSizeMenuItem, maskDropdown.DropDownItems[menuItemIndex - 4]);
+        Assert.Same(pixelSizeSeparator, maskDropdown.DropDownItems[menuItemIndex - 5]);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
     }
@@ -670,6 +678,42 @@ public sealed class EditorFormTests
 
             throw new InvalidOperationException("The line color icon has no visible pixels.");
         }
+    }
+
+    [Fact]
+    public void CoverMaskUsesItsOwnColorWithoutChangingLineColor()
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var editor = new EditorForm(
+            bitmap,
+            string.Empty,
+            initialTool: EditTool.Blur,
+            lineColorArgb: Color.Red.ToArgb(),
+            maskColorArgb: Color.Blue.ToArgb());
+        var maskDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnMaskModeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var maskColorMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_maskColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        Assert.Contains(maskColorMenuItem, maskDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.NotNull(maskColorMenuItem.Image);
+
+        typeof(EditorForm).GetMethod("ApplyMaskToSelection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, [new Rectangle(0, 0, 4, 4)]);
+
+        var workingBitmap = (Bitmap)typeof(EditorForm)
+            .GetField("_workingBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        Assert.Equal(Color.Blue.ToArgb(), workingBitmap.GetPixel(1, 1).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), ((Color)typeof(EditorForm)
+            .GetField("_selectedColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!).ToArgb());
     }
 
     [Fact]
