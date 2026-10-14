@@ -7,6 +7,34 @@ namespace Aprint.Tests.Capture;
 
 public sealed class RegionSelectorFormTests
 {
+    [Theory]
+    [InlineData(EditTool.Freehand)]
+    [InlineData(EditTool.Counter)]
+    [InlineData(EditTool.Highlight)]
+    [InlineData(EditTool.Blur)]
+    [InlineData(EditTool.Pixelated)]
+    [InlineData(EditTool.Text)]
+    public void FloatingBarsKeepDefaultCursorWhenRestoredToolChangesSelectionCursor(EditTool lastCaptureTool)
+    {
+        using var bitmap = new Bitmap(100, 100);
+        using var selector = new RegionSelectorForm(bitmap, lastCaptureTool: lastCaptureTool);
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, 100, 100));
+        selector.Cursor = (Cursor)typeof(RegionSelectorForm)
+            .GetMethod("GetCursorForLocation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [new Point(50, 50)])!;
+
+        Assert.Equal(lastCaptureTool == EditTool.Text ? Cursors.IBeam : Cursors.Cross, selector.Cursor);
+        foreach (var fieldName in new[] { "_actionBar", "_screenSelectionBar" })
+        {
+            var bar = (ToolStrip)typeof(RegionSelectorForm)
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(selector)!;
+
+            Assert.Equal(Cursors.Default, bar.Cursor);
+        }
+    }
+
     [Fact]
     public void DrawingButtonSelectsFreehandWhenLastToolWasNotADrawingTool()
     {
