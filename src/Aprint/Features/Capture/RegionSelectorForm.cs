@@ -3030,6 +3030,12 @@ public sealed class RegionSelectorForm : Form
                 return;
             }
 
+            if (detectedRegions is null)
+            {
+                NotifyAutomaticMaskUnavailable();
+                return;
+            }
+
             if (detectedRegions is not null)
             {
                 foreach (var region in detectedRegions)
@@ -3065,12 +3071,7 @@ public sealed class RegionSelectorForm : Form
         {
             if (!IsDisposed && generation == _automaticMaskDetectionGeneration)
             {
-                ClearAutomaticMaskRegions();
-                _isAutomaticMaskDetectionInProgress = false;
-                _isAutomaticMaskDetectionReady = true;
-                _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
-                UpdateAutomaticMaskActionBarMode();
-                Invalidate(selection);
+                NotifyAutomaticMaskUnavailable();
             }
         }
         finally
@@ -3207,6 +3208,17 @@ public sealed class RegionSelectorForm : Form
         _automaticMaskMenuItem!.ToolTipText = tooltip;
         SetAutomaticMaskSelectionActive(false);
         Invalidate(_selection);
+    }
+
+    private void NotifyAutomaticMaskUnavailable()
+    {
+        MessageBox.Show(
+            this,
+            AppLocalization.Translate("Editor.AutomaticMaskUnavailable"),
+            AppLocalization.Translate("App.Name"),
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+        CancelAutomaticMask();
     }
 
     private void DrawAutomaticMaskPreview(Graphics graphics, Rectangle clipBounds)

@@ -2931,11 +2931,7 @@ public sealed class EditorForm : Form
 
             if (detectedRegions is null)
             {
-                _textRegionDetectionInProgress = false;
-                _textRegionDetectionReady = true;
-                SetAutomaticMaskSelectionActive(true);
-                _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
-                _pictureBox.Invalidate();
+                NotifyAutomaticMaskUnavailable();
                 return;
             }
 
@@ -2958,11 +2954,7 @@ public sealed class EditorForm : Form
         {
             if (!IsDisposed && generation == _textRegionDetectionGeneration)
             {
-                _textRegionDetectionInProgress = false;
-                _textRegionDetectionReady = true;
-                SetAutomaticMaskSelectionActive(true);
-                _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
-                _pictureBox.Invalidate();
+                NotifyAutomaticMaskUnavailable();
             }
         }
         finally
@@ -3157,6 +3149,17 @@ public sealed class EditorForm : Form
         SetAutomaticMaskSelectionActive(false);
         _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
         _pictureBox.Invalidate();
+    }
+
+    private void NotifyAutomaticMaskUnavailable()
+    {
+        MessageBox.Show(
+            this,
+            AppLocalization.Translate("Editor.AutomaticMaskUnavailable"),
+            AppLocalization.Translate("App.Name"),
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+        CancelAutomaticMask();
     }
 
     private void DrawAutomaticMaskPreview(Graphics graphics, Rectangle clipBounds)
