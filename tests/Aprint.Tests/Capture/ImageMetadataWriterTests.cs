@@ -39,4 +39,19 @@ public sealed class ImageMetadataWriterTests
         using var decodedImage = Image.FromStream(encodedImage);
         Assert.Equal(bitmap.Size, decodedImage.Size);
     }
+
+    [Fact]
+    public void BitmapOutputRemainsReadableWithoutMetadataChunks()
+    {
+        using var bitmap = new Bitmap(2, 2);
+        using var output = new MemoryStream();
+
+        ImageMetadataWriter.SaveWithSoftwareMetadata(bitmap, output, ImageFormat.Bmp);
+
+        var bytes = output.ToArray();
+        using var encodedImage = new MemoryStream(bytes);
+        using var decodedImage = Image.FromStream(encodedImage);
+        Assert.Equal(bitmap.Size, decodedImage.Size);
+        Assert.False(bytes.AsSpan().IndexOf(Encoding.ASCII.GetBytes("Software\0Aprint")) >= 0);
+    }
 }

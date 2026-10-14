@@ -14,27 +14,37 @@ public static class ImageMetadataWriter
     {
         using var encodedImage = new MemoryStream();
         image.Save(encodedImage, format);
-        var bytes = encodedImage.ToArray();
+        if (!encodedImage.TryGetBuffer(out var buffer))
+        {
+            throw new InvalidOperationException("The encoded image buffer is unavailable.");
+        }
 
-        var output = format.Guid == ImageFormat.Png.Guid
-            ? AddPngSoftwareText(bytes)
-            : format.Guid == ImageFormat.Jpeg.Guid
-                ? AddJpegSoftwareExif(bytes)
-                : bytes;
+        var bytes = buffer.AsSpan(0, checked((int)encodedImage.Length));
+        if (format.Guid == ImageFormat.Png.Guid)
+        {
+            WritePngSoftwareText(bytes, destination);
+        }
+        else if (format.Guid == ImageFormat.Jpeg.Guid)
+        {
+            WriteJpegSoftwareExif(bytes, destination);
+        }
+        else
+        {
+            destination.Write(bytes);
+        }
 
-        destination.Write(output);
     }
 
-    private static byte[] AddPngSoftwareText(byte[] image)
+    private static void WritePngSoftwareText(ReadOnlySpan<byte> image, Stream destination)
     {
-        if (image.Length < PngSignature.Length + 8 || !image.AsSpan(0, PngSignature.Length).SequenceEqual(PngSignature))
+        if (image.Length < PngSignature.Length + 8 || !image[..PngSignature.Length].SequenceEqual(PngSignature))
         {
             throw new InvalidDataException("The encoded image is not a valid PNG.");
         }
 
         var headerOffset = PngSignature.Length;
-        var headerLength = BinaryPrimitives.ReadUInt32BigEndian(image.AsSpan(headerOffset, sizeof(uint)));
-        if (!image.AsSpan(headerOffset + sizeof(uint), 4).SequenceEqual("IHDR"u8) ||
+        var headerLength = BinaryPrimitives.ReadUInt32BigEndian(image.Slice(headerOffset, sizeof(uint)));
+        if (!image.Slice(headerOffset + sizeof(uint), 4).SequenceEqual("IHDR"u8) ||
             headerLength > image.Length - headerOffset - 12)
         {
             throw new InvalidDataException("The encoded PNG has an invalid header.");
@@ -43,12 +53,10 @@ public static class ImageMetadataWriter
         var insertionOffset = checked(headerOffset + sizeof(uint) + 4 + (int)headerLength + sizeof(uint));
         var exifChunk = CreatePngChunk("eXIf"u8, CreateExifTiffPayload());
         var textChunk = CreatePngChunk("tEXt"u8, SoftwareText);
-        var result = new byte[image.Length + exifChunk.Length + textChunk.Length];
-        image.AsSpan(0, insertionOffset).CopyTo(result);
-        exifChunk.CopyTo(result, insertionOffset);
-        textChunk.CopyTo(result, insertionOffset + exifChunk.Length);
-        image.AsSpan(insertionOffset).CopyTo(result.AsSpan(insertionOffset + exifChunk.Length + textChunk.Length));
-        return result;
+        destination.Write(image[..insertionOffset]);
+        destination.Write(exifChunk);
+        destination.Write(textChunk);
+        destination.Write(image[insertionOffset..]);
     }
 
     private static byte[] CreatePngChunk(ReadOnlySpan<byte> chunkType, ReadOnlySpan<byte> data)
@@ -78,7 +86,7 @@ public static class ImageMetadataWriter
         return ~crc;
     }
 
-    private static byte[] AddJpegSoftwareExif(byte[] image)
+    private static void WriteJpegSoftwareExif(ReadOnlySpan<byte> image, Stream destination)
     {
         if (image.Length < 2 || image[0] != 0xff || image[1] != 0xd8)
         {
@@ -87,19 +95,17 @@ public static class ImageMetadataWriter
 
         var insertionOffset = FindJpegApp0End(image);
         var segment = CreateJpegExifSegment();
-        var result = new byte[image.Length + segment.Length];
-        image.AsSpan(0, insertionOffset).CopyTo(result);
-        segment.CopyTo(result, insertionOffset);
-        image.AsSpan(insertionOffset).CopyTo(result.AsSpan(insertionOffset + segment.Length));
-        return result;
+        destination.Write(image[..insertionOffset]);
+        destination.Write(segment);
+        destination.Write(image[insertionOffset..]);
     }
 
-    private static int FindJpegApp0End(byte[] image)
+    private static int FindJpegApp0End(ReadOnlySpan<byte> image)
     {
         var offset = 2;
         while (offset + 4 <= image.Length && image[offset] == 0xff && image[offset + 1] == 0xe0)
         {
-            var segmentLength = BinaryPrimitives.ReadUInt16BigEndian(image.AsSpan(offset + 2, sizeof(ushort)));
+            var segmentLength = BinaryPrimitives.ReadUInt16BigEndian(image.Slice(offset + 2, sizeof(ushort)));
             if (segmentLength < 2 || segmentLength > image.Length - offset - 2)
             {
                 throw new InvalidDataException("The encoded JPEG has an invalid APP0 segment.");
