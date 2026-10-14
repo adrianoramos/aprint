@@ -199,6 +199,7 @@ public sealed class EditorForm : Form
     private readonly ToolTip _automaticMaskToolTip = new();
     private Size _maskDetectionImageSize;
     private int _textRegionDetectionGeneration;
+    private CancellationTokenSource? _textRegionDetectionCancellation;
     private bool _textRegionDetectionReady;
     private bool _textRegionDetectionInProgress;
     private bool _isAutomaticMaskSelectionActive;
@@ -2907,6 +2908,8 @@ public sealed class EditorForm : Form
         }
 
         var generation = ++_textRegionDetectionGeneration;
+        var cancellation = new CancellationTokenSource();
+        _textRegionDetectionCancellation = cancellation;
         _textRegionDetectionReady = false;
         _textRegionDetectionInProgress = true;
         _isAutomaticMaskRevealActive = false;
@@ -2920,7 +2923,7 @@ public sealed class EditorForm : Form
         try
         {
             using var source = (Bitmap)_workingBitmap.Clone();
-            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source);
+            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source, cancellation.Token);
             if (IsDisposed || generation != _textRegionDetectionGeneration)
             {
                 return;
@@ -2948,6 +2951,9 @@ public sealed class EditorForm : Form
 
             _pictureBox.Invalidate();
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
         catch
         {
             if (!IsDisposed && generation == _textRegionDetectionGeneration)
@@ -2959,11 +2965,20 @@ public sealed class EditorForm : Form
                 _pictureBox.Invalidate();
             }
         }
+        finally
+        {
+            if (ReferenceEquals(_textRegionDetectionCancellation, cancellation))
+            {
+                _textRegionDetectionCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
     }
 
     private void ResetTextRegionDetection()
     {
-        _textRegionDetectionGeneration++;
+        CancelTextRegionDetection();
         _maskRegions.Clear();
         _textRegionDetectionReady = false;
         _textRegionDetectionInProgress = false;
@@ -2972,6 +2987,14 @@ public sealed class EditorForm : Form
         _automaticMaskMenuItem.Enabled = true;
         _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
         _pictureBox.Invalidate();
+    }
+
+    private void CancelTextRegionDetection()
+    {
+        _textRegionDetectionGeneration++;
+        var cancellation = _textRegionDetectionCancellation;
+        _textRegionDetectionCancellation = null;
+        cancellation?.Cancel();
     }
 
     private async Task StartAutomaticMaskAsync()
@@ -3120,14 +3143,16 @@ public sealed class EditorForm : Form
 
     private void CancelAutomaticMask()
     {
-        if (!_isAutomaticMaskSelectionActive || _textRegionDetectionInProgress)
+        if (!_isAutomaticMaskSelectionActive)
         {
             return;
         }
 
+        CancelTextRegionDetection();
         _maskRegions.Clear();
         _maskDetectionImageSize = Size.Empty;
         _textRegionDetectionReady = false;
+        _textRegionDetectionInProgress = false;
         _isAutomaticMaskRevealActive = false;
         SetAutomaticMaskSelectionActive(false);
         _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMask");
@@ -3212,6 +3237,7 @@ public sealed class EditorForm : Form
     {
         if (disposing)
         {
+            CancelTextRegionDetection();
             _inactivityTimer?.Stop();
             _inactivityTimer?.Dispose();
             _textCaretTimer.Stop();

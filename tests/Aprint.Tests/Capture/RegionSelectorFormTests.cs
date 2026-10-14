@@ -547,6 +547,7 @@ public sealed class RegionSelectorFormTests
     public void AutomaticMaskHidesToolsAndLocksSelectionUntilCancelled()
     {
         using var bitmap = new Bitmap(80, 80);
+        using var cancellation = new CancellationTokenSource();
         using var selector = new RegionSelectorForm(bitmap);
         selector.Show();
         System.Windows.Forms.Application.DoEvents();
@@ -560,6 +561,8 @@ public sealed class RegionSelectorFormTests
             .SetValue(selector, true);
         typeof(RegionSelectorForm).GetMethod("SetAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(selector, [true]);
+        typeof(RegionSelectorForm).GetField("_automaticMaskDetectionCancellation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, cancellation);
         Assert.True(selectionInvalidated);
 
         var actionBar = (ToolStrip)typeof(RegionSelectorForm)
@@ -599,6 +602,7 @@ public sealed class RegionSelectorFormTests
         cancelButton.PerformClick();
 
         Assert.False((bool)typeof(RegionSelectorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        Assert.True(cancellation.IsCancellationRequested);
         Assert.Equal(selection, (Rectangle)selectionField.GetValue(selector)!);
         mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Right + 20, selection.Bottom + 20, 0)]);
         Assert.Equal(Cursors.Default, selector.Cursor);

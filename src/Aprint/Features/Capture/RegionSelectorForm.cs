@@ -305,6 +305,7 @@ public sealed class RegionSelectorForm : Form
     private bool _isAutomaticMaskRevealActive;
     private bool _isDrawingAutomaticMaskRegion;
     private int _automaticMaskDetectionGeneration;
+    private CancellationTokenSource? _automaticMaskDetectionCancellation;
     private bool _sendToEditorFlashVisible;
     private int _sendToEditorFlashTicks;
     private Point _lineStart;
@@ -1058,6 +1059,7 @@ public sealed class RegionSelectorForm : Form
     {
         if (disposing)
         {
+            CancelAutomaticMaskDetection();
             _overlayBrush.Dispose();
             _borderPen.Dispose();
             _handleBrush.Dispose();
@@ -3007,6 +3009,8 @@ public sealed class RegionSelectorForm : Form
         CommitTextEdit();
         CommitAnnotationsAndRecordUndo();
         var generation = ++_automaticMaskDetectionGeneration;
+        var cancellation = new CancellationTokenSource();
+        _automaticMaskDetectionCancellation = cancellation;
         var selection = _selection;
         ClearAutomaticMaskRegions();
         _isAutomaticMaskDetectionReady = false;
@@ -3020,7 +3024,7 @@ public sealed class RegionSelectorForm : Form
         try
         {
             using var source = _background.Clone(selection, PixelFormat.Format32bppArgb);
-            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source);
+            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source, cancellation.Token);
             if (IsDisposed || generation != _automaticMaskDetectionGeneration)
             {
                 return;
@@ -3054,6 +3058,9 @@ public sealed class RegionSelectorForm : Form
             UpdateAutomaticMaskActionBarMode();
             Invalidate(selection);
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
         catch
         {
             if (!IsDisposed && generation == _automaticMaskDetectionGeneration)
@@ -3065,6 +3072,15 @@ public sealed class RegionSelectorForm : Form
                 UpdateAutomaticMaskActionBarMode();
                 Invalidate(selection);
             }
+        }
+        finally
+        {
+            if (ReferenceEquals(_automaticMaskDetectionCancellation, cancellation))
+            {
+                _automaticMaskDetectionCancellation = null;
+            }
+
+            cancellation.Dispose();
         }
     }
 
@@ -3170,8 +3186,14 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        _automaticMaskDetectionGeneration++;
+        CancelAutomaticMaskDetection();
         EndAutomaticMaskSelection(AppLocalization.Translate("Editor.AutomaticMask"));
+    }
+
+    private void CancelAutomaticMaskDetection()
+    {
+        _automaticMaskDetectionGeneration++;
+        _automaticMaskDetectionCancellation?.Cancel();
     }
 
     private void EndAutomaticMaskSelection(string tooltip)

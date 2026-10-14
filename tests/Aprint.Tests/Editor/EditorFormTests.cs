@@ -509,6 +509,7 @@ public sealed class EditorFormTests
     public void CancellingAutomaticMaskDoesNotChangeImage()
     {
         using var bitmap = new Bitmap(4, 4);
+        using var cancellation = new CancellationTokenSource();
         using (var graphics = Graphics.FromImage(bitmap))
         {
             graphics.Clear(Color.White);
@@ -517,11 +518,15 @@ public sealed class EditorFormTests
         using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Solid);
         SetMaskRegions(editor, bitmap.Size, new Rectangle(1, 1, 2, 2));
         typeof(EditorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(editor, true);
+        typeof(EditorForm).GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(editor, true);
+        typeof(EditorForm).GetField("_textRegionDetectionCancellation", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(editor, cancellation);
         typeof(EditorForm).GetMethod("CancelAutomaticMask", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(editor, null);
         var sourceImage = (Bitmap)typeof(EditorForm).GetField("_workingBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
 
         Assert.Equal(Color.White.ToArgb(), sourceImage.GetPixel(1, 1).ToArgb());
         Assert.False((bool)typeof(EditorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
+        Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionInProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
+        Assert.True(cancellation.IsCancellationRequested);
         Assert.False((bool)typeof(EditorForm).GetField("_textRegionDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!);
     }
 
