@@ -252,6 +252,7 @@ public sealed class EditorForm : Form
     private readonly ToolStripSeparator _automaticMaskSeparator;
     private readonly ToolStripMenuItem _automaticMaskMenuItem;
     private readonly ToolStripMenuItem _fontDialogMenuItem;
+    private readonly ToolStripMenuItem _textFormatColorMenuItem;
     private readonly ToolStripMenuItem _textFontSizeMenuItem;
     private readonly List<ToolStripMenuItem> _textStyleMenuItems = [];
     private readonly ToolStripButton _btnColor;
@@ -641,6 +642,16 @@ public sealed class EditorForm : Form
             _btnTextFormatDropdown.DropDown.Close();
             ShowTextFontDialog();
         };
+        _textFormatColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.TextColor"))
+        {
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.TextColor")}: {_selectedTextColor.Name}",
+        };
+        _textFormatColorMenuItem.Click += (_, _) =>
+        {
+            _btnTextFormatDropdown.DropDown.Close();
+            PickTextColor();
+        };
         _textFontSizeMenuItem = new ToolStripMenuItem();
         foreach (var fontSize in new[] { 8F, 10F, 12F, 14F, 16F, 18F, 24F, 32F, 48F, 72F })
         {
@@ -662,6 +673,8 @@ public sealed class EditorForm : Form
         var strikeoutMenuItem = CreateTextStyleMenuItem("Editor.TextStrikeout", FontStyle.Strikeout);
         _btnTextFormatDropdown.DropDownItems.AddRange([
             _fontDialogMenuItem,
+            new ToolStripSeparator(),
+            _textFormatColorMenuItem,
             new ToolStripSeparator(),
             _textFontSizeMenuItem,
             new ToolStripSeparator(),
@@ -1645,6 +1658,9 @@ public sealed class EditorForm : Form
         _btnColorDropdown.ToolTipText = _btnColor.ToolTipText;
         _strokeColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor)];
         _textColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)];
+        _textFormatColorMenuItem.Image = _textColorMenuItem.Image;
+        _textFormatColorMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.TextColor")}: {_selectedTextColor.Name}";
         _fillColorMenuItem.Image = _toolIconImageList.Images[
             EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
         _drawingFillColorMenuItem.Image = _toolIconImageList.Images[

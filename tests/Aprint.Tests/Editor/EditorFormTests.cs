@@ -289,6 +289,31 @@ public sealed class EditorFormTests
     }
 
     [Fact]
+    public void TextDropdownShowsCurrentTextColorPreview()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty, textColorArgb: Color.Red.ToArgb());
+        var textDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnTextFormatDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var textColorItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_textFormatColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+
+        Assert.Contains(textColorItem, textDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.NotNull(textColorItem.Image);
+        var originalPreview = textColorItem.Image;
+
+        typeof(EditorForm).GetField("_selectedTextColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(editor, Color.Lime);
+        typeof(EditorForm).GetMethod("UpdateColorPickerButtonAppearance", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, null);
+
+        Assert.NotSame(originalPreview, textColorItem.Image);
+        Assert.EndsWith(Color.Lime.Name, textColorItem.ToolTipText);
+    }
+
+    [Fact]
     public void CounterMarkerUsesConfiguredSizeAndIndependentTextAndCircleColors()
     {
         using var bitmap = new Bitmap(100, 100);
