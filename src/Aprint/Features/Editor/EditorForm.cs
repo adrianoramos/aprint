@@ -316,9 +316,9 @@ public sealed class EditorForm : Form
     public event Action<int>? HighlightWidthChanged;
     public event Action<int>? LineWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth, bool takeBitmapOwnership = false)
     {
-        _workingBitmap = (Bitmap)bitmap.Clone();
+        _workingBitmap = takeBitmapOwnership ? bitmap : (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
         _lineWidth = Math.Clamp(lineWidth, ImageEditingService.MinimumAnnotationPenWidth, ImageEditingService.MaximumAnnotationPenWidth);
         _selectedColor = Color.FromArgb(lineColorArgb);

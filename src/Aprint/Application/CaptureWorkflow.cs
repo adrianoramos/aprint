@@ -12,7 +12,8 @@ public sealed class CaptureWorkflow
         AppSettings settings,
         CaptureMode? captureModeOverride = null,
         Action<Bitmap>? sendToEditor = null,
-        Action? settingsChanged = null)
+        Action? settingsChanged = null,
+        Func<Bitmap, bool>? sendToEditorWithOwnership = null)
     {
         var selectedMode = captureModeOverride ?? settings.CaptureMode;
         var captureMode = selectedMode == CaptureMode.SelectArea
@@ -31,6 +32,7 @@ public sealed class CaptureWorkflow
                 selectedMode,
                 settings,
                 sendToEditor,
+                sendToEditorWithOwnership,
                 settingsChanged,
                 out var lastCaptureTool,
                 out var wasCancelled,
@@ -117,6 +119,7 @@ public sealed class CaptureWorkflow
         CaptureMode captureMode,
         AppSettings settings,
         Action<Bitmap>? sendToEditor,
+        Func<Bitmap, bool>? sendToEditorWithOwnership,
         Action? settingsChanged,
         out EditTool selectedCaptureTool,
         out bool wasCancelled,
@@ -151,7 +154,11 @@ public sealed class CaptureWorkflow
             settings.LastCounterCircleColorArgb,
             settings.LastLineWidth);
         BindSelectorSettings(selector, settings, settingsChanged);
-        if (sendToEditor is not null)
+        if (sendToEditorWithOwnership is not null)
+        {
+            selector.SendToEditorOwnershipRequested += sendToEditorWithOwnership;
+        }
+        else if (sendToEditor is not null)
         {
             selector.SendToEditorRequested += sendToEditor;
         }
@@ -254,15 +261,36 @@ public sealed class CaptureWorkflow
     }
 }
 
-public sealed class CaptureResult(Bitmap bitmap, string? savedFilePath, bool openEditor, RegionSelectionAction? selectionAction) : IDisposable
+public sealed class CaptureResult : IDisposable
 {
-    public Bitmap Bitmap { get; } = bitmap;
+    private Bitmap? _bitmap;
 
-    public string? SavedFilePath { get; } = savedFilePath;
+    public CaptureResult(Bitmap bitmap, string? savedFilePath, bool openEditor, RegionSelectionAction? selectionAction)
+    {
+        _bitmap = bitmap;
+        SavedFilePath = savedFilePath;
+        OpenEditor = openEditor;
+        SelectionAction = selectionAction;
+    }
 
-    public bool OpenEditor { get; } = openEditor;
+    public Bitmap Bitmap => _bitmap ?? throw new ObjectDisposedException(nameof(CaptureResult));
 
-    public RegionSelectionAction? SelectionAction { get; } = selectionAction;
+    public string? SavedFilePath { get; }
 
-    public void Dispose() => Bitmap.Dispose();
+    public bool OpenEditor { get; }
+
+    public RegionSelectionAction? SelectionAction { get; }
+
+    public Bitmap TakeBitmap()
+    {
+        var bitmap = Bitmap;
+        _bitmap = null;
+        return bitmap;
+    }
+
+    public void Dispose()
+    {
+        _bitmap?.Dispose();
+        _bitmap = null;
+    }
 }

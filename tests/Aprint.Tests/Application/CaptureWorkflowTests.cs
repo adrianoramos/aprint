@@ -48,6 +48,18 @@ public sealed class CaptureWorkflowTests
     }
 
     [Fact]
+    public void CaptureResultTransfersBitmapOwnership()
+    {
+        var bitmap = new Bitmap(2, 2);
+        bitmap.SetPixel(0, 0, Color.Red);
+        using var result = new CaptureResult(bitmap, null, openEditor: true, selectionAction: null);
+        using var transferredBitmap = result.TakeBitmap();
+
+        Assert.Same(bitmap, transferredBitmap);
+        Assert.Equal(Color.Red.ToArgb(), transferredBitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Fact]
     public void FloatingToolbarChangesUpdateSharedEditorSettings()
     {
         using var bitmap = new Bitmap(20, 20);

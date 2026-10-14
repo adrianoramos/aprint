@@ -760,6 +760,30 @@ public sealed class RegionSelectorFormTests
     }
 
     [Fact]
+    public void SendingSelectionTransfersBitmapOwnershipWhenAccepted()
+    {
+        using var background = new Bitmap(8, 8);
+        using var selector = new RegionSelectorForm(background);
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(1, 1, 4, 4));
+        Bitmap? transferredBitmap = null;
+        selector.SendToEditorOwnershipRequested += bitmap =>
+        {
+            transferredBitmap = bitmap;
+            return true;
+        };
+
+        typeof(RegionSelectorForm)
+            .GetMethod("SendSelectionToEditor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, null);
+
+        using var ownedBitmap = Assert.IsType<Bitmap>(transferredBitmap);
+        Assert.Equal(new Size(4, 4), ownedBitmap.Size);
+        Assert.Equal(Color.Empty.ToArgb(), ownedBitmap.GetPixel(0, 0).ToArgb());
+    }
+
+    [Fact]
     public void MovingSelectionHidesActionBarUntilDragEnds()
     {
         using var background = new Bitmap(100, 100);

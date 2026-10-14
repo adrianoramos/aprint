@@ -1,41 +1,141 @@
 namespace Aprint.Features.Editor;
 
+public sealed class BitmapSnapshotBudget
+{
+    public const long DefaultMaximumBytes = 256L * 1024 * 1024;
+
+    public static BitmapSnapshotBudget Shared { get; } = new(DefaultMaximumBytes);
+
+    private readonly object _sync = new();
+    private readonly LinkedList<EditHistory.HistoryEntry> _entries = new();
+    private long _retainedBytes;
+    private long _reservedBytes;
+
+    public BitmapSnapshotBudget(long maximumBytes = DefaultMaximumBytes)
+    {
+        if (maximumBytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumBytes));
+        }
+
+        MaximumBytes = maximumBytes;
+    }
+
+    public long MaximumBytes { get; }
+
+    public long RetainedBytes
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _retainedBytes;
+            }
+        }
+    }
+
+    internal bool TryReserve(long memoryBytes)
+    {
+        lock (_sync)
+        {
+            if (memoryBytes > MaximumBytes)
+            {
+                return false;
+            }
+
+            while (_retainedBytes + memoryBytes > MaximumBytes && _entries.First is { } oldest)
+            {
+                var entry = oldest.Value;
+                _entries.RemoveFirst();
+                _retainedBytes -= entry.MemoryBytes;
+                entry.BudgetNode = null;
+                entry.Owner.RemoveEvictedSnapshot(entry);
+            }
+
+            if (_retainedBytes + memoryBytes > MaximumBytes)
+            {
+                return false;
+            }
+
+            _retainedBytes += memoryBytes;
+            _reservedBytes += memoryBytes;
+            return true;
+        }
+    }
+
+    internal void Commit(EditHistory.HistoryEntry entry)
+    {
+        lock (_sync)
+        {
+            _reservedBytes -= entry.MemoryBytes;
+            entry.BudgetNode = _entries.AddLast(entry);
+        }
+    }
+
+    internal void ReleaseReservation(long memoryBytes)
+    {
+        lock (_sync)
+        {
+            _reservedBytes -= memoryBytes;
+            _retainedBytes -= memoryBytes;
+        }
+    }
+
+    internal void Release(EditHistory.HistoryEntry entry)
+    {
+        lock (_sync)
+        {
+            if (entry.BudgetNode is null)
+            {
+                return;
+            }
+
+            _entries.Remove(entry.BudgetNode);
+            entry.BudgetNode = null;
+            _retainedBytes -= entry.MemoryBytes;
+        }
+    }
+}
+
 public sealed class EditHistory : IDisposable
 {
     private const int MaxHistoryStates = 20;
-    private const long HistoryMemoryBudgetBytes = 256L * 1024 * 1024;
 
     private readonly LinkedList<HistoryEntry> _undoStack = new();
     private readonly LinkedList<HistoryEntry> _redoStack = new();
-    private long _totalMemoryBytes;
+    private readonly BitmapSnapshotBudget _memoryBudget;
 
-    public bool CanUndo => _undoStack.Count > 1;
+    public bool CanUndo => _undoStack.Count > 0;
 
     public bool CanRedo => _redoStack.Count > 0;
 
-    public EditHistory(Bitmap initialBitmap, int initialNextCounterValue = 1)
+    public EditHistory(Bitmap initialBitmap, int initialNextCounterValue = 1, BitmapSnapshotBudget? memoryBudget = null)
     {
-        PushSnapshot(_undoStack, initialBitmap, initialNextCounterValue);
-        TrimToBudget();
+        ArgumentNullException.ThrowIfNull(initialBitmap);
+        _memoryBudget = memoryBudget ?? BitmapSnapshotBudget.Shared;
     }
 
     public void Capture(Bitmap bitmap, int nextCounterValue)
     {
-        PushSnapshot(_undoStack, bitmap, nextCounterValue);
         DisposeAll(_redoStack);
-        TrimToBudget();
+        if (!PushSnapshot(_undoStack, bitmap, nextCounterValue))
+        {
+            DisposeAll(_undoStack);
+        }
+
+        TrimToHistoryLimit();
     }
 
     public (Bitmap Bitmap, int NextCounterValue)? Undo(Bitmap currentBitmap, int currentNextCounterValue)
     {
-        if (_undoStack.Count <= 1)
+        if (_undoStack.Count == 0)
         {
             return null;
         }
 
-        PushSnapshot(_redoStack, currentBitmap, currentNextCounterValue);
         var snapshot = TakeSnapshot(_undoStack);
-        TrimToBudget();
+        PushSnapshot(_redoStack, currentBitmap, currentNextCounterValue);
+        TrimToHistoryLimit();
         return snapshot;
     }
 
@@ -46,9 +146,9 @@ public sealed class EditHistory : IDisposable
             return null;
         }
 
-        PushSnapshot(_undoStack, currentBitmap, currentNextCounterValue);
         var snapshot = TakeSnapshot(_redoStack);
-        TrimToBudget();
+        PushSnapshot(_undoStack, currentBitmap, currentNextCounterValue);
+        TrimToHistoryLimit();
         return snapshot;
     }
 
@@ -58,18 +158,37 @@ public sealed class EditHistory : IDisposable
         DisposeAll(_redoStack);
     }
 
-    private void PushSnapshot(LinkedList<HistoryEntry> stack, Bitmap bitmap, int nextCounterValue)
+    private bool PushSnapshot(LinkedList<HistoryEntry> stack, Bitmap bitmap, int nextCounterValue)
     {
-        var snapshot = (Bitmap)bitmap.Clone();
-        var entry = new HistoryEntry(snapshot, nextCounterValue, EstimateMemoryBytes(snapshot));
-        stack.AddLast(entry);
-        _totalMemoryBytes += entry.MemoryBytes;
+        var memoryBytes = EstimateMemoryBytes(bitmap);
+        if (!_memoryBudget.TryReserve(memoryBytes))
+        {
+            return false;
+        }
+
+        Bitmap? snapshot = null;
+        try
+        {
+            snapshot = (Bitmap)bitmap.Clone();
+            var entry = new HistoryEntry(this, stack, snapshot, nextCounterValue, memoryBytes);
+            entry.StackNode = stack.AddLast(entry);
+            _memoryBudget.Commit(entry);
+            snapshot = null;
+            return true;
+        }
+        finally
+        {
+            if (snapshot is not null)
+            {
+                snapshot.Dispose();
+                _memoryBudget.ReleaseReservation(memoryBytes);
+            }
+        }
     }
 
-    private void TrimToBudget()
+    private void TrimToHistoryLimit()
     {
-        while ((GetTotalStateCount() > MaxHistoryStates || GetTotalMemoryBytes() > HistoryMemoryBudgetBytes) &&
-            GetTotalStateCount() > 1)
+        while (GetTotalStateCount() > MaxHistoryStates)
         {
             if (_redoStack.Count > 0)
             {
@@ -88,15 +207,10 @@ public sealed class EditHistory : IDisposable
 
     private void TrimOldestEntry(LinkedList<HistoryEntry> stack)
     {
-        var entry = stack.First!.Value;
-        stack.RemoveFirst();
-        entry.Bitmap.Dispose();
-        _totalMemoryBytes -= entry.MemoryBytes;
+        RemoveSnapshot(stack.First!.Value);
     }
 
     private int GetTotalStateCount() => _undoStack.Count + _redoStack.Count;
-
-    private long GetTotalMemoryBytes() => _totalMemoryBytes;
 
     private static long EstimateMemoryBytes(Bitmap bitmap)
     {
@@ -110,7 +224,8 @@ public sealed class EditHistory : IDisposable
         var node = stack.Last!;
         var snapshot = node.Value;
         stack.RemoveLast();
-        _totalMemoryBytes -= snapshot.MemoryBytes;
+        snapshot.StackNode = null;
+        _memoryBudget.Release(snapshot);
         return (snapshot.Bitmap, snapshot.NextCounterValue);
     }
 
@@ -118,12 +233,52 @@ public sealed class EditHistory : IDisposable
     {
         while (stack.Last is { } node)
         {
-            var entry = node.Value;
-            stack.RemoveLast();
-            entry.Bitmap.Dispose();
-            _totalMemoryBytes -= entry.MemoryBytes;
+            RemoveSnapshot(node.Value);
         }
     }
 
-    private sealed record HistoryEntry(Bitmap Bitmap, int NextCounterValue, long MemoryBytes);
+    private void RemoveSnapshot(HistoryEntry entry)
+    {
+        if (entry.StackNode is not null)
+        {
+            entry.Stack.Remove(entry.StackNode);
+            entry.StackNode = null;
+        }
+
+        _memoryBudget.Release(entry);
+        entry.Bitmap.Dispose();
+    }
+
+    internal void RemoveEvictedSnapshot(HistoryEntry entry)
+    {
+        if (entry.StackNode is not null)
+        {
+            entry.Stack.Remove(entry.StackNode);
+            entry.StackNode = null;
+        }
+
+        entry.Bitmap.Dispose();
+    }
+
+    internal sealed class HistoryEntry(
+        EditHistory owner,
+        LinkedList<HistoryEntry> stack,
+        Bitmap bitmap,
+        int nextCounterValue,
+        long memoryBytes)
+    {
+        public EditHistory Owner { get; } = owner;
+
+        public LinkedList<HistoryEntry> Stack { get; } = stack;
+
+        public Bitmap Bitmap { get; } = bitmap;
+
+        public int NextCounterValue { get; } = nextCounterValue;
+
+        public long MemoryBytes { get; } = memoryBytes;
+
+        public LinkedListNode<HistoryEntry>? StackNode { get; set; }
+
+        public LinkedListNode<HistoryEntry>? BudgetNode { get; set; }
+    }
 }

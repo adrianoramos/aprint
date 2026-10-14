@@ -107,8 +107,12 @@ public sealed class TrayApplicationContext : ApplicationContext
             using var result = _captureWorkflow.Execute(
                 _settings,
                 captureModeOverride,
-                bitmap => OpenEditor(bitmap, showWithoutActivation: true),
-                () => _settingsStore.Save(_settings));
+                settingsChanged: () => _settingsStore.Save(_settings),
+                sendToEditorWithOwnership: bitmap =>
+                {
+                    OpenEditor(bitmap, showWithoutActivation: true, takeBitmapOwnership: true);
+                    return true;
+                });
             if (_settings.LastCaptureTool != previousCaptureTool)
             {
                 _settingsStore.Save(_settings);
@@ -133,7 +137,7 @@ public sealed class TrayApplicationContext : ApplicationContext
                 }
 
                 _isCaptureInProgress = false;
-                OpenEditor(result.Bitmap);
+                OpenEditor(result.TakeBitmap(), takeBitmapOwnership: true);
                 return;
             }
 
@@ -171,7 +175,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false)
+    private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false, bool takeBitmapOwnership = false)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
         var editor = new EditorForm(
@@ -198,7 +202,8 @@ public sealed class TrayApplicationContext : ApplicationContext
             _settings.LastCounterSize,
             _settings.LastCounterTextColorArgb,
             _settings.LastCounterCircleColorArgb,
-            _settings.LastLineWidth);
+            _settings.LastLineWidth,
+            takeBitmapOwnership);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 

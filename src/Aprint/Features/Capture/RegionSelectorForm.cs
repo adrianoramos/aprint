@@ -326,6 +326,8 @@ public sealed class RegionSelectorForm : Form
 
     public event Action<Bitmap>? SendToEditorRequested;
 
+    public event Func<Bitmap, bool>? SendToEditorOwnershipRequested;
+
     public event Action<Color>? LineColorChanged;
 
     public event Action<int>? LineWidthChanged;
@@ -2339,7 +2341,8 @@ public sealed class RegionSelectorForm : Form
 
     private void SendSelectionToEditor()
     {
-        if (_selection.Width < MinimumSelectionSize || _selection.Height < MinimumSelectionSize || SendToEditorRequested is null)
+        if (_selection.Width < MinimumSelectionSize || _selection.Height < MinimumSelectionSize ||
+            (SendToEditorRequested is null && SendToEditorOwnershipRequested is null))
         {
             return;
         }
@@ -2353,8 +2356,30 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        using var bitmap = _background.Clone(boundedRegion, _background.PixelFormat);
-        SendToEditorRequested.Invoke(bitmap);
+        var bitmap = _background.Clone(boundedRegion, _background.PixelFormat);
+        var ownershipTransferred = false;
+        try
+        {
+            if (SendToEditorOwnershipRequested is { } ownershipHandlers)
+            {
+                foreach (Func<Bitmap, bool> handler in ownershipHandlers.GetInvocationList())
+                {
+                    ownershipTransferred |= handler(bitmap);
+                }
+            }
+            else
+            {
+                SendToEditorRequested?.Invoke(bitmap);
+            }
+        }
+        finally
+        {
+            if (!ownershipTransferred)
+            {
+                bitmap.Dispose();
+            }
+        }
+
         _sendToEditorFlashTicks = 6;
         _sendToEditorFlashVisible = true;
         _sendToEditorFlashTimer.Stop();
