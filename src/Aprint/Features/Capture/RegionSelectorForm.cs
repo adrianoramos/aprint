@@ -197,7 +197,6 @@ public sealed class RegionSelectorForm : Form
     private const int SelectionBorderWidth = 2;
     private const int HandleSize = 10;
     private const int MinimumSelectionSize = 3;
-    private const int FreehandPenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ActionControlHeight = ToolStripMetrics.DropdownButtonHeight;
     private readonly Rectangle _screenUnderCursorAtStart;
     private readonly Bitmap _background;
@@ -223,6 +222,7 @@ public sealed class RegionSelectorForm : Form
     private ToolStripButton? _redoButton;
     private ToolStripButton? _drawingButton;
     private ToolStripDropDownButton? _drawingDropdownButton;
+    private ToolStripMenuItem? _drawingLineWidthMenuItem;
     private ToolStripMenuItem? _drawingLineColorMenuItem;
     private ToolStripMenuItem? _drawingFillColorMenuItem;
     private ToolStripMenuItem? _drawingNoFillMenuItem;
@@ -257,6 +257,7 @@ public sealed class RegionSelectorForm : Form
     private Image? _filledIcon;
     private MaskMode _maskMode = MaskMode.Pixelate;
     private Color _lineColor = Color.Red;
+    private int _lineWidth = ImageEditingService.AnnotationPenWidth;
     private Color _highlightColor = Color.Yellow;
     private Color _maskColor = Color.Red;
     private Color _counterTextColor = Color.Red;
@@ -327,6 +328,8 @@ public sealed class RegionSelectorForm : Form
 
     public event Action<Color>? LineColorChanged;
 
+    public event Action<int>? LineWidthChanged;
+
     public event Action<Color?>? FillColorChanged;
 
     public event Action<Color>? HighlightColorChanged;
@@ -351,7 +354,7 @@ public sealed class RegionSelectorForm : Form
 
     public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth)
     {
         _background = background;
         _screenUnderCursorAtStart = Screen.FromPoint(Cursor.Position).Bounds;
@@ -360,6 +363,7 @@ public sealed class RegionSelectorForm : Form
         _maskMode = maskMode;
         _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
         _lineColor = Color.FromArgb(lineColorArgb);
+        _lineWidth = Math.Clamp(lineWidth, ImageEditingService.MinimumAnnotationPenWidth, ImageEditingService.MaximumAnnotationPenWidth);
         _highlightColor = Color.FromArgb(highlightColorArgb);
         _maskColor = Color.FromArgb(maskColorArgb);
         _counterSize = Math.Clamp(counterSize, ImageEditingService.MinimumCounterMarkerDiameter, ImageEditingService.MaximumCounterMarkerDiameter);
@@ -1438,6 +1442,26 @@ public sealed class RegionSelectorForm : Form
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Arrow, "Capture.Region.Arrow", "arrow.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Rectangle, "Capture.Region.Rectangle", "square.png");
         AddAnnotationMenuItem(drawingButton, drawingDropdownButton, AnnotationTool.Circle, "Capture.Region.Circle", "circle.png");
+        _drawingLineWidthMenuItem = new ToolStripMenuItem();
+        foreach (var width in new[] { 1, 2, 3, 4, 6, 8, 12, 16 })
+        {
+            _drawingLineWidthMenuItem.DropDownItems.Add(CreateSizePresetMenuItem(
+                drawingDropdownButton,
+                width,
+                _lineWidth,
+                "px",
+                SetLineWidth));
+        }
+
+        _drawingLineWidthMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        _drawingLineWidthMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
+            drawingDropdownButton,
+            "Editor.LineWidth",
+            ImageEditingService.MinimumAnnotationPenWidth,
+            ImageEditingService.MaximumAnnotationPenWidth,
+            () => _lineWidth,
+            "px",
+            SetLineWidth));
         _drawingLineColorMenuItem = CreateColorMenuItem("Editor.LineColor", "Editor.LineColor", _lineColor, SetLineColor);
         _drawingFillColorMenuItem = CreateColorMenuItem(
             "Editor.FillColor",
@@ -1449,11 +1473,14 @@ public sealed class RegionSelectorForm : Form
         _drawingNoFillMenuItem.Click += (_, _) => SetFillColor(null);
         drawingDropdownButton.DropDownItems.AddRange([
             new ToolStripSeparator(),
+            _drawingLineWidthMenuItem,
+            new ToolStripSeparator(),
             _drawingLineColorMenuItem,
             _drawingFillColorMenuItem,
             new ToolStripSeparator(),
             _drawingNoFillMenuItem,
         ]);
+        UpdateDrawingLineWidthMenu();
         AddMaskMenuItem(MaskMode.Pixelate, "Editor.Pixelated", _pixelatedIcon);
         AddMaskMenuItem(MaskMode.Solid, "Editor.Filled", _filledIcon);
         _maskPixelSizeSeparator = new ToolStripSeparator();
@@ -1893,6 +1920,35 @@ public sealed class RegionSelectorForm : Form
         UpdateColorMenuItem(_textColorMenuItem!, "Editor.TextColor", color, color.Name);
         TextColorChanged?.Invoke(color);
         Invalidate(_selection);
+    }
+
+    private void SetLineWidth(int width)
+    {
+        _lineWidth = Math.Clamp(
+            width,
+            ImageEditingService.MinimumAnnotationPenWidth,
+            ImageEditingService.MaximumAnnotationPenWidth);
+        UpdateDrawingLineWidthMenu();
+        LineWidthChanged?.Invoke(_lineWidth);
+        Invalidate(_selection);
+    }
+
+    private void UpdateDrawingLineWidthMenu()
+    {
+        if (_drawingLineWidthMenuItem is null)
+        {
+            return;
+        }
+
+        _drawingLineWidthMenuItem.Text =
+            $"{AppLocalization.Translate("Editor.LineWidth")} ({_lineWidth} px)";
+        foreach (var menuItem in _drawingLineWidthMenuItem.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            if (menuItem.Tag is int width)
+            {
+                menuItem.Checked = width == _lineWidth;
+            }
+        }
     }
 
     private void SetHighlightWidth(int width)
@@ -2571,7 +2627,7 @@ public sealed class RegionSelectorForm : Form
             Math.Min(previousPoint.Y, point.Y),
             Math.Max(previousPoint.X, point.X) + 1,
             Math.Max(previousPoint.Y, point.Y) + 1);
-        dirtyRectangle.Inflate(FreehandPenWidth + 2, FreehandPenWidth + 2);
+        dirtyRectangle.Inflate(_lineWidth + 2, _lineWidth + 2);
         Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
     }
 
@@ -2606,7 +2662,7 @@ public sealed class RegionSelectorForm : Form
         var dirtyRectangle = Rectangle.Union(
             CreateLineRectangle(_lineStart, start),
             CreateLineRectangle(_lineStart, end));
-        dirtyRectangle.Inflate(FreehandPenWidth + 2, FreehandPenWidth + 2);
+        dirtyRectangle.Inflate(_lineWidth + 2, _lineWidth + 2);
         Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
     }
 
@@ -3237,7 +3293,7 @@ public sealed class RegionSelectorForm : Form
         graphics.SetClip(_selection);
         foreach (var stroke in _freehandStrokes)
         {
-            ImageEditingService.DrawFreehandStroke(graphics, stroke, _lineColor, FreehandPenWidth);
+            ImageEditingService.DrawFreehandStroke(graphics, stroke, _lineColor, _lineWidth);
         }
 
         graphics.Restore(state);
@@ -3279,13 +3335,13 @@ public sealed class RegionSelectorForm : Form
         foreach (var annotation in _lineAnnotations)
         {
             var tool = annotation.IsArrow ? EditTool.Arrow : EditTool.Line;
-            ImageEditingService.DrawAnnotation(graphics, annotation.Start, annotation.End, tool, _lineColor, _fillColor);
+            ImageEditingService.DrawAnnotation(graphics, annotation.Start, annotation.End, tool, _lineColor, _fillColor, _lineWidth);
         }
 
         if (_isDrawingLine)
         {
             var tool = _annotationTool == AnnotationTool.Arrow ? EditTool.Arrow : EditTool.Line;
-            ImageEditingService.DrawAnnotation(graphics, _lineStart, _lineEnd, tool, _lineColor, _fillColor);
+            ImageEditingService.DrawAnnotation(graphics, _lineStart, _lineEnd, tool, _lineColor, _fillColor, _lineWidth);
         }
 
         graphics.Restore(state);
@@ -3296,7 +3352,7 @@ public sealed class RegionSelectorForm : Form
         var dirtyRectangle = Rectangle.Union(
             GetRectangle(start, previousEnd),
             GetRectangle(start, nextEnd));
-        dirtyRectangle.Inflate(FreehandPenWidth + 2, FreehandPenWidth + 2);
+        dirtyRectangle.Inflate(_lineWidth + 2, _lineWidth + 2);
         Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
     }
 
@@ -3313,12 +3369,13 @@ public sealed class RegionSelectorForm : Form
                 new Point(rectangle.Right, rectangle.Bottom),
                 EditTool.Rectangle,
                 _lineColor,
-                _fillColor);
+                _fillColor,
+                _lineWidth);
         }
 
         if (_isDrawingRectangle)
         {
-            ImageEditingService.DrawAnnotation(graphics, _rectangleStart, _rectangleEnd, EditTool.Rectangle, _lineColor, _fillColor);
+            ImageEditingService.DrawAnnotation(graphics, _rectangleStart, _rectangleEnd, EditTool.Rectangle, _lineColor, _fillColor, _lineWidth);
         }
 
         graphics.Restore(state);
@@ -3337,12 +3394,13 @@ public sealed class RegionSelectorForm : Form
                 new Point(circle.Right, circle.Bottom),
                 EditTool.Circle,
                 _lineColor,
-                _fillColor);
+                _fillColor,
+                _lineWidth);
         }
 
         if (_isDrawingCircle)
         {
-            ImageEditingService.DrawAnnotation(graphics, _circleStart, _circleEnd, EditTool.Circle, _lineColor, _fillColor);
+            ImageEditingService.DrawAnnotation(graphics, _circleStart, _circleEnd, EditTool.Circle, _lineColor, _fillColor, _lineWidth);
         }
 
         graphics.Restore(state);

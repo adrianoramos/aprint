@@ -176,7 +176,6 @@ public sealed class EditorForm : Form
         NewCapture,
     }
 
-    private const int PenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ToolPanelHeight = 50;
     private const int ToolIconBaseSize = 24;
     private const int ToolButtonPadding = 4;
@@ -216,6 +215,7 @@ public sealed class EditorForm : Form
     private readonly PictureBox _pictureBox;
     private readonly ToolStripButton _btnDrawing;
     private readonly ToolStripDropDownButton _btnDrawingDropdown;
+    private readonly ToolStripMenuItem _drawingLineWidthMenuItem;
     private readonly ToolStripMenuItem _drawingLineColorMenuItem;
     private readonly ToolStripMenuItem _drawingFillColorMenuItem;
     private readonly ToolStripMenuItem _drawingNoFillMenuItem;
@@ -269,6 +269,7 @@ public sealed class EditorForm : Form
     private EditTool _currentTool = EditTool.Freehand;
     private EditTool _toolBeforeCrop = EditTool.Freehand;
     private MaskMode _maskMode = MaskMode.Pixelate;
+    private int _lineWidth = ImageEditingService.AnnotationPenWidth;
     private int _highlightWidth = 18;
     private int _maskPixelSize = 6;
     private int _counterSize = ImageEditingService.CounterMarkerDiameter;
@@ -313,11 +314,13 @@ public sealed class EditorForm : Form
     public event Action? NewCaptureRequested;
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
+    public event Action<int>? LineWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
+        _lineWidth = Math.Clamp(lineWidth, ImageEditingService.MinimumAnnotationPenWidth, ImageEditingService.MaximumAnnotationPenWidth);
         _selectedColor = Color.FromArgb(lineColorArgb);
         _selectedHighlightColor = Color.FromArgb(highlightColorArgb);
         _selectedMaskColor = Color.FromArgb(maskColorArgb);
@@ -440,6 +443,26 @@ public sealed class EditorForm : Form
         AddDrawingToolMenuItem(EditTool.Arrow, ToolIconKind.Arrow, "Editor.Arrow", "F4");
         AddDrawingToolMenuItem(EditTool.Rectangle, ToolIconKind.Rectangle, "Editor.Rectangle", "F5");
         AddDrawingToolMenuItem(EditTool.Circle, ToolIconKind.Circle, "Editor.Circle", "F6");
+        _drawingLineWidthMenuItem = new ToolStripMenuItem();
+        foreach (var width in new[] { 1, 2, 3, 4, 6, 8, 12, 16 })
+        {
+            _drawingLineWidthMenuItem.DropDownItems.Add(CreateSizePresetMenuItem(
+                _btnDrawingDropdown,
+                width,
+                _lineWidth,
+                "px",
+                SetLineWidth));
+        }
+
+        _drawingLineWidthMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        _drawingLineWidthMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
+            _btnDrawingDropdown,
+            "Editor.LineWidth",
+            ImageEditingService.MinimumAnnotationPenWidth,
+            ImageEditingService.MaximumAnnotationPenWidth,
+            () => _lineWidth,
+            "px",
+            SetLineWidth));
         _drawingLineColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.LineColor"))
         {
             Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedColor)],
@@ -470,11 +493,14 @@ public sealed class EditorForm : Form
         };
         _btnDrawingDropdown.DropDownItems.AddRange([
             new ToolStripSeparator(),
+            _drawingLineWidthMenuItem,
+            new ToolStripSeparator(),
             _drawingLineColorMenuItem,
             _drawingFillColorMenuItem,
             new ToolStripSeparator(),
             _drawingNoFillMenuItem,
         ]);
+        UpdateDrawingLineWidthMenu();
 
         _btnCounter = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Counter"),
@@ -1733,16 +1759,16 @@ public sealed class EditorForm : Form
         {
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
-                ImageEditingService.DrawFreehandSegment(graphics, _lastFreehandPoint, e.Location, _selectedColor, PenWidth);
+                ImageEditingService.DrawFreehandSegment(graphics, _lastFreehandPoint, e.Location, _selectedColor, _lineWidth);
             }
 
-            var dirtyRect = CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, PenWidth + 2);
+            var dirtyRect = CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, _lineWidth + 2);
             _lastFreehandPoint = e.Location;
             InvalidatePictureBoxRegion(dirtyRect);
         }
         else
         {
-            var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
+            var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, _lineWidth + 4);
             _shapePreviewEnd = e.Location;
             _shapePreviewVisible = true;
 
@@ -1827,13 +1853,13 @@ public sealed class EditorForm : Form
         }
         else if (_currentTool != EditTool.Freehand)
         {
-            var dirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, PenWidth + 4);
+            var dirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, _lineWidth + 4);
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? dirtyRect
                 : Rectangle.Union(_lastPreviewDirtyRect, dirtyRect);
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
-                ImageEditingService.DrawAnnotation(graphics, _dragStart, e.Location, _currentTool, _selectedColor, _selectedFillColor);
+                ImageEditingService.DrawAnnotation(graphics, _dragStart, e.Location, _currentTool, _selectedColor, _selectedFillColor, _lineWidth);
             }
 
             _pictureBox.Image = _workingBitmap;
@@ -1923,7 +1949,7 @@ public sealed class EditorForm : Form
             return;
         }
 
-        ImageEditingService.DrawAnnotation(e.Graphics, _dragStart, _shapePreviewEnd, _currentTool, _selectedColor, _selectedFillColor);
+        ImageEditingService.DrawAnnotation(e.Graphics, _dragStart, _shapePreviewEnd, _currentTool, _selectedColor, _selectedFillColor, _lineWidth);
         DrawAutomaticMaskPreview(e.Graphics, e.ClipRectangle);
     }
 
@@ -2274,6 +2300,30 @@ public sealed class EditorForm : Form
     {
         _textFontSize = Math.Clamp(size, 6F, 72F);
         UpdateTextFont();
+    }
+
+    private void SetLineWidth(int width)
+    {
+        _lineWidth = Math.Clamp(
+            width,
+            ImageEditingService.MinimumAnnotationPenWidth,
+            ImageEditingService.MaximumAnnotationPenWidth);
+        UpdateDrawingLineWidthMenu();
+        LineWidthChanged?.Invoke(_lineWidth);
+        _pictureBox.Invalidate();
+    }
+
+    private void UpdateDrawingLineWidthMenu()
+    {
+        _drawingLineWidthMenuItem.Text =
+            $"{AppLocalization.Translate("Editor.LineWidth")} ({_lineWidth} px)";
+        foreach (var menuItem in _drawingLineWidthMenuItem.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            if (menuItem.Tag is int width)
+            {
+                menuItem.Checked = width == _lineWidth;
+            }
+        }
     }
 
     private void SetHighlightWidth(int width)

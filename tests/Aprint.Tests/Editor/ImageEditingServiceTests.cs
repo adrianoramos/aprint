@@ -152,6 +152,54 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void DrawAnnotationHonorsConfiguredPenWidth()
+    {
+        using var thinBitmap = new Bitmap(40, 40);
+        using var thickBitmap = new Bitmap(40, 40);
+        using (var thinGraphics = Graphics.FromImage(thinBitmap))
+        using (var thickGraphics = Graphics.FromImage(thickBitmap))
+        {
+            thinGraphics.Clear(Color.White);
+            thickGraphics.Clear(Color.White);
+            ImageEditingService.DrawAnnotation(
+                thinGraphics,
+                new Point(5, 20),
+                new Point(35, 20),
+                EditTool.Line,
+                Color.Red,
+                width: 1);
+            ImageEditingService.DrawAnnotation(
+                thickGraphics,
+                new Point(5, 20),
+                new Point(35, 20),
+                EditTool.Line,
+                Color.Red,
+                width: 9);
+        }
+
+        var thinPixelCount = CountNonWhitePixels(thinBitmap);
+        var thickPixelCount = CountNonWhitePixels(thickBitmap);
+        Assert.True(thickPixelCount > thinPixelCount);
+
+        static int CountNonWhitePixels(Bitmap bitmap)
+        {
+            var count = 0;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                for (var x = 0; x < bitmap.Width; x++)
+                {
+                    if (bitmap.GetPixel(x, y).ToArgb() != Color.White.ToArgb())
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+    }
+
+    [Fact]
     public void DrawFreehandSegmentUsesSharedAnnotationColor()
     {
         using var bitmap = new Bitmap(24, 24);

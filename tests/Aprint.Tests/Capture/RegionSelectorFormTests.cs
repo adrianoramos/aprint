@@ -471,6 +471,14 @@ public sealed class RegionSelectorFormTests
         Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.LineColor"));
         Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.FillColor"));
         Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.NoFill"));
+        var drawingWidthMenu = GetField<ToolStripMenuItem>(selector, "_drawingLineWidthMenuItem");
+        Assert.Equal(new[] { 1, 2, 3, 4, 6, 8, 12, 16 }, drawingWidthMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.Contains(drawingWidthMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item == drawingWidthMenu);
+        Assert.Single(drawingWidthMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag is int width && width == 8).PerformClick();
+        Assert.Equal(8, GetField<int>(selector, "_lineWidth"));
 
         Assert.Equal(new[] { 4, 8, 16, 32 }, highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>()
             .Where(item => item.Tag is int)

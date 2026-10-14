@@ -71,6 +71,8 @@ public sealed class AppSettings
 
     public int LastLineColorArgb { get; set; } = Color.Red.ToArgb();
 
+    public int LastLineWidth { get; set; } = ImageEditingService.AnnotationPenWidth;
+
     public int LastMaskColorArgb { get; set; } = Color.Red.ToArgb();
 
     public int LastTextColorArgb { get; set; } = Color.Red.ToArgb();

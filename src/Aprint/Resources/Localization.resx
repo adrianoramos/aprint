@@ -384,6 +384,9 @@
   <data name="Editor.LineColor" xml:space="preserve">
     <value>Cor da linha</value>
   </data>
+  <data name="Editor.LineWidth" xml:space="preserve">
+    <value>Espessura do traço</value>
+  </data>
   <data name="Editor.TextColor" xml:space="preserve">
     <value>Cor do texto</value>
   </data>

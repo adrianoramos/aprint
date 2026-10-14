@@ -244,6 +244,34 @@ public sealed class EditorFormTests
     }
 
     [Fact]
+    public void DrawingDropdownConfiguresStrokeWidth()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var drawingDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnDrawingDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var widthMenu = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_drawingLineWidthMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var changedWidth = 0;
+        editor.LineWidthChanged += width => changedWidth = width;
+
+        Assert.Contains(widthMenu, drawingDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.Equal(new[] { 1, 2, 3, 4, 6, 8, 12, 16 }, widthMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.Contains(widthMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+
+        Assert.Single(widthMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag is int width && width == 8).PerformClick();
+
+        Assert.Equal(8, changedWidth);
+        Assert.Equal(8, typeof(EditorForm)
+            .GetField("_lineWidth", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
+    }
+
+    [Fact]
     public void CounterDropdownOffersSizeTextColorAndCircleColor()
     {
         using var bitmap = new Bitmap(20, 20);

@@ -148,7 +148,8 @@ public sealed class CaptureWorkflow
             settings.LastMaskColorArgb,
             settings.LastCounterSize,
             settings.LastCounterTextColorArgb,
-            settings.LastCounterCircleColorArgb);
+            settings.LastCounterCircleColorArgb,
+            settings.LastLineWidth);
         BindSelectorSettings(selector, settings, settingsChanged);
         if (sendToEditor is not null)
         {
@@ -186,6 +187,11 @@ public sealed class CaptureWorkflow
         selector.LineColorChanged += color =>
         {
             settings.LastLineColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.LineWidthChanged += width =>
+        {
+            settings.LastLineWidth = width;
             SaveSettings();
         };
         selector.FillColorChanged += color =>

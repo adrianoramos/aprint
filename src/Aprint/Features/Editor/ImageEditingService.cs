@@ -11,6 +11,8 @@ public static class ImageEditingService
     }
 
     public const int AnnotationPenWidth = 3;
+    public const int MinimumAnnotationPenWidth = 1;
+    public const int MaximumAnnotationPenWidth = 20;
     public const int TextMinimumWidth = 100;
     public const int CounterMarkerDiameter = 40;
     public const int MinimumCounterMarkerDiameter = 16;
@@ -157,11 +159,18 @@ public static class ImageEditingService
         }
     }
 
-    public static void DrawAnnotation(Graphics graphics, Point start, Point end, EditTool tool, Color lineColor, Color? fillColor = null)
+    public static void DrawAnnotation(
+        Graphics graphics,
+        Point start,
+        Point end,
+        EditTool tool,
+        Color lineColor,
+        Color? fillColor = null,
+        int width = AnnotationPenWidth)
     {
         var state = graphics.Save();
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = CreateAnnotationPen(lineColor, AnnotationPenWidth);
+        using var pen = CreateAnnotationPen(lineColor, width);
         DrawShape(graphics, pen, start, end, tool, fillColor);
         graphics.Restore(state);
     }

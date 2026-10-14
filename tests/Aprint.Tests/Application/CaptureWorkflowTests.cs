@@ -64,6 +64,7 @@ public sealed class CaptureWorkflowTests
         typeof(RegionSelectorForm).GetField("_textFontFamily", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(selector, "Arial");
         InvokeSelector("SetLineColor", Color.Lime);
+        InvokeSelector("SetLineWidth", 12);
         InvokeSelector("SetFillColor", Color.Blue);
         InvokeSelector("SetHighlightColor", Color.Yellow);
         InvokeSelector("SetHighlightWidth", 32);
@@ -85,6 +86,7 @@ public sealed class CaptureWorkflowTests
         InvokeSelector("SelectMaskMode", MaskMode.Solid, solidModeItem, solidModeItem.Image!);
 
         Assert.Equal(Color.Lime.ToArgb(), settings.LastLineColorArgb);
+        Assert.Equal(12, settings.LastLineWidth);
         Assert.Equal(Color.Blue.ToArgb(), settings.LastFillColorArgb);
         Assert.Equal(Color.Yellow.ToArgb(), settings.LastHighlightColorArgb);
         Assert.Equal(32, settings.LastHighlightWidth);
@@ -98,7 +100,7 @@ public sealed class CaptureWorkflowTests
         Assert.Equal("Arial", settings.LastTextFontFamily);
         Assert.Equal(18F, settings.LastTextFontSize);
         Assert.Equal(FontStyle.Bold, settings.LastTextFontStyle);
-        Assert.Equal(13, saveCount);
+        Assert.Equal(14, saveCount);
     }
 
     private static (bool OpenEditor, bool CopyToClipboard, bool SaveToDisk) ResolveActions(

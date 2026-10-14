@@ -174,7 +174,31 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize, showWithoutActivation, _settings.LastHighlightColorArgb, _settings.LastMaskColorArgb, _settings.LastCounterSize, _settings.LastCounterTextColorArgb, _settings.LastCounterCircleColorArgb);
+        var editor = new EditorForm(
+            bitmap,
+            _settings.SaveFolder,
+            _settings.MaskMode,
+            _settings.ShowToolLabels,
+            _settings.CloseEditorOnCopyOrSave,
+            initialTool,
+            _settings.SaveEditorImageWithoutPrompt,
+            _settings.AutoCloseEditorWhenInactive,
+            _settings.EditorInactivityTimeoutSeconds,
+            _settings.LastTextFontFamily,
+            _settings.LastTextFontSize,
+            _settings.LastTextFontStyle,
+            _settings.LastHighlightWidth,
+            _settings.LastLineColorArgb,
+            _settings.LastTextColorArgb,
+            _settings.LastFillColorArgb,
+            _settings.LastMaskPixelSize,
+            showWithoutActivation,
+            _settings.LastHighlightColorArgb,
+            _settings.LastMaskColorArgb,
+            _settings.LastCounterSize,
+            _settings.LastCounterTextColorArgb,
+            _settings.LastCounterCircleColorArgb,
+            _settings.LastLineWidth);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 
@@ -195,6 +219,12 @@ public sealed class TrayApplicationContext : ApplicationContext
         editor.LineColorChanged += color =>
         {
             _settings.LastLineColorArgb = color.ToArgb();
+            _settingsStore.Save(_settings);
+        };
+
+        editor.LineWidthChanged += width =>
+        {
+            _settings.LastLineWidth = width;
             _settingsStore.Save(_settings);
         };
 
