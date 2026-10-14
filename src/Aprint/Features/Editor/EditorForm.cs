@@ -1560,11 +1560,13 @@ public sealed class EditorForm : Form
     private void SaveUndoState()
     {
         _editHistory.Capture(_workingBitmap, _nextCounterValue);
+        UpdateHistoryButtons();
     }
 
     private void UndoLastEdit()
     {
         var replacement = _editHistory.Undo(_workingBitmap, _nextCounterValue);
+        UpdateHistoryButtons();
         if (replacement is null)
         {
             return;
@@ -1592,6 +1594,7 @@ public sealed class EditorForm : Form
     private void RedoLastEdit()
     {
         var replacement = _editHistory.Redo(_workingBitmap, _nextCounterValue);
+        UpdateHistoryButtons();
         if (replacement is null)
         {
             return;
@@ -1614,6 +1617,13 @@ public sealed class EditorForm : Form
         {
             ResetTextRegionDetection();
         }
+    }
+
+    private void UpdateHistoryButtons()
+    {
+        var enabled = !_isAutomaticMaskSelectionActive;
+        _btnUndo.Enabled = enabled && _editHistory.CanUndo;
+        _btnRedo.Enabled = enabled && _editHistory.CanRedo;
     }
 
     private void PictureBox_MouseDown(object? sender, MouseEventArgs e)
@@ -3052,6 +3062,7 @@ public sealed class EditorForm : Form
         _btnCancelCrop.Enabled = centeredActionMode;
         _automaticMaskMenuItem.Enabled = !_isAutomaticMaskSelectionActive;
         UpdateAutomaticMaskActionButtons();
+        UpdateHistoryButtons();
         toolStrip.PerformLayout();
         CenterActionButtons(toolStrip);
         CenterEditorTools(toolStrip);

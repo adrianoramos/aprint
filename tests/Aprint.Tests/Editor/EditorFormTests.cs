@@ -15,6 +15,40 @@ public sealed class EditorFormTests
         Assert.Equal(EditTool.Freehand, editor.SelectedTool);
     }
 
+    [Fact]
+    public void UndoAndRedoButtonsFollowHistoryState()
+    {
+        using var bitmap = new Bitmap(2, 2);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var undoButton = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnUndo", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var redoButton = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnRedo", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var saveUndoState = typeof(EditorForm).GetMethod("SaveUndoState", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var undoLastEdit = typeof(EditorForm).GetMethod("UndoLastEdit", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var redoLastEdit = typeof(EditorForm).GetMethod("RedoLastEdit", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        Assert.False(undoButton.Enabled);
+        Assert.False(redoButton.Enabled);
+
+        saveUndoState.Invoke(editor, null);
+
+        Assert.True(undoButton.Enabled);
+        Assert.False(redoButton.Enabled);
+
+        undoLastEdit.Invoke(editor, null);
+
+        Assert.False(undoButton.Enabled);
+        Assert.True(redoButton.Enabled);
+
+        redoLastEdit.Invoke(editor, null);
+
+        Assert.True(undoButton.Enabled);
+        Assert.False(redoButton.Enabled);
+    }
+
     [Theory]
     [InlineData((EditTool)int.MaxValue, EditTool.Freehand)]
     [InlineData(EditTool.Line, EditTool.Line)]
