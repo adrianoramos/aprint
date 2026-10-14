@@ -20,6 +20,17 @@ public sealed class RegionSelectorForm : Form
         Counter,
         Text,
     }
+    private sealed class AutomaticMaskRegion(Rectangle bounds, Bitmap preview) : IDisposable
+    {
+        public Rectangle Bounds { get; } = bounds;
+
+        public Bitmap Preview { get; } = preview;
+
+        public bool ShouldMask { get; set; } = true;
+
+        public void Dispose() => Preview.Dispose();
+    }
+
 
     private sealed class ScreenSelectionButton(string text) : ToolStripButton(text)
     {
@@ -235,6 +246,12 @@ public sealed class RegionSelectorForm : Form
     private ToolStripMenuItem? _maskPixelSizeMenuItem;
     private ToolStripSeparator? _maskColorSeparator;
     private ToolStripMenuItem? _maskColorMenuItem;
+    private ToolStripSeparator? _automaticMaskSeparator;
+    private ToolStripMenuItem? _automaticMaskMenuItem;
+    private ToolStripButton? _automaticMaskApplyButton;
+    private ToolStripButton? _automaticMaskCancelButton;
+            private readonly ToolTip _automaticMaskToolTip = new();
+            private readonly List<AutomaticMaskRegion> _automaticMaskRegions = new();
         private readonly Dictionary<ToolStripMenuItem, Bitmap> _menuColorSwatches = [];
     private Image? _pixelatedIcon;
     private Image? _filledIcon;
@@ -281,6 +298,12 @@ public sealed class RegionSelectorForm : Form
     private bool _isEditingText;
     private bool _isMaskModeActive;
     private bool _isDrawingMaskRegion;
+    private bool _isAutomaticMaskSelectionActive;
+    private bool _isAutomaticMaskDetectionReady;
+    private bool _isAutomaticMaskDetectionInProgress;
+    private bool _isAutomaticMaskRevealActive;
+    private bool _isDrawingAutomaticMaskRegion;
+    private int _automaticMaskDetectionGeneration;
     private bool _sendToEditorFlashVisible;
     private int _sendToEditorFlashTicks;
     private Point _lineStart;
@@ -291,6 +314,8 @@ public sealed class RegionSelectorForm : Form
     private Point _circleEnd;
     private Point _maskStart;
     private Point _maskEnd;
+    private Point _automaticMaskStart;
+    private Point _automaticMaskEnd;
     private Point _textStart;
     private Point _textEnd;
 
@@ -407,22 +432,63 @@ public sealed class RegionSelectorForm : Form
             DrawCircles(e.Graphics);
             DrawCounterMarkers(e.Graphics);
             DrawTextOverlay(e.Graphics);
+            if (_isAutomaticMaskSelectionActive)
+            {
+                DrawAutomaticMaskPreview(e.Graphics, e.ClipRectangle);
+            }
             if (_isDrawingMaskRegion)
             {
                 using var previewPen = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash };
                 e.Graphics.DrawRectangle(previewPen, GetRectangle(_maskStart, _maskEnd));
+            }
+            if (_isDrawingAutomaticMaskRegion)
+            {
+                using var previewPen = new Pen(Color.Yellow, 2) { DashStyle = DashStyle.Dash };
+                var previewBounds = GetRectangle(_automaticMaskStart, _automaticMaskEnd);
+                e.Graphics.DrawRectangle(previewPen, previewBounds);
             }
             e.Graphics.DrawRectangle(_borderPen, _selection);
             if (_sendToEditorFlashVisible)
             {
                 e.Graphics.DrawRectangle(_sendToEditorFlashPen, Rectangle.Inflate(_selection, 1, 1));
             }
-            DrawHandles(e.Graphics);
+            if (!_isAutomaticMaskSelectionActive)
+            {
+                DrawHandles(e.Graphics);
+            }
         }
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
+        if (_isAutomaticMaskSelectionActive)
+        {
+            if (e.Button != MouseButtons.Left || !_isAutomaticMaskDetectionReady || !_selection.Contains(e.Location))
+            {
+                return;
+            }
+
+            if (_isAutomaticMaskRevealActive)
+            {
+                var regionIndex = _automaticMaskRegions.FindLastIndex(region => region.Bounds.Contains(e.Location));
+                if (regionIndex >= 0)
+                {
+                    _automaticMaskRegions[regionIndex].ShouldMask = !_automaticMaskRegions[regionIndex].ShouldMask;
+                    Invalidate(_automaticMaskRegions[regionIndex].Bounds);
+                }
+            }
+            else
+            {
+                _isDrawingAutomaticMaskRegion = true;
+                _automaticMaskStart = ClampToSelection(e.Location);
+                _automaticMaskEnd = _automaticMaskStart;
+                Capture = true;
+                Invalidate();
+            }
+
+            return;
+        }
+
         if (e.Button == MouseButtons.Right)
         {
             if (_selection.Contains(e.Location))
@@ -576,6 +642,21 @@ public sealed class RegionSelectorForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (_isAutomaticMaskSelectionActive)
+        {
+            Cursor = _selection.Contains(e.Location) ? Cursors.Cross : Cursors.Default;
+            if (_isDrawingAutomaticMaskRegion)
+            {
+                var previousEnd = _automaticMaskEnd;
+                _automaticMaskEnd = ClampToSelection(e.Location);
+                Invalidate(Rectangle.Union(
+                    Rectangle.Inflate(GetRectangle(_automaticMaskStart, previousEnd), 2, 2),
+                    Rectangle.Inflate(GetRectangle(_automaticMaskStart, _automaticMaskEnd), 2, 2)));
+            }
+
+            return;
+        }
+
         if (_isDrawingFreehand)
         {
             AddFreehandPoint(e.Location);
@@ -654,6 +735,25 @@ public sealed class RegionSelectorForm : Form
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
+        if (_isAutomaticMaskSelectionActive)
+        {
+            if (e.Button == MouseButtons.Left && _isDrawingAutomaticMaskRegion)
+            {
+                _automaticMaskEnd = ClampToSelection(e.Location);
+                _isDrawingAutomaticMaskRegion = false;
+                Capture = false;
+                var bounds = Rectangle.Intersect(GetRectangle(_automaticMaskStart, _automaticMaskEnd), _selection);
+                if (bounds.Width > 0 && bounds.Height > 0)
+                {
+                    _automaticMaskRegions.Add(CreateAutomaticMaskRegion(bounds));
+                }
+
+                Invalidate(_selection);
+            }
+
+            return;
+        }
+
         if (e.Button != MouseButtons.Left && !(e.Button == MouseButtons.Right && _isMoving))
         {
             return;
@@ -782,6 +882,24 @@ public sealed class RegionSelectorForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (_isAutomaticMaskSelectionActive)
+        {
+            if (keyData == Keys.Enter)
+            {
+                ApplyAutomaticMask();
+            }
+            else if (keyData == Keys.Escape)
+            {
+                CancelAutomaticMask();
+            }
+            else if (keyData == Keys.Space)
+            {
+                SetAutomaticMaskRevealActive(true);
+            }
+
+            return true;
+        }
+
         if (_isEditingText)
         {
             if (keyData == Keys.Escape)
@@ -879,6 +997,17 @@ public sealed class RegionSelectorForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
+    protected override void OnKeyUp(KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Space && _isAutomaticMaskRevealActive)
+        {
+            SetAutomaticMaskRevealActive(false);
+            e.Handled = true;
+        }
+
+        base.OnKeyUp(e);
+    }
+
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
         if (!_isEditingText)
@@ -933,6 +1062,8 @@ public sealed class RegionSelectorForm : Form
             _sendToEditorFlashTimer.Dispose();
             _sendToEditorFlashPen.Dispose();
             _textFont.Dispose();
+            _automaticMaskToolTip.Dispose();
+            ClearAutomaticMaskRegions();
             foreach (var image in _actionImages)
             {
                 image.Dispose();
@@ -1361,14 +1492,49 @@ public sealed class RegionSelectorForm : Form
             "Editor.MaskColor",
             _maskColor,
             SetMaskColor);
+        _automaticMaskSeparator = new ToolStripSeparator();
+        _automaticMaskMenuItem = new ToolStripMenuItem(
+            AppLocalization.Translate("Editor.AutomaticMask"),
+            LoadActionIcon("automaticmask.png", Color.FromArgb(45, 49, 54)))
+        {
+            Tag = "automatic-mask",
+            ToolTipText = AppLocalization.Translate("Editor.AutomaticMask"),
+            ShortcutKeyDisplayString = "Ctrl+F8",
+        };
+        _automaticMaskMenuItem.Click += async (_, _) =>
+        {
+            maskDropdownButton.DropDown.Close();
+            await StartAutomaticMaskAsync();
+        };
         maskDropdownButton.DropDownItems.AddRange([
             _maskPixelSizeSeparator,
             _maskPixelSizeMenuItem,
             _maskColorSeparator,
             _maskColorMenuItem,
+            _automaticMaskSeparator,
+            _automaticMaskMenuItem,
         ]);
         UpdateMaskOptions();
         RestoreLastCaptureTool(drawingButton);
+
+        var automaticMaskApplyButton = CreateActionButton(
+            GetCaptureToolButtonText(AppLocalization.Translate("Editor.ApplyAutomaticMask")),
+            LoadActionIcon("confirm.png", Color.FromArgb(45, 49, 54)));
+        _automaticMaskApplyButton = automaticMaskApplyButton;
+        automaticMaskApplyButton.Visible = false;
+        automaticMaskApplyButton.AccessibleName = AppLocalization.Translate("Editor.ApplyAutomaticMask");
+        automaticMaskApplyButton.ToolTipText = AppLocalization.Translate("Editor.ApplyAutomaticMaskToolTip");
+        automaticMaskApplyButton.Enabled = false;
+        automaticMaskApplyButton.Click += (_, _) => ApplyAutomaticMask();
+
+        var automaticMaskCancelButton = CreateActionButton(
+            GetCaptureToolButtonText(AppLocalization.Translate("Editor.CancelAutomaticMask")),
+            LoadActionIcon("cancel.png", Color.FromArgb(45, 49, 54)));
+        _automaticMaskCancelButton = automaticMaskCancelButton;
+        automaticMaskCancelButton.Visible = false;
+        automaticMaskCancelButton.AccessibleName = AppLocalization.Translate("Editor.CancelAutomaticMask");
+        automaticMaskCancelButton.ToolTipText = AppLocalization.Translate("Editor.CancelAutomaticMaskToolTip");
+        automaticMaskCancelButton.Click += (_, _) => CancelAutomaticMask();
 
         toolStrip.Items.AddRange([
             drawingButton,
@@ -1383,6 +1549,8 @@ public sealed class RegionSelectorForm : Form
             textDropdownButton,
             undoButton,
             redoButton,
+            automaticMaskApplyButton,
+            automaticMaskCancelButton,
             captureButton,
             captureDropdownButton,
         ]);
@@ -2507,6 +2675,9 @@ public sealed class RegionSelectorForm : Form
 
         switch (keyData)
         {
+            case Keys.Control | Keys.F8:
+                _ = StartAutomaticMaskAsync();
+                return true;
             case Keys.F7:
                 SetStandaloneTool(AnnotationTool.Highlight, toggleIfAlreadyActive: false);
                 return true;
@@ -2708,6 +2879,280 @@ public sealed class RegionSelectorForm : Form
 
         _maskDropdownButton.BackColor = _isMaskModeActive ? ToolStripColorPalette.ActiveBackground : ToolStripColorPalette.ButtonBackground;
         UpdateMaskOptions();
+    }
+
+    private async Task StartAutomaticMaskAsync()
+    {
+        if (_isAutomaticMaskSelectionActive ||
+            _selection.Width < MinimumSelectionSize ||
+            _selection.Height < MinimumSelectionSize)
+        {
+            return;
+        }
+
+        CommitTextEdit();
+        CommitAnnotationsAndRecordUndo();
+        var generation = ++_automaticMaskDetectionGeneration;
+        var selection = _selection;
+        ClearAutomaticMaskRegions();
+        _isAutomaticMaskDetectionReady = false;
+        _isAutomaticMaskDetectionInProgress = true;
+        _isAutomaticMaskRevealActive = false;
+        _isDrawingAutomaticMaskRegion = false;
+        _automaticMaskMenuItem!.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskScanning");
+        _maskDropdownButton?.DropDown.Close();
+        SetAutomaticMaskSelectionActive(true);
+
+        try
+        {
+            using var source = _background.Clone(selection, PixelFormat.Format32bppArgb);
+            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source);
+            if (IsDisposed || generation != _automaticMaskDetectionGeneration)
+            {
+                return;
+            }
+
+            if (detectedRegions is not null)
+            {
+                foreach (var region in detectedRegions)
+                {
+                    var screenRegion = new Rectangle(
+                        region.X + selection.X,
+                        region.Y + selection.Y,
+                        region.Width,
+                        region.Height);
+                    var boundedRegion = Rectangle.Intersect(screenRegion, selection);
+                    if (!boundedRegion.IsEmpty)
+                    {
+                        _automaticMaskRegions.Add(CreateAutomaticMaskRegion(boundedRegion));
+                    }
+                }
+            }
+
+            _isAutomaticMaskDetectionInProgress = false;
+            _isAutomaticMaskDetectionReady = true;
+            _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate(
+                detectedRegions is null
+                    ? "Editor.AutomaticMaskUnavailable"
+                    : _automaticMaskRegions.Count == 0
+                        ? "Editor.AutomaticMaskNoRegions"
+                        : "Editor.AutomaticMaskReviewHint");
+            UpdateAutomaticMaskActionBarMode();
+            Invalidate(selection);
+        }
+        catch
+        {
+            if (!IsDisposed && generation == _automaticMaskDetectionGeneration)
+            {
+                ClearAutomaticMaskRegions();
+                _isAutomaticMaskDetectionInProgress = false;
+                _isAutomaticMaskDetectionReady = true;
+                _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate("Editor.AutomaticMaskUnavailable");
+                UpdateAutomaticMaskActionBarMode();
+                Invalidate(selection);
+            }
+        }
+    }
+
+    private void SetAutomaticMaskSelectionActive(bool active)
+    {
+        _isAutomaticMaskSelectionActive = active;
+        _automaticMaskToolTip.SetToolTip(
+            this,
+            active && _isAutomaticMaskDetectionReady
+                ? AppLocalization.Translate("Editor.AutomaticMaskReviewHint")
+                : string.Empty);
+        var cursorLocation = PointToClient(Cursor.Position);
+        Cursor = active && _selection.Contains(cursorLocation)
+            ? Cursors.Cross
+            : GetCursorForLocation(cursorLocation);
+        UpdateAutomaticMaskActionBarMode();
+        Invalidate(_selection);
+    }
+
+    private void UpdateAutomaticMaskActionBarMode()
+    {
+        if (_automaticMaskApplyButton is null ||
+            _automaticMaskCancelButton is null)
+        {
+            return;
+        }
+
+        var active = _isAutomaticMaskSelectionActive;
+        foreach (ToolStripItem item in _actionBar.Items)
+        {
+            var isAutomaticMaskItem = item == _automaticMaskApplyButton ||
+                item == _automaticMaskCancelButton;
+            item.Visible = active ? isAutomaticMaskItem : !isAutomaticMaskItem;
+        }
+
+        _automaticMaskApplyButton.Enabled = active &&
+            _isAutomaticMaskDetectionReady &&
+            !_isAutomaticMaskDetectionInProgress;
+        _automaticMaskCancelButton.Enabled = active;
+        _automaticMaskMenuItem!.Enabled = !active;
+
+        _actionBar.Visible = active ||
+            (_selection.Width >= MinimumSelectionSize && _selection.Height >= MinimumSelectionSize);
+        _actionBar.PerformLayout();
+        if (_actionBar.Visible)
+        {
+            UpdateActionBarLocation();
+        }
+    }
+
+    private void SetAutomaticMaskRevealActive(bool active)
+    {
+        if (_isAutomaticMaskRevealActive == active ||
+            !_isAutomaticMaskSelectionActive ||
+            !_isAutomaticMaskDetectionReady)
+        {
+            return;
+        }
+
+        _isAutomaticMaskRevealActive = active;
+        _automaticMaskToolTip.SetToolTip(
+            this,
+            AppLocalization.Translate(active
+                ? "Editor.AutomaticMaskRevealActive"
+                : "Editor.AutomaticMaskReviewHint"));
+        Invalidate(_selection);
+    }
+
+    private void ApplyAutomaticMask()
+    {
+        if (!_isAutomaticMaskSelectionActive ||
+            !_isAutomaticMaskDetectionReady ||
+            _isAutomaticMaskDetectionInProgress)
+        {
+            return;
+        }
+
+        var regions = _automaticMaskRegions.Where(region => region.ShouldMask).ToArray();
+        if (regions.Length > 0)
+        {
+            CommitAnnotationsAndRecordUndo();
+            SaveUndoState();
+            using var graphics = Graphics.FromImage(_background);
+            graphics.CompositingMode = CompositingMode.SourceCopy;
+            foreach (var region in regions)
+            {
+                graphics.DrawImageUnscaled(region.Preview, region.Bounds.Location);
+            }
+
+            UpdateHistoryButtons();
+        }
+
+        EndAutomaticMaskSelection(
+            AppLocalization.Translate(regions.Length > 0
+                ? "Editor.AutomaticMaskApplied"
+                : "Editor.AutomaticMaskNoSelection"));
+    }
+
+    private void CancelAutomaticMask()
+    {
+        if (!_isAutomaticMaskSelectionActive)
+        {
+            return;
+        }
+
+        _automaticMaskDetectionGeneration++;
+        EndAutomaticMaskSelection(AppLocalization.Translate("Editor.AutomaticMask"));
+    }
+
+    private void EndAutomaticMaskSelection(string tooltip)
+    {
+        ClearAutomaticMaskRegions();
+        _isAutomaticMaskDetectionReady = false;
+        _isAutomaticMaskDetectionInProgress = false;
+        _isAutomaticMaskRevealActive = false;
+        _isDrawingAutomaticMaskRegion = false;
+        Capture = false;
+        _automaticMaskMenuItem!.ToolTipText = tooltip;
+        SetAutomaticMaskSelectionActive(false);
+        Invalidate(_selection);
+    }
+
+    private void DrawAutomaticMaskPreview(Graphics graphics, Rectangle clipBounds)
+    {
+        if (!_isAutomaticMaskDetectionReady)
+        {
+            if (_isAutomaticMaskDetectionInProgress)
+            {
+                var statusBounds = new Rectangle(
+                    _selection.Left + 8,
+                    _selection.Top + 8,
+                    Math.Max(0, _selection.Width - 16),
+                    Font.Height + 12);
+                using var statusBackground = new SolidBrush(Color.FromArgb(190, 35, 39, 43));
+                graphics.FillRectangle(statusBackground, statusBounds);
+                TextRenderer.DrawText(
+                    graphics,
+                    AppLocalization.Translate("Editor.AutomaticMaskScanning"),
+                    Font,
+                    statusBounds,
+                    Color.White,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
+
+            return;
+        }
+
+        foreach (var region in _automaticMaskRegions)
+        {
+            var bounds = Rectangle.Intersect(Rectangle.Intersect(region.Bounds, _selection), clipBounds);
+            if (bounds.IsEmpty)
+            {
+                continue;
+            }
+
+            if (_isAutomaticMaskRevealActive)
+            {
+                using var outline = new Pen(region.ShouldMask ? Color.Red : Color.LimeGreen, 2)
+                {
+                    DashStyle = DashStyle.Dash,
+                };
+                graphics.DrawRectangle(outline, bounds.X, bounds.Y, Math.Max(0, bounds.Width - 1), Math.Max(0, bounds.Height - 1));
+                continue;
+            }
+
+            if (!region.ShouldMask)
+            {
+                continue;
+            }
+
+            graphics.DrawImageUnscaled(region.Preview, region.Bounds.Location);
+        }
+    }
+
+    private AutomaticMaskRegion CreateAutomaticMaskRegion(Rectangle bounds)
+    {
+        var preview = _background.Clone(bounds, PixelFormat.Format32bppArgb);
+        try
+        {
+            ImageEditingService.ApplyMask(
+                preview,
+                new Rectangle(Point.Empty, preview.Size),
+                _maskMode,
+                _maskColor,
+                _maskPixelSize);
+            return new AutomaticMaskRegion(bounds, preview);
+        }
+        catch
+        {
+            preview.Dispose();
+            throw;
+        }
+    }
+
+    private void ClearAutomaticMaskRegions()
+    {
+        foreach (var region in _automaticMaskRegions)
+        {
+            region.Dispose();
+        }
+
+        _automaticMaskRegions.Clear();
     }
 
     private void UpdateActiveActionGroup()

@@ -483,6 +483,10 @@ public sealed class RegionSelectorFormTests
             .Where(item => item.Tag is int)
             .Select(item => (int)item.Tag!));
         Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_maskColorMenuItem").Image);
+        var automaticMaskMenuItem = Assert.Single(
+            maskDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "automatic-mask");
+        Assert.Equal("Ctrl+F8", automaticMaskMenuItem.ShortcutKeyDisplayString);
 
         var counterSizeMenu = GetField<ToolStripMenuItem>(selector, "_counterSizeMenuItem");
         Assert.Equal(new[] { 24, 32, 40, 48, 64, 80 }, counterSizeMenu.DropDownItems.OfType<ToolStripMenuItem>()
@@ -528,6 +532,128 @@ public sealed class RegionSelectorFormTests
             (T)typeof(RegionSelectorForm)
                 .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(form)!;
+    }
+
+    [Fact]
+    public void AutomaticMaskHidesToolsAndLocksSelectionUntilCancelled()
+    {
+        using var bitmap = new Bitmap(80, 80);
+        using var selector = new RegionSelectorForm(bitmap);
+        selector.Show();
+        System.Windows.Forms.Application.DoEvents();
+        var selection = new Rectangle(10, 10, 50, 50);
+        var selectionField = typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        selectionField.SetValue(selector, selection);
+        var selectionInvalidated = false;
+        selector.Invalidated += (_, eventArgs) =>
+            selectionInvalidated |= eventArgs.InvalidRect.IntersectsWith(selection);
+        typeof(RegionSelectorForm).GetField("_isAutomaticMaskDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, true);
+        typeof(RegionSelectorForm).GetMethod("SetAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [true]);
+        Assert.True(selectionInvalidated);
+
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var applyButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskApplyButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var cancelButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskCancelButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var visibleActions = new ToolStripItem[] { applyButton, cancelButton };
+        Assert.Equal(visibleActions,
+            actionBar.Items.Cast<ToolStripItem>().Where(item => item.Visible));
+        var expectedCompactWidth = visibleActions.Sum(item => item.Width + item.Margin.Horizontal) + actionBar.Padding.Horizontal;
+        Assert.InRange(actionBar.Width, expectedCompactWidth, expectedCompactWidth + 2);
+        Assert.True(applyButton.Enabled);
+
+        var mouseDown = typeof(RegionSelectorForm).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseMove = typeof(RegionSelectorForm).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseUp = typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Left + 20, selection.Top + 20, 0)]);
+        Assert.Equal(Cursors.Cross, selector.Cursor);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Right + 20, selection.Bottom + 20, 0)]);
+        Assert.Equal(Cursors.Default, selector.Cursor);
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, selection.Right - 1, selection.Top + 20, 0)]);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 0, selection.Right + 20, selection.Top + 20, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, selection.Right + 20, selection.Top + 20, 0)]);
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, selection.Left + 20, selection.Top + 20, 0)]);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 0, selection.Left + 35, selection.Top + 35, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, selection.Left + 35, selection.Top + 35, 0)]);
+
+        Assert.Equal(selection, (Rectangle)selectionField.GetValue(selector)!);
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isMoving", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isResizing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+
+        cancelButton.PerformClick();
+
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        Assert.Equal(selection, (Rectangle)selectionField.GetValue(selector)!);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Right + 20, selection.Bottom + 20, 0)]);
+        Assert.Equal(Cursors.Default, selector.Cursor);
+        Assert.Contains(actionBar.Items.OfType<ToolStripButton>(), button => button.Visible && button != applyButton && button != cancelButton);
+    }
+
+    [Fact]
+    public void ConfirmingAutomaticMaskAppliesRegionsAndRestoresToolbar()
+    {
+        using var bitmap = new Bitmap(80, 80);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(bitmap);
+    selector.Show();
+    System.Windows.Forms.Application.DoEvents();
+        var selection = new Rectangle(10, 10, 50, 50);
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, selection);
+        typeof(RegionSelectorForm).GetField("_maskMode", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, MaskMode.Solid);
+        typeof(RegionSelectorForm).GetField("_maskColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, Color.Blue);
+        typeof(RegionSelectorForm).GetField("_isAutomaticMaskDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, true);
+        typeof(RegionSelectorForm).GetMethod("SetAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [true]);
+
+        var mouseDown = typeof(RegionSelectorForm).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseMove = typeof(RegionSelectorForm).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseUp = typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 20, 20, 0)]);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 0, 30, 30, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 30, 30, 0)]);
+
+        var regions = (System.Collections.IList)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskRegions", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var region = Assert.Single(regions.Cast<object>());
+        var preview = (Bitmap)region.GetType().GetProperty("Preview")!.GetValue(region)!;
+        var drawPreview = typeof(RegionSelectorForm).GetMethod("DrawAutomaticMaskPreview", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        using var previewCanvas = new Bitmap(80, 80);
+        using (var graphics = Graphics.FromImage(previewCanvas))
+        {
+            drawPreview.Invoke(selector, [graphics, selection]);
+            drawPreview.Invoke(selector, [graphics, selection]);
+        }
+
+        Assert.Same(preview, region.GetType().GetProperty("Preview")!.GetValue(region));
+        Assert.Equal(Color.Blue.ToArgb(), preview.GetPixel(5, 5).ToArgb());
+
+        var applyButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskApplyButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        applyButton.PerformClick();
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(25, 25).ToArgb());
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        Assert.Contains(actionBar.Items.OfType<ToolStripButton>(), button => button.Visible && button != applyButton);
     }
 
     [Fact]
