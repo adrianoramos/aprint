@@ -1380,15 +1380,6 @@ public sealed class RegionSelectorForm : Form
             _textFontSizeMenuItem.DropDownItems.Add(CreateTextFontSizeMenuItem(fontSize));
         }
 
-        _textFontSizeMenuItem.DropDownItems.Add(new ToolStripSeparator());
-        _textFontSizeMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
-            textDropdownButton,
-            "Editor.TextFormatting",
-            6,
-            72,
-            () => (int)Math.Round(_textFontSize),
-            "pt",
-            size => SetTextFontSize(size)));
         var boldMenuItem = CreateTextStyleMenuItem("Editor.TextBold", FontStyle.Bold);
         var italicMenuItem = CreateTextStyleMenuItem("Editor.TextItalic", FontStyle.Italic);
         var underlineMenuItem = CreateTextStyleMenuItem("Editor.TextUnderline", FontStyle.Underline);
@@ -1707,71 +1698,113 @@ public sealed class RegionSelectorForm : Form
         {
             Text = AppLocalization.Translate(titleKey),
             FormBorderStyle = FormBorderStyle.FixedDialog,
-            StartPosition = FormStartPosition.CenterParent,
+            StartPosition = FormStartPosition.Manual,
             MaximizeBox = false,
             MinimizeBox = false,
             ShowInTaskbar = false,
             ShowIcon = false,
+            TopMost = TopMost,
             AutoScaleMode = AutoScaleMode.Font,
-            ClientSize = new Size(320, 112),
+            ClientSize = new Size(360, 118),
         };
+        dialog.Location = GetIntegerDialogLocation(dialog.Size);
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(12),
-            ColumnCount = 1,
+            Padding = new Padding(14),
+            ColumnCount = 2,
             RowCount = 2,
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        var valuePanel = new FlowLayoutPanel
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        var slider = new TrackBar
         {
+            Minimum = minimum,
+            Maximum = maximum,
+            Value = Math.Clamp(initialValue, minimum, maximum),
+            TickFrequency = Math.Max(1, (maximum - minimum) / 8),
+            SmallChange = 1,
+            LargeChange = Math.Max(1, (maximum - minimum) / 8),
+            TickStyle = TickStyle.BottomRight,
+            AutoSize = false,
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
-            Padding = new Padding(0, 8, 0, 0),
+            Margin = new Padding(0, 0, 12, 0),
         };
         var valueInput = new NumericUpDown
         {
             Minimum = minimum,
             Maximum = maximum,
             Value = Math.Clamp(initialValue, minimum, maximum),
-            Width = 88,
             TextAlign = HorizontalAlignment.Right,
+            Size = new Size(68, 24),
+            Margin = new Padding(0, 0, 6, 0),
         };
-        valuePanel.Controls.AddRange([
-            valueInput,
-            new Label { Text = unit, AutoSize = true, Margin = new Padding(6, 5, 0, 0) },
-        ]);
+        var unitLabel = new Label
+        {
+            AutoSize = true,
+            Text = unit,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 4, 0, 0),
+        };
+        var valuePanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoSize = false,
+            Padding = new Padding(0, 19, 0, 0),
+            Margin = Padding.Empty,
+        };
+        valuePanel.Controls.AddRange([valueInput, unitLabel]);
         var acceptButton = new Button
         {
             Text = AppLocalization.Translate("Editor.ConfirmCrop"),
             DialogResult = DialogResult.OK,
             Size = new Size(88, 28),
-            Margin = new Padding(6, 0, 0, 0),
+            Margin = new Padding(8, 0, 0, 0),
         };
         var cancelButton = new Button
         {
             Text = AppLocalization.Translate("Editor.CancelCrop"),
             DialogResult = DialogResult.Cancel,
             Size = new Size(88, 28),
-            Margin = new Padding(6, 0, 0, 0),
+            Margin = new Padding(8, 0, 0, 0),
         };
         var buttonPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
+            AutoSize = false,
             Padding = Padding.Empty,
             Margin = Padding.Empty,
         };
-        buttonPanel.Controls.AddRange([acceptButton, cancelButton]);
-        layout.Controls.Add(valuePanel, 0, 0);
+        buttonPanel.Controls.AddRange([cancelButton, acceptButton]);
+        slider.ValueChanged += (_, _) => valueInput.Value = slider.Value;
+        valueInput.ValueChanged += (_, _) => slider.Value = (int)valueInput.Value;
+        layout.Controls.Add(slider, 0, 0);
+        layout.Controls.Add(valuePanel, 1, 0);
         layout.Controls.Add(buttonPanel, 0, 1);
+        layout.SetColumnSpan(buttonPanel, 2);
         dialog.Controls.Add(layout);
         dialog.AcceptButton = acceptButton;
         dialog.CancelButton = cancelButton;
         return dialog.ShowDialog(this) == DialogResult.OK ? (int)valueInput.Value : null;
+    }
+
+    private Point GetIntegerDialogLocation(Size dialogSize)
+    {
+        var selectionCenter = _selection.IsEmpty
+            ? Cursor.Position
+            : PointToScreen(new Point(
+                _selection.Left + (_selection.Width / 2),
+                _selection.Top + (_selection.Height / 2)));
+        var workingArea = Screen.FromPoint(selectionCenter).WorkingArea;
+        return new Point(
+            Math.Clamp(selectionCenter.X - (dialogSize.Width / 2), workingArea.Left, Math.Max(workingArea.Left, workingArea.Right - dialogSize.Width)),
+            Math.Clamp(selectionCenter.Y - (dialogSize.Height / 2), workingArea.Top, Math.Max(workingArea.Top, workingArea.Bottom - dialogSize.Height)));
     }
 
     private ToolStripMenuItem CreateTextFontSizeMenuItem(float size)

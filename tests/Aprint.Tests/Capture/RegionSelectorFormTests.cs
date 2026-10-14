@@ -500,6 +500,7 @@ public sealed class RegionSelectorFormTests
         Assert.Equal(new[] { 8F, 10F, 12F, 14F, 16F, 18F, 24F, 32F, 48F, 72F }, textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>()
             .Where(item => item.Tag is float)
             .Select(item => (float)item.Tag!));
+        Assert.DoesNotContain(textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
         Assert.Contains(textDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.Font"));
         Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_textColorMenuItem").Image);
         Assert.Equal(4, textDropdown.DropDownItems.OfType<ToolStripMenuItem>().Count(item => item.Tag is FontStyle));
@@ -654,6 +655,68 @@ public sealed class RegionSelectorFormTests
             .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(selector)!;
         Assert.Contains(actionBar.Items.OfType<ToolStripButton>(), button => button.Visible && button != applyButton);
+    }
+
+    [Fact]
+    public void FloatingHighlightCustomizeDialogAppliesSizeWithoutManualInteraction()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var selector = new RegionSelectorForm(bitmap);
+        selector.Show();
+        System.Windows.Forms.Application.DoEvents();
+        var highlightDropdown = (ToolStripDropDownButton)typeof(RegionSelectorForm)
+            .GetField("_highlightDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var customizeItem = Assert.Single(
+            highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "custom-size");
+        var dialogWasShown = false;
+        var dialogWasTopMost = false;
+        var dialogWasOnScreen = false;
+        using var dialogDriver = new System.Windows.Forms.Timer { Interval = 50 };
+        dialogDriver.Tick += (_, _) =>
+        {
+            var dialog = System.Windows.Forms.Application.OpenForms
+                .Cast<Form>()
+                .FirstOrDefault(form => !ReferenceEquals(form, selector) && form.Visible);
+            if (dialog is null)
+            {
+                return;
+            }
+
+            dialogDriver.Stop();
+            dialogWasShown = true;
+            dialogWasTopMost = dialog.TopMost;
+            dialogWasOnScreen = Screen.FromRectangle(dialog.Bounds).WorkingArea.Contains(dialog.Bounds);
+            var valueInput = FindDescendants(dialog).OfType<NumericUpDown>().Single();
+            valueInput.Value = 24;
+            FindDescendants(dialog)
+                .OfType<Button>()
+                .Single(button => button.DialogResult == DialogResult.OK)
+                .PerformClick();
+        };
+
+        dialogDriver.Start();
+        customizeItem.PerformClick();
+
+        Assert.True(dialogWasShown);
+        Assert.True(dialogWasTopMost);
+        Assert.True(dialogWasOnScreen);
+        Assert.Equal(24, typeof(RegionSelectorForm)
+            .GetField("_highlightWidth", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector));
+
+        static IEnumerable<Control> FindDescendants(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (var descendant in FindDescendants(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
     }
 
     [Fact]

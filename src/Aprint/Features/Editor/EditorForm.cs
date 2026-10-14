@@ -593,15 +593,6 @@ public sealed class EditorForm : Form
             _textFontSizeMenuItem.DropDownItems.Add(CreateTextFontSizeMenuItem(fontSize));
         }
 
-        _textFontSizeMenuItem.DropDownItems.Add(new ToolStripSeparator());
-        _textFontSizeMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
-            _btnTextFormatDropdown,
-            "Editor.TextFormatting",
-            6,
-            72,
-            () => (int)Math.Round(_textFontSize),
-            "pt",
-            size => SetTextFontSize(size)));
         var boldMenuItem = CreateTextStyleMenuItem("Editor.TextBold", FontStyle.Bold);
         var italicMenuItem = CreateTextStyleMenuItem("Editor.TextItalic", FontStyle.Italic);
         var underlineMenuItem = CreateTextStyleMenuItem("Editor.TextUnderline", FontStyle.Underline);

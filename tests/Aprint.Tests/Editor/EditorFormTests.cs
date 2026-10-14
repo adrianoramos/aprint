@@ -628,7 +628,7 @@ public sealed class EditorFormTests
         Assert.Contains(
             textDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
             item => item.Tag?.ToString() == "font-dialog");
-        Assert.Contains(
+        Assert.DoesNotContain(
             textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(),
             item => item.Tag?.ToString() == "custom-size");
 
