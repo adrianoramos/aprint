@@ -45,26 +45,19 @@ public sealed class EditorFormTests
             .GetValue(capture)!;
         var captureDropdowns = captureActionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
 
-        Assert.Equal(6, editorDropdowns.Length);
+        Assert.Equal(5, editorDropdowns.Length);
         Assert.Equal(3, captureDropdowns.Length);
         Assert.All(editorDropdowns, button => Assert.Equal(14, button.Width));
         Assert.All(editorDropdowns, button => Assert.Equal(captureDropdowns[0].Width, button.Width));
         Assert.All(captureDropdowns, button => Assert.Equal(34, button.Height));
         Assert.All(editorDropdowns, button => Assert.Equal(captureDropdowns[0].Height, button.Height));
         var editorToolStrip = editor.Controls.OfType<ToolStrip>().Single();
-        var colorButton = (ToolStripButton)typeof(EditorForm)
-            .GetField("_btnColor", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
-        var colorDropdown = (ToolStripDropDownButton)typeof(EditorForm)
-            .GetField("_btnColorDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
         var drawingButton = (ToolStripButton)typeof(EditorForm)
             .GetField("_btnDrawing", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
         var drawingDropdown = (ToolStripDropDownButton)typeof(EditorForm)
             .GetField("_btnDrawingDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
-        Assert.Equal(captureDropdowns[0].Height, colorButton.Height);
         Assert.Equal(captureDropdowns[0].Height, drawingButton.Height);
         Assert.All(
             editorToolStrip.Items.OfType<ToolStripButton>(),
@@ -72,7 +65,6 @@ public sealed class EditorFormTests
         if (!showLabels)
         {
             const int iconOnlyActionWidth = 52;
-            Assert.Equal(iconOnlyActionWidth, colorButton.Width + colorDropdown.Width);
             Assert.Equal(iconOnlyActionWidth, drawingButton.Width + drawingDropdown.Width);
             for (var index = 0; index < editorToolStrip.Items.Count; index++)
             {
@@ -94,9 +86,6 @@ public sealed class EditorFormTests
 
         if (showLabels)
         {
-            Assert.True(
-                colorButton.Width >= TextRenderer.MeasureText(colorButton.Text, editorToolStrip.Font).Width,
-                $"The '{colorButton.Text}' label must fit its button.");
             Assert.All(
                 editorToolStrip.Items.OfType<ToolStripButton>()
                     .Where(button => button.DisplayStyle == ToolStripItemDisplayStyle.ImageAndText),
@@ -236,8 +225,12 @@ public sealed class EditorFormTests
         Assert.Contains(noFillItem, drawingDropdown.DropDownItems.Cast<ToolStripItem>());
         Assert.NotNull(lineColorItem.Image);
         Assert.NotNull(fillColorItem.Image);
-        Assert.Equal("Stroke", lineColorItem.Tag?.ToString());
-        Assert.Equal("Fill", fillColorItem.Tag?.ToString());
+        Assert.Equal(Color.Red.ToArgb(), ((Bitmap)lineColorItem.Image!).GetPixel(
+            lineColorItem.Image.Width / 2,
+            lineColorItem.Image.Height / 2).ToArgb());
+        Assert.Equal(Color.Magenta.ToArgb(), ((Bitmap)fillColorItem.Image!).GetPixel(
+            fillColorItem.Image.Width / 2,
+            fillColorItem.Image.Height / 2).ToArgb());
         Assert.Contains(Color.Red.ToArgb().ToString("x8"), lineColorItem.ToolTipText, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrWhiteSpace(fillColorItem.ToolTipText));
         var selectedFillToolTip = fillColorItem.ToolTipText;
@@ -306,7 +299,7 @@ public sealed class EditorFormTests
 
         typeof(EditorForm).GetField("_selectedTextColor", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(editor, Color.Lime);
-        typeof(EditorForm).GetMethod("UpdateColorPickerButtonAppearance", BindingFlags.Instance | BindingFlags.NonPublic)!
+        typeof(EditorForm).GetMethod("UpdateColorMenuPreviews", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(editor, null);
 
         Assert.NotSame(originalPreview, textColorItem.Image);
@@ -376,82 +369,6 @@ public sealed class EditorFormTests
     }
 
     [Fact]
-    public void ColorButtonTracksToolContextAndAllowsManualFillSelection()
-    {
-        using var bitmap = new Bitmap(20, 20);
-        using var editor = new EditorForm(bitmap, string.Empty, initialTool: EditTool.Text);
-        var colorButton = (ToolStripButton)typeof(EditorForm)
-            .GetField("_btnColor", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
-        var colorDropdown = (ToolStripDropDownButton)typeof(EditorForm)
-            .GetField("_btnColorDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
-        var renderer = typeof(EditorForm)
-            .GetField("_toolStripRenderer", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
-        var setHoveredGroup = renderer.GetType()
-            .GetMethod("SetHoveredGroup", BindingFlags.Instance | BindingFlags.Public)!;
-        var activeTargetField = typeof(EditorForm)
-            .GetField("_activeColorTarget", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var textTarget = Assert.Single(
-            colorDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
-            item => item.Tag?.ToString() == "Text");
-        var strokeTarget = Assert.Single(
-            colorDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
-            item => item.Tag?.ToString() == "Stroke");
-        Assert.NotNull(strokeTarget.Image);
-        Assert.NotNull(textTarget.Image);
-
-        Assert.Equal("Text", activeTargetField.GetValue(editor)!.ToString());
-        Assert.StartsWith(textTarget.Text, colorButton.ToolTipText);
-
-        typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(editor, [EditTool.Rectangle]);
-
-        Assert.Equal("Stroke", activeTargetField.GetValue(editor)!.ToString());
-        Assert.StartsWith(strokeTarget.Text, colorButton.ToolTipText);
-
-        var fillTarget = Assert.Single(
-            colorDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
-            item => item.Tag?.ToString() == "Fill");
-        Assert.NotNull(fillTarget.Image);
-        setHoveredGroup.Invoke(renderer, [colorButton, colorDropdown]);
-        fillTarget.PerformClick();
-
-        Assert.Equal("Fill", activeTargetField.GetValue(editor)!.ToString());
-        Assert.Null(renderer.GetType().GetField("_hoveredMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
-        Assert.Null(renderer.GetType().GetField("_hoveredDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
-        Assert.StartsWith(fillTarget.Text, colorButton.ToolTipText);
-        Assert.True(fillTarget.Checked);
-        Assert.True(
-            colorButton.Width >= TextRenderer.MeasureText(colorButton.Text, colorButton.Font).Width,
-            "The active color label must fit the split button.");
-
-        typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(editor, [EditTool.Pixelated]);
-        Assert.Equal("Fill", activeTargetField.GetValue(editor)!.ToString());
-
-        textTarget.PerformClick();
-        typeof(EditorForm).GetMethod("SetActiveTool", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(editor, [EditTool.Pixelated]);
-        Assert.Equal("Text", activeTargetField.GetValue(editor)!.ToString());
-        Assert.StartsWith(textTarget.Text, colorButton.ToolTipText);
-
-        var noFillItem = Assert.Single(
-            colorDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
-            item => item.Tag is null);
-        setHoveredGroup.Invoke(renderer, [colorButton, colorDropdown]);
-        noFillItem.PerformClick();
-
-        Assert.Null(renderer.GetType().GetField("_hoveredMainButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
-        Assert.Null(renderer.GetType().GetField("_hoveredDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(renderer));
-        Assert.Null(typeof(EditorForm)
-            .GetField("_selectedFillColor", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor));
-        Assert.Equal("Fill", activeTargetField.GetValue(editor)!.ToString());
-    }
-
-    [Fact]
     public void HistoryButtonsStayNearToolsAndExportsStayAtToolbarRightEdge()
     {
         using var bitmap = new Bitmap(1100, 600);
@@ -502,7 +419,7 @@ public sealed class EditorFormTests
         var captureButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+N)", StringComparison.Ordinal));
         var copyButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+C)", StringComparison.Ordinal));
         var saveButton = buttons.Single(button => (button.ToolTipText ?? string.Empty).EndsWith("(Ctrl+S)", StringComparison.Ordinal));
-        var firstTool = (ToolStripButton)typeof(EditorForm).GetField("_btnColor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+        var firstTool = (ToolStripButton)typeof(EditorForm).GetField("_btnDrawing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var lastTool = (ToolStripButton)typeof(EditorForm).GetField("_btnRedo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var toolGroupCenter = (firstTool.Bounds.Left + lastTool.Bounds.Right) / 2;
         var toolbarCenter = toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2);
@@ -753,17 +670,11 @@ public sealed class EditorFormTests
         var highlightDropdown = (ToolStripDropDownButton)typeof(EditorForm)
             .GetField("_btnHighlightSizeDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
-        var colorButton = (ToolStripButton)typeof(EditorForm)
-            .GetField("_btnColor", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
         var highlightMenuItem = (ToolStripMenuItem)typeof(EditorForm)
             .GetField("_highlightColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
-        var highlightTargetMenuItem = (ToolStripMenuItem)typeof(EditorForm)
-            .GetField("_highlightTargetMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!;
         var strokeMenuItem = (ToolStripMenuItem)typeof(EditorForm)
-            .GetField("_strokeColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetField("_drawingLineColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
 
         Assert.Contains(highlightMenuItem, highlightDropdown.DropDownItems.Cast<ToolStripItem>());
@@ -774,20 +685,15 @@ public sealed class EditorFormTests
         Assert.Equal(Color.Blue.ToArgb(), ((Color)typeof(EditorForm)
             .GetField("_selectedHighlightColor", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!).ToArgb());
-        Assert.Equal("Highlight", typeof(EditorForm)
-            .GetField("_activeColorTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(editor)!.ToString());
-        Assert.StartsWith(highlightTargetMenuItem.Text, colorButton.ToolTipText);
-
-        var originalPreviewColor = GetFirstVisiblePixelColor(highlightMenuItem.Image!);
-        var originalLineColor = GetFirstVisiblePixelColor(strokeMenuItem.Image!);
+        var originalPreviewColor = GetCenterSwatchColor(highlightMenuItem.Image!);
+        var originalLineColor = GetCenterSwatchColor(strokeMenuItem.Image!);
         typeof(EditorForm).GetField("_selectedColor", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(editor, Color.Lime);
-        typeof(EditorForm).GetMethod("UpdateColorPickerButtonAppearance", BindingFlags.Instance | BindingFlags.NonPublic)!
+        typeof(EditorForm).GetMethod("UpdateColorMenuPreviews", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(editor, null);
 
-        var updatedPreviewColor = GetFirstVisiblePixelColor(highlightMenuItem.Image!);
-        var updatedLineColor = GetFirstVisiblePixelColor(strokeMenuItem.Image!);
+        var updatedPreviewColor = GetCenterSwatchColor(highlightMenuItem.Image!);
+        var updatedLineColor = GetCenterSwatchColor(strokeMenuItem.Image!);
         Assert.Equal(originalPreviewColor, updatedPreviewColor);
         Assert.NotEqual(originalLineColor, updatedLineColor);
         Assert.True(updatedLineColor.G > updatedLineColor.R);
@@ -800,25 +706,9 @@ public sealed class EditorFormTests
             .GetValue(editor)!;
         Assert.EndsWith(highlightColor.Name, highlightMenuItem.ToolTipText);
         Assert.Equal(Color.Lime.ToArgb(), lineColor.ToArgb());
-        Assert.EndsWith(highlightColor.Name, highlightTargetMenuItem.ToolTipText);
 
-        static Color GetFirstVisiblePixelColor(Image image)
-        {
-            var bitmap = (Bitmap)image;
-            for (var y = 0; y < bitmap.Height; y++)
-            {
-                for (var x = 0; x < bitmap.Width; x++)
-                {
-                    var pixel = bitmap.GetPixel(x, y);
-                    if (pixel.A > 0)
-                    {
-                        return Color.FromArgb(pixel.R, pixel.G, pixel.B);
-                    }
-                }
-            }
-
-            throw new InvalidOperationException("The line color icon has no visible pixels.");
-        }
+        static Color GetCenterSwatchColor(Image image) =>
+            ((Bitmap)image).GetPixel(image.Width / 2, image.Height / 2);
     }
 
     [Fact]
@@ -882,7 +772,7 @@ public sealed class EditorFormTests
     }
 
     [Fact]
-    public void AutomaticMaskModeShowsOnlyCenteredApplyAndCancelButtons()
+    public void AutomaticMaskModeShowsCenteredApplyAndCancelButtons()
     {
         using var bitmap = new Bitmap(800, 600);
         using var editor = new EditorForm(bitmap, string.Empty);
@@ -894,26 +784,38 @@ public sealed class EditorFormTests
         var toolStrip = editor.Controls.OfType<ToolStrip>().Single();
         var visibleItems = toolStrip.Items.Cast<ToolStripItem>().Where(item => item.Visible).ToArray();
         var spacerBefore = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerBefore", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+        var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var automaticMaskMenuItem = (ToolStripMenuItem)typeof(EditorForm).GetField("_automaticMaskMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var applyButton = (ToolStripButton)typeof(EditorForm).GetField("_btnConfirmCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var cancelButton = (ToolStripButton)typeof(EditorForm).GetField("_btnCancelCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
-        var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
 
         Assert.Equal(new ToolStripItem[] { spacerBefore, applyButton, cancelButton, spacerAfter }, visibleItems);
         Assert.False(automaticMaskMenuItem.Enabled);
         Assert.EndsWith("(Enter)", applyButton.ToolTipText);
         Assert.EndsWith("(Esc)", cancelButton.ToolTipText);
-        var actionsCenter = (applyButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
-        Assert.InRange(Math.Abs(actionsCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
+        var actionCenter = (applyButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
+        Assert.InRange(Math.Abs(actionCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
 
-        activateSelection.Invoke(editor, [false]);
+        cancelButton.PerformClick();
+        Assert.True(automaticMaskMenuItem.Enabled);
+        Assert.False(applyButton.Visible);
+        Assert.False(cancelButton.Visible);
+
+        activateSelection.Invoke(editor, [true]);
+        var processCmdKey = typeof(EditorForm).GetMethod("ProcessCmdKey", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object?[] arguments =
+        [
+            Message.Create(IntPtr.Zero, 0x0100, IntPtr.Zero, IntPtr.Zero),
+            Keys.Escape,
+        ];
+        Assert.True((bool)processCmdKey.Invoke(editor, arguments)!);
         Assert.True(automaticMaskMenuItem.Enabled);
         Assert.False(applyButton.Visible);
         Assert.False(cancelButton.Visible);
     }
 
     [Fact]
-    public void CropModeShowsOnlyCenteredConfirmAndCancelButtons()
+    public void CropModeShowsCenteredConfirmAndCancelButtons()
     {
         using var bitmap = new Bitmap(800, 600);
         using var editor = new EditorForm(bitmap, string.Empty);
@@ -925,20 +827,33 @@ public sealed class EditorFormTests
         var toolStrip = editor.Controls.OfType<ToolStrip>().Single();
         var visibleItems = toolStrip.Items.Cast<ToolStripItem>().Where(item => item.Visible).ToArray();
         var spacerBefore = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerBefore", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
+        var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var confirmButton = (ToolStripButton)typeof(EditorForm).GetField("_btnConfirmCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
         var cancelButton = (ToolStripButton)typeof(EditorForm).GetField("_btnCancelCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
-        var spacerAfter = (ToolStripLabel)typeof(EditorForm).GetField("_actionSpacerAfter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
 
         Assert.Equal(new ToolStripItem[] { spacerBefore, confirmButton, cancelButton, spacerAfter }, visibleItems);
         Assert.EndsWith("(Enter)", confirmButton.ToolTipText);
         Assert.EndsWith("(Esc)", cancelButton.ToolTipText);
-        var actionsCenter = (confirmButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
-        Assert.InRange(Math.Abs(actionsCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
+        var actionCenter = (confirmButton.Bounds.Left + cancelButton.Bounds.Right) / 2;
+        Assert.InRange(Math.Abs(actionCenter - (toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2))), 0, 1);
 
-        setActiveTool.Invoke(editor, [EditTool.Freehand]);
+        cancelButton.PerformClick();
+        Assert.Equal(EditTool.Freehand, editor.SelectedTool);
         Assert.False(confirmButton.Visible);
         Assert.False(cancelButton.Visible);
         Assert.Contains(toolStrip.Items.OfType<ToolStripButton>(), button => button.Visible && button.Enabled);
+
+        setActiveTool.Invoke(editor, [EditTool.Crop]);
+        var processCmdKey = typeof(EditorForm).GetMethod("ProcessCmdKey", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object?[] arguments =
+        [
+            Message.Create(IntPtr.Zero, 0x0100, IntPtr.Zero, IntPtr.Zero),
+            Keys.Escape,
+        ];
+        Assert.True((bool)processCmdKey.Invoke(editor, arguments)!);
+        Assert.Equal(EditTool.Freehand, editor.SelectedTool);
+        Assert.False(confirmButton.Visible);
+        Assert.False(cancelButton.Visible);
     }
 
     [Fact]

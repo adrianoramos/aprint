@@ -176,15 +176,6 @@ public sealed class EditorForm : Form
         NewCapture,
     }
 
-    private enum ColorTarget
-    {
-        Stroke,
-        Highlight,
-        Mask,
-        Text,
-        Fill,
-    }
-
     private const int PenWidth = ImageEditingService.AnnotationPenWidth;
     private const int ToolPanelHeight = 50;
     private const int ToolIconBaseSize = 24;
@@ -255,14 +246,6 @@ public sealed class EditorForm : Form
     private readonly ToolStripMenuItem _textFormatColorMenuItem;
     private readonly ToolStripMenuItem _textFontSizeMenuItem;
     private readonly List<ToolStripMenuItem> _textStyleMenuItems = [];
-    private readonly ToolStripButton _btnColor;
-    private readonly ToolStripDropDownButton _btnColorDropdown;
-    private readonly ToolStripMenuItem _strokeColorMenuItem;
-    private readonly ToolStripMenuItem _highlightTargetMenuItem;
-    private readonly ToolStripMenuItem _maskColorTargetMenuItem;
-    private readonly ToolStripMenuItem _textColorMenuItem;
-    private readonly ToolStripMenuItem _fillColorMenuItem;
-    private readonly ToolStripMenuItem _noFillColorMenuItem;
     private readonly ToolStripButton _btnUndo;
     private readonly ToolStripButton _btnRedo;
     private readonly ToolStripLabel _centerToolsSpacer;
@@ -283,8 +266,6 @@ public sealed class EditorForm : Form
     private Color _selectedCounterCircleColor = Color.Red;
     private Color _selectedTextColor = Color.Red;
     private Color? _selectedFillColor;
-    private bool _isColorTargetManuallySelected;
-    private ColorTarget _activeColorTarget = ColorTarget.Stroke;
     private EditTool _currentTool = EditTool.Freehand;
     private EditTool _toolBeforeCrop = EditTool.Freehand;
     private MaskMode _maskMode = MaskMode.Pixelate;
@@ -425,51 +406,9 @@ public sealed class EditorForm : Form
             ImageList = _toolIconImageList,
         };
 
-        _btnColor = CreateStandardToolButton(
-            AppLocalization.Translate("Editor.LineColor"),
-            ToolIconKind.LineColor,
-            _selectedColor);
-        _btnColor.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
-        _btnColor.Click += (_, _) => PickActiveColor();
-        _btnColorDropdown = new ToolStripDropDownButton
-        {
-            DisplayStyle = ToolStripItemDisplayStyle.Image,
-            ImageAlign = ContentAlignment.MiddleCenter,
-            ImageScaling = ToolStripItemImageScaling.None,
-            Margin = new Padding(0, 0, ToolButtonMargin, 0),
-            AutoSize = false,
-            Width = ToolStripMetrics.DropdownButtonWidth,
-            Height = ToolStripMetrics.DropdownButtonHeight,
-            AutoToolTip = false,
-            ToolTipText = AppLocalization.Translate("Editor.LineColor"),
-        };
-        _btnColorDropdown.DropDown.AutoClose = true;
-        _strokeColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Stroke, "Editor.LineColor");
-        _textColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Text, "Editor.TextColor");
-        _highlightTargetMenuItem = CreateColorTargetMenuItem(ColorTarget.Highlight, "Editor.HighlightColor");
-        _maskColorTargetMenuItem = CreateColorTargetMenuItem(ColorTarget.Mask, "Editor.MaskColor");
-        _fillColorMenuItem = CreateColorTargetMenuItem(ColorTarget.Fill, "Editor.FillColor");
-        _noFillColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.NoFill"));
-        _noFillColorMenuItem.Click += (_, _) =>
-        {
-            _selectedFillColor = null;
-            SelectColorTarget(ColorTarget.Fill, manuallySelected: true);
-            FillColorChanged?.Invoke(null);
-            _btnColorDropdown.DropDown.Close();
-            ClearColorGroupHover();
-        };
-        _btnColorDropdown.DropDownItems.AddRange([
-            _strokeColorMenuItem,
-            _highlightTargetMenuItem,
-            _maskColorTargetMenuItem,
-            _textColorMenuItem,
-            _fillColorMenuItem,
-            new ToolStripSeparator(),
-            _noFillColorMenuItem,
-        ]);
         _highlightColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.HighlightColor"))
         {
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedHighlightColor)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedHighlightColor)],
             ToolTipText = $"{AppLocalization.Translate("Editor.HighlightColor")}: {_selectedHighlightColor.Name}",
         };
         _highlightColorMenuItem.Click += (_, _) =>
@@ -503,33 +442,29 @@ public sealed class EditorForm : Form
         AddDrawingToolMenuItem(EditTool.Circle, ToolIconKind.Circle, "Editor.Circle", "F6");
         _drawingLineColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.LineColor"))
         {
-            Tag = ColorTarget.Stroke,
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedColor)],
             ToolTipText = $"{AppLocalization.Translate("Editor.LineColor")}: {_selectedColor.Name}",
         };
         _drawingLineColorMenuItem.Click += (_, _) =>
         {
             _btnDrawingDropdown.DropDown.Close();
-            SelectColorTarget(ColorTarget.Stroke, manuallySelected: true);
             PickColor();
         };
         _drawingFillColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.FillColor"))
         {
-            Tag = ColorTarget.Fill,
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedFillColor ?? Color.Black)],
             ToolTipText = $"{AppLocalization.Translate("Editor.FillColor")}: {_selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill")}",
         };
         _drawingFillColorMenuItem.Click += (_, _) =>
         {
             _btnDrawingDropdown.DropDown.Close();
-            SelectColorTarget(ColorTarget.Fill, manuallySelected: true);
             PickFillColor();
         };
         _drawingNoFillMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.NoFill"));
         _drawingNoFillMenuItem.Click += (_, _) =>
         {
             _selectedFillColor = null;
-            UpdateColorPickerButtonAppearance();
+            UpdateColorMenuPreviews();
             FillColorChanged?.Invoke(null);
             _btnDrawingDropdown.DropDown.Close();
         };
@@ -581,7 +516,7 @@ public sealed class EditorForm : Form
             SetCounterSize));
         _counterTextColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.CounterTextColor"))
         {
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedCounterTextColor)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedCounterTextColor)],
             ToolTipText = $"{AppLocalization.Translate("Editor.CounterTextColor")}: {_selectedCounterTextColor.Name}",
         };
         _counterTextColorMenuItem.Click += (_, _) =>
@@ -591,7 +526,7 @@ public sealed class EditorForm : Form
         };
         _counterCircleColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.CounterCircleColor"))
         {
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedCounterCircleColor)],
             ToolTipText = $"{AppLocalization.Translate("Editor.CounterCircleColor")}: {_selectedCounterCircleColor.Name}",
         };
         _counterCircleColorMenuItem.Click += (_, _) =>
@@ -644,7 +579,7 @@ public sealed class EditorForm : Form
         };
         _textFormatColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.TextColor"))
         {
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedTextColor)],
             ToolTipText = $"{AppLocalization.Translate("Editor.TextColor")}: {_selectedTextColor.Name}",
         };
         _textFormatColorMenuItem.Click += (_, _) =>
@@ -790,7 +725,7 @@ public sealed class EditorForm : Form
         _maskColorSeparator = new ToolStripSeparator();
         _maskColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.MaskColor"))
         {
-            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.FillColor, _selectedMaskColor)],
+            Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedMaskColor)],
             ToolTipText = $"{AppLocalization.Translate("Editor.MaskColor")}: {_selectedMaskColor.Name}",
         };
         _maskColorMenuItem.Click += (_, _) =>
@@ -858,7 +793,6 @@ public sealed class EditorForm : Form
                 ConfirmCrop();
             }
         };
-
         _btnCancelCrop = CreateStandardToolButton(
             AppLocalization.Translate("Editor.CancelCrop"),
             ToolIconKind.Cancel,
@@ -871,31 +805,10 @@ public sealed class EditorForm : Form
             {
                 CancelAutomaticMask();
             }
-            else
+            else if (_currentTool == EditTool.Crop)
             {
                 SetActiveTool(_toolBeforeCrop);
             }
-        };
-
-        _actionSpacerBefore = new ToolStripLabel
-        {
-            AutoSize = false,
-            Visible = false,
-            BackColor = ToolStripColorPalette.BarBackground,
-            ForeColor = ToolStripColorPalette.ButtonForeground,
-            Margin = Padding.Empty,
-            Padding = Padding.Empty,
-            Width = 0,
-        };
-        _actionSpacerAfter = new ToolStripLabel
-        {
-            AutoSize = false,
-            Visible = false,
-            BackColor = ToolStripColorPalette.BarBackground,
-            ForeColor = ToolStripColorPalette.ButtonForeground,
-            Margin = Padding.Empty,
-            Padding = Padding.Empty,
-            Width = 0,
         };
 
         _btnUndo = CreateStandardToolButton(
@@ -951,11 +864,27 @@ public sealed class EditorForm : Form
             Padding = Padding.Empty,
             Width = 0,
         };
+        _actionSpacerBefore = new ToolStripLabel
+        {
+            AutoSize = false,
+            Visible = false,
+            BackColor = ToolStripColorPalette.BarBackground,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            Width = 0,
+        };
+        _actionSpacerAfter = new ToolStripLabel
+        {
+            AutoSize = false,
+            Visible = false,
+            BackColor = ToolStripColorPalette.BarBackground,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            Width = 0,
+        };
         toolStrip.Items.AddRange([
             btnNewCapture,
             _centerToolsSpacer,
-            _btnColor,
-            _btnColorDropdown,
             _btnDrawing,
             _btnDrawingDropdown,
             _btnHighlight,
@@ -979,7 +908,6 @@ public sealed class EditorForm : Form
         ]);
 
         TrackToolGroupHover(toolStrip, _btnDrawing, _btnDrawingDropdown);
-        TrackToolGroupHover(toolStrip, _btnColor, _btnColorDropdown);
         TrackToolGroupHover(toolStrip, _btnHighlight, _btnHighlightSizeDropdown);
         TrackToolGroupHover(toolStrip, _btnText, _btnTextFormatDropdown);
         TrackToolGroupHover(toolStrip, _btnMask, _btnMaskModeDropdown);
@@ -1090,15 +1018,6 @@ public sealed class EditorForm : Form
         }
     }
 
-    private void ClearColorGroupHover()
-    {
-        if (_toolStripRenderer.SetHoveredGroup(null, null) &&
-            Controls.OfType<ToolStrip>().FirstOrDefault() is { } toolStrip)
-        {
-            toolStrip.Invalidate();
-        }
-    }
-
     private void AddDrawingToolMenuItem(EditTool tool, ToolIconKind iconKind, string localizationKey, string shortcut)
     {
         var iconKey = EnsureToolIconKey(iconKind, Color.Black);
@@ -1114,60 +1033,34 @@ public sealed class EditorForm : Form
         _btnDrawingDropdown.DropDownItems.Add(menuItem);
     }
 
-    private ToolStripMenuItem CreateColorTargetMenuItem(ColorTarget target, string localizationKey)
+    private string EnsureColorSwatchIconKey(Color color)
     {
-        var (iconKind, color) = target switch
+        var imageKey = $"{_toolIconSize}:color-swatch:{color.ToArgb()}";
+        if (_toolIconImageList.Images.ContainsKey(imageKey))
         {
-            ColorTarget.Stroke => (ToolIconKind.LineColor, _selectedColor),
-            ColorTarget.Highlight => (ToolIconKind.LineColor, _selectedHighlightColor),
-            ColorTarget.Mask => (ToolIconKind.FillColor, _selectedMaskColor),
-            ColorTarget.Text => (ToolIconKind.TextColor, _selectedTextColor),
-            ColorTarget.Fill => (ToolIconKind.FillColor, _selectedFillColor ?? Color.Black),
-            _ => throw new ArgumentOutOfRangeException(nameof(target)),
-        };
-        var iconKey = EnsureToolIconKey(iconKind, color);
-        var menuItem = new ToolStripMenuItem(
-            AppLocalization.Translate(localizationKey),
-            _toolIconImageList.Images[iconKey])
-        {
-            Tag = target,
-        };
-        menuItem.Click += (_, _) =>
-        {
-            SelectColorTarget(target, manuallySelected: true);
-            _btnColorDropdown.DropDown.Close();
-            ClearColorGroupHover();
-        };
-        return menuItem;
-    }
-
-    private void SelectColorTarget(ColorTarget target, bool manuallySelected = false)
-    {
-        _isColorTargetManuallySelected |= manuallySelected;
-        _activeColorTarget = target;
-        UpdateColorPickerButtonAppearance();
-    }
-
-    private void PickActiveColor()
-    {
-        switch (_activeColorTarget)
-        {
-            case ColorTarget.Stroke:
-                PickColor();
-                break;
-            case ColorTarget.Highlight:
-                PickHighlightColor();
-                break;
-            case ColorTarget.Mask:
-                PickMaskColor();
-                break;
-            case ColorTarget.Text:
-                PickTextColor();
-                break;
-            case ColorTarget.Fill:
-                PickFillColor();
-                break;
+            return imageKey;
         }
+
+        var swatch = new Bitmap(_toolIconSize, _toolIconSize, PixelFormat.Format32bppArgb);
+        try
+        {
+            using var graphics = Graphics.FromImage(swatch);
+            graphics.Clear(Color.Transparent);
+            var bounds = new Rectangle(3, 3, _toolIconSize - 6, _toolIconSize - 6);
+            using var fill = new SolidBrush(color);
+            using var border = new Pen(SystemColors.ControlDark);
+            graphics.FillRectangle(fill, bounds);
+            graphics.DrawRectangle(border, bounds);
+            _toolIconImageList.Images.Add(imageKey, swatch);
+            _toolIconBitmaps[imageKey] = swatch;
+        }
+        catch
+        {
+            swatch.Dispose();
+            throw;
+        }
+
+        return imageKey;
     }
 
     private static bool IsDrawingTool(EditTool tool) => tool is
@@ -1486,16 +1379,6 @@ public sealed class EditorForm : Form
         }
 
         _currentTool = tool;
-        if (!_isColorTargetManuallySelected)
-        {
-            SelectColorTarget(tool switch
-            {
-                EditTool.Text => ColorTarget.Text,
-                EditTool.Highlight => ColorTarget.Highlight,
-                EditTool.Blur or EditTool.Pixelated => ColorTarget.Mask,
-                _ => ColorTarget.Stroke,
-            });
-        }
         if (tool is EditTool.Blur or EditTool.Pixelated)
         {
             var mode = tool == EditTool.Blur ? MaskMode.Solid : MaskMode.Pixelate;
@@ -1582,7 +1465,7 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedColor = dialog.Color;
-            UpdateColorPickerButtonAppearance();
+            UpdateColorMenuPreviews();
             LineColorChanged?.Invoke(_selectedColor);
         }
     }
@@ -1593,7 +1476,7 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedTextColor = dialog.Color;
-            UpdateColorPickerButtonAppearance();
+            UpdateColorMenuPreviews();
             TextColorChanged?.Invoke(_selectedTextColor);
             _pictureBox.Invalidate();
         }
@@ -1605,7 +1488,7 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedHighlightColor = dialog.Color;
-            UpdateColorPickerButtonAppearance();
+            UpdateColorMenuPreviews();
             HighlightColorChanged?.Invoke(_selectedHighlightColor);
             _pictureBox.Invalidate();
         }
@@ -1613,12 +1496,11 @@ public sealed class EditorForm : Form
 
     private void PickMaskColor()
     {
-        SelectColorTarget(ColorTarget.Mask, manuallySelected: true);
         using var dialog = new ColorDialog { Color = _selectedMaskColor, FullOpen = true };
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedMaskColor = dialog.Color;
-            UpdateColorPickerButtonAppearance();
+            UpdateColorMenuPreviews();
             MaskColorChanged?.Invoke(_selectedMaskColor);
             _pictureBox.Invalidate();
         }
@@ -1630,69 +1512,31 @@ public sealed class EditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _selectedFillColor = dialog.Color;
-            UpdateColorPickerButtonAppearance();
+            UpdateColorMenuPreviews();
             FillColorChanged?.Invoke(_selectedFillColor);
         }
     }
 
-    private void UpdateColorPickerButtonAppearance()
+    private void UpdateColorMenuPreviews()
     {
-        var (iconKind, label, color, colorName) = _activeColorTarget switch
-        {
-            ColorTarget.Stroke => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.LineColor"), _selectedColor, _selectedColor.Name),
-            ColorTarget.Highlight => (ToolIconKind.LineColor, AppLocalization.Translate("Editor.HighlightColor"), _selectedHighlightColor, _selectedHighlightColor.Name),
-            ColorTarget.Mask => (ToolIconKind.FillColor, AppLocalization.Translate("Editor.MaskColor"), _selectedMaskColor, _selectedMaskColor.Name),
-            ColorTarget.Text => (ToolIconKind.TextColor, AppLocalization.Translate("Editor.TextColor"), _selectedTextColor, _selectedTextColor.Name),
-            ColorTarget.Fill => (
-                ToolIconKind.FillColor,
-                AppLocalization.Translate("Editor.FillColor"),
-                _selectedFillColor ?? Color.Black,
-                _selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill")),
-            _ => throw new ArgumentOutOfRangeException(),
-        };
-
-        _btnColor.ImageKey = EnsureToolIconKey(iconKind, color);
-        _btnColor.Text = label;
-        _btnColor.ToolTipText = $"{label}: {colorName}";
-        _btnColor.AccessibleName = label;
-        _btnColorDropdown.ToolTipText = _btnColor.ToolTipText;
-        _strokeColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor)];
-        _textColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)];
-        _textFormatColorMenuItem.Image = _textColorMenuItem.Image;
+        _drawingLineColorMenuItem.Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedColor)];
+        _drawingLineColorMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.LineColor")}: {_selectedColor.Name}";
+        _textFormatColorMenuItem.Image = _toolIconImageList.Images[EnsureColorSwatchIconKey(_selectedTextColor)];
         _textFormatColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.TextColor")}: {_selectedTextColor.Name}";
-        _fillColorMenuItem.Image = _toolIconImageList.Images[
-            EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
         _drawingFillColorMenuItem.Image = _toolIconImageList.Images[
-            EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
+            EnsureColorSwatchIconKey(_selectedFillColor ?? Color.Black)];
         _drawingFillColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.FillColor")}: {_selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill")}";
-        _highlightTargetMenuItem.Image =
-            _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedHighlightColor)];
-        _highlightTargetMenuItem.ToolTipText =
+        _highlightColorMenuItem.Image = _toolIconImageList.Images[
+            EnsureColorSwatchIconKey(_selectedHighlightColor)];
+        _highlightColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.HighlightColor")}: {_selectedHighlightColor.Name}";
-        _highlightColorMenuItem.Image = _highlightTargetMenuItem.Image;
-        _highlightColorMenuItem.ToolTipText = _highlightTargetMenuItem.ToolTipText;
-        _maskColorTargetMenuItem.Image = _toolIconImageList.Images[
-            EnsureToolIconKey(ToolIconKind.FillColor, _selectedMaskColor)];
-        _maskColorTargetMenuItem.ToolTipText =
+        _maskColorMenuItem.Image = _toolIconImageList.Images[
+            EnsureColorSwatchIconKey(_selectedMaskColor)];
+        _maskColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.MaskColor")}: {_selectedMaskColor.Name}";
-        _maskColorMenuItem.Image = _maskColorTargetMenuItem.Image;
-        _maskColorMenuItem.ToolTipText = _maskColorTargetMenuItem.ToolTipText;
-        _strokeColorMenuItem.Checked = _activeColorTarget == ColorTarget.Stroke;
-        _highlightTargetMenuItem.Checked = _activeColorTarget == ColorTarget.Highlight;
-        _maskColorTargetMenuItem.Checked = _activeColorTarget == ColorTarget.Mask;
-        _textColorMenuItem.Checked = _activeColorTarget == ColorTarget.Text;
-        _fillColorMenuItem.Checked = _activeColorTarget == ColorTarget.Fill;
-        _noFillColorMenuItem.Checked = false;
-
-        if (_btnColor.DisplayStyle == ToolStripItemDisplayStyle.ImageAndText)
-        {
-            _btnColor.AutoSize = true;
-            var preferredWidth = _btnColor.GetPreferredSize(Size.Empty).Width;
-            _btnColor.AutoSize = false;
-            _btnColor.Width = preferredWidth;
-        }
     }
 
     private void SaveUndoState()
@@ -2528,12 +2372,12 @@ public sealed class EditorForm : Form
             }
         }
 
-        var textIconKey = EnsureToolIconKey(ToolIconKind.TextColor, _selectedCounterTextColor);
+        var textIconKey = EnsureColorSwatchIconKey(_selectedCounterTextColor);
         _counterTextColorMenuItem.Image = _toolIconImageList.Images[textIconKey];
         _counterTextColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.CounterTextColor")}: {_selectedCounterTextColor.Name}";
-        var circleIconKey = EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor);
-        _btnCounter.ImageKey = circleIconKey;
+        var circleIconKey = EnsureColorSwatchIconKey(_selectedCounterCircleColor);
+        _btnCounter.ImageKey = EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor);
         _counterCircleColorMenuItem.Image = _toolIconImageList.Images[circleIconKey];
         _counterCircleColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.CounterCircleColor")}: {_selectedCounterCircleColor.Name}";
@@ -3132,6 +2976,12 @@ public sealed class EditorForm : Form
                 continue;
             }
 
+            if (item == _centerToolsSpacer)
+            {
+                item.Visible = !centeredActionMode;
+                continue;
+            }
+
             item.Visible = item == _btnConfirmCrop || item == _btnCancelCrop
                 ? centeredActionMode
                 : !centeredActionMode;
@@ -3161,7 +3011,7 @@ public sealed class EditorForm : Form
         var center = toolStrip.DisplayRectangle.Left + (toolStrip.DisplayRectangle.Width / 2F);
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            var toolGroupCenter = (_btnColor.Bounds.Left + _btnRedo.Bounds.Right) / 2F;
+            var toolGroupCenter = (_btnDrawing.Bounds.Left + _btnRedo.Bounds.Right) / 2F;
             var adjustment = (int)Math.Round(center - toolGroupCenter);
             if (adjustment == 0)
             {
@@ -3183,9 +3033,9 @@ public sealed class EditorForm : Form
         var availableWidth = toolStrip.DisplayRectangle.Width -
             _btnConfirmCrop.Width - _btnConfirmCrop.Margin.Horizontal -
             _btnCancelCrop.Width - _btnCancelCrop.Margin.Horizontal;
-        var spacerWidth = Math.Max(0, availableWidth / 2);
-        _actionSpacerBefore.Width = spacerWidth;
-        _actionSpacerAfter.Width = availableWidth - spacerWidth;
+        var leadingSpacerWidth = Math.Max(0, availableWidth / 2);
+        _actionSpacerBefore.Width = leadingSpacerWidth;
+        _actionSpacerAfter.Width = Math.Max(0, availableWidth - leadingSpacerWidth);
     }
 
     private void UpdateAutomaticMaskActionButtons()
