@@ -8,7 +8,11 @@ namespace Aprint.Application;
 /// <summary>Executa o fluxo de captura e entrega o resultado pronto para apresentação.</summary>
 public sealed class CaptureWorkflow
 {
-    public CaptureResult? Execute(AppSettings settings, CaptureMode? captureModeOverride = null, Action<Bitmap>? sendToEditor = null)
+    public CaptureResult? Execute(
+        AppSettings settings,
+        CaptureMode? captureModeOverride = null,
+        Action<Bitmap>? sendToEditor = null,
+        Action? settingsChanged = null)
     {
         var selectedMode = captureModeOverride ?? settings.CaptureMode;
         var captureMode = selectedMode == CaptureMode.SelectArea
@@ -22,7 +26,15 @@ public sealed class CaptureWorkflow
 
         try
         {
-            selectedRegionBitmap = GetSelectedRegionOrNull(fullBitmap, selectedMode, settings.OutsideCaptureClickAction, settings.MaskMode, settings.LastMaskPixelSize, settings.LastLineColorArgb, settings.LastHighlightColorArgb, settings.LastMaskColorArgb, settings.LastHighlightWidth, settings.LastFillColorArgb, settings.LastTextFontFamily, settings.LastTextFontSize, settings.LastTextFontStyle, settings.LastTextColorArgb, settings.ShowToolLabels, settings.LastCaptureTool, settings.LastCounterSize, settings.LastCounterTextColorArgb, settings.LastCounterCircleColorArgb, sendToEditor, out var lastCaptureTool, out var wasCancelled, out regionAction);
+            selectedRegionBitmap = GetSelectedRegionOrNull(
+                fullBitmap,
+                selectedMode,
+                settings,
+                sendToEditor,
+                settingsChanged,
+                out var lastCaptureTool,
+                out var wasCancelled,
+                out regionAction);
             settings.LastCaptureTool = lastCaptureTool;
             if (wasCancelled)
             {
@@ -100,17 +112,44 @@ public sealed class CaptureWorkflow
         return (openEditor, copyToClipboard, saveToDisk);
     }
 
-    private static Bitmap? GetSelectedRegionOrNull(Bitmap fullBitmap, CaptureMode captureMode, OutsideCaptureClickAction outsideCaptureClickAction, MaskMode maskMode, int maskPixelSize, int lineColorArgb, int highlightColorArgb, int maskColorArgb, int highlightWidth, int? fillColorArgb, string textFontFamily, float textFontSize, FontStyle textFontStyle, int textColorArgb, bool showToolLabels, EditTool lastCaptureTool, int counterSize, int counterTextColorArgb, int counterCircleColorArgb, Action<Bitmap>? sendToEditor, out EditTool selectedCaptureTool, out bool wasCancelled, out RegionSelectionAction? selectedAction)
+    private static Bitmap? GetSelectedRegionOrNull(
+        Bitmap fullBitmap,
+        CaptureMode captureMode,
+        AppSettings settings,
+        Action<Bitmap>? sendToEditor,
+        Action? settingsChanged,
+        out EditTool selectedCaptureTool,
+        out bool wasCancelled,
+        out RegionSelectionAction? selectedAction)
     {
         wasCancelled = false;
-        selectedCaptureTool = lastCaptureTool;
+        selectedCaptureTool = settings.LastCaptureTool;
         selectedAction = null;
         if (captureMode != CaptureMode.SelectArea)
         {
             return null;
         }
 
-        using var selector = new RegionSelectorForm(fullBitmap, outsideCaptureClickAction, maskMode, maskPixelSize, lineColorArgb, highlightWidth, fillColorArgb, textFontFamily, textFontSize, textFontStyle, textColorArgb, showToolLabels, lastCaptureTool, highlightColorArgb, maskColorArgb, counterSize, counterTextColorArgb, counterCircleColorArgb);
+        using var selector = new RegionSelectorForm(
+            fullBitmap,
+            settings.OutsideCaptureClickAction,
+            settings.MaskMode,
+            settings.LastMaskPixelSize,
+            settings.LastLineColorArgb,
+            settings.LastHighlightWidth,
+            settings.LastFillColorArgb,
+            settings.LastTextFontFamily,
+            settings.LastTextFontSize,
+            settings.LastTextFontStyle,
+            settings.LastTextColorArgb,
+            settings.ShowToolLabels,
+            settings.LastCaptureTool,
+            settings.LastHighlightColorArgb,
+            settings.LastMaskColorArgb,
+            settings.LastCounterSize,
+            settings.LastCounterTextColorArgb,
+            settings.LastCounterCircleColorArgb);
+        BindSelectorSettings(selector, settings, settingsChanged);
         if (sendToEditor is not null)
         {
             selector.SendToEditorRequested += sendToEditor;
@@ -135,6 +174,77 @@ public sealed class CaptureWorkflow
         }
 
         return fullBitmap.Clone(boundedRegion, fullBitmap.PixelFormat);
+    }
+
+    private static void BindSelectorSettings(
+        RegionSelectorForm selector,
+        AppSettings settings,
+        Action? settingsChanged)
+    {
+        void SaveSettings() => settingsChanged?.Invoke();
+
+        selector.LineColorChanged += color =>
+        {
+            settings.LastLineColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.FillColorChanged += color =>
+        {
+            settings.LastFillColorArgb = color?.ToArgb();
+            SaveSettings();
+        };
+        selector.HighlightColorChanged += color =>
+        {
+            settings.LastHighlightColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.HighlightWidthChanged += width =>
+        {
+            settings.LastHighlightWidth = width;
+            SaveSettings();
+        };
+        selector.MaskColorChanged += color =>
+        {
+            settings.LastMaskColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.MaskPixelSizeChanged += size =>
+        {
+            settings.LastMaskPixelSize = size;
+            SaveSettings();
+        };
+        selector.MaskModeChanged += mode =>
+        {
+            settings.MaskMode = mode;
+            SaveSettings();
+        };
+        selector.CounterSizeChanged += size =>
+        {
+            settings.LastCounterSize = size;
+            SaveSettings();
+        };
+        selector.CounterTextColorChanged += color =>
+        {
+            settings.LastCounterTextColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.CounterCircleColorChanged += color =>
+        {
+            settings.LastCounterCircleColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.TextColorChanged += color =>
+        {
+            settings.LastTextColorArgb = color.ToArgb();
+            SaveSettings();
+        };
+        selector.TextFormattingChanged += (fontFamily, fontSize, fontStyle) =>
+        {
+            settings.LastTextFontFamily = fontFamily;
+            settings.LastTextFontSize = fontSize;
+            settings.LastTextFontStyle = fontStyle;
+            SaveSettings();
+        };
     }
 }
 

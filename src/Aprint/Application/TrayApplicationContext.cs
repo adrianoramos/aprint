@@ -104,7 +104,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         try
         {
             var previousCaptureTool = _settings.LastCaptureTool;
-            using var result = _captureWorkflow.Execute(_settings, captureModeOverride, bitmap => OpenEditor(bitmap, showWithoutActivation: true));
+            using var result = _captureWorkflow.Execute(
+                _settings,
+                captureModeOverride,
+                bitmap => OpenEditor(bitmap, showWithoutActivation: true),
+                () => _settingsStore.Save(_settings));
             if (_settings.LastCaptureTool != previousCaptureTool)
             {
                 _settingsStore.Save(_settings);

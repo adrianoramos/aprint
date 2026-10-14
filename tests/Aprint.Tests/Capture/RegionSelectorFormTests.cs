@@ -427,7 +427,9 @@ public sealed class RegionSelectorFormTests
             .GetValue(selector)!;
         var expectedLabel = AppLocalization.Translate("Editor.Mask");
 
-        foreach (var menuItem in maskDropdownButton.DropDownItems.OfType<ToolStripMenuItem>())
+        foreach (var menuItem in maskDropdownButton.DropDownItems
+            .OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is MaskMode))
         {
             menuItem.PerformClick();
             Assert.Equal(expectedLabel, maskButton.Text);
@@ -446,13 +448,86 @@ public sealed class RegionSelectorFormTests
             .GetValue(selector)!;
         var dropdownButtons = actionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
 
-        Assert.Equal(3, dropdownButtons.Length);
+        Assert.Equal(6, dropdownButtons.Length);
         Assert.All(dropdownButtons, button => Assert.Equal(14, button.Width));
         Assert.All(dropdownButtons, button => Assert.Equal(34, button.Height));
         var splitButtons = dropdownButtons
             .Select(button => (ToolStripButton)actionBar.Items[actionBar.Items.IndexOf(button) - 1]);
         Assert.All(splitButtons, button => Assert.Equal(34, button.Height));
         Assert.All(splitButtons, button => Assert.False(button.AutoSize));
+    }
+
+    [Fact]
+    public void FloatingToolbarOffersEditorConfigurationsForAllAnnotationTools()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var selector = new RegionSelectorForm(bitmap);
+        var drawingDropdown = GetField<ToolStripDropDownButton>(selector, "_drawingDropdownButton");
+        var highlightDropdown = GetField<ToolStripDropDownButton>(selector, "_highlightDropdownButton");
+        var maskDropdown = GetField<ToolStripDropDownButton>(selector, "_maskDropdownButton");
+        var counterDropdown = GetField<ToolStripDropDownButton>(selector, "_counterDropdownButton");
+        var textDropdown = GetField<ToolStripDropDownButton>(selector, "_textDropdownButton");
+
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.LineColor"));
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.FillColor"));
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.NoFill"));
+
+        Assert.Equal(new[] { 4, 8, 16, 32 }, highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.Contains(highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_highlightColorMenuItem").Image);
+        Assert.Equal(2, maskDropdown.DropDownItems.OfType<ToolStripMenuItem>().Count(item => item.Tag is MaskMode));
+        Assert.Equal(new[] { 4, 6, 8, 12, 16, 24, 32 }, GetField<ToolStripMenuItem>(selector, "_maskPixelSizeMenuItem")
+            .DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_maskColorMenuItem").Image);
+
+        var counterSizeMenu = GetField<ToolStripMenuItem>(selector, "_counterSizeMenuItem");
+        Assert.Equal(new[] { 24, 32, 40, 48, 64, 80 }, counterSizeMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_counterTextColorMenuItem").Image);
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_counterCircleColorMenuItem").Image);
+        Assert.Contains(counterDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item == counterSizeMenu);
+
+        var textFontSizeMenu = GetField<ToolStripMenuItem>(selector, "_textFontSizeMenuItem");
+        Assert.Equal(new[] { 8F, 10F, 12F, 14F, 16F, 18F, 24F, 32F, 48F, 72F }, textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is float)
+            .Select(item => (float)item.Tag!));
+        Assert.Contains(textDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.Font"));
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_textColorMenuItem").Image);
+        Assert.Equal(4, textDropdown.DropDownItems.OfType<ToolStripMenuItem>().Count(item => item.Tag is FontStyle));
+
+        var maskSizeSeparator = GetField<ToolStripSeparator>(selector, "_maskPixelSizeSeparator");
+        var maskColorSeparator = GetField<ToolStripSeparator>(selector, "_maskColorSeparator");
+        var actionBar = GetField<ToolStrip>(selector, "_actionBar");
+        selector.Show();
+        actionBar.Visible = true;
+        System.Windows.Forms.Application.DoEvents();
+        maskDropdown.DropDown.Show(
+            maskDropdown.Owner!,
+            new Point(maskDropdown.Bounds.Left, maskDropdown.Bounds.Bottom));
+        System.Windows.Forms.Application.DoEvents();
+        Assert.True(maskSizeSeparator.Visible);
+        Assert.False(maskColorSeparator.Visible);
+        maskDropdown.DropDown.Close();
+
+        var solidMaskMode = Assert.Single(maskDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag is MaskMode mode && mode == MaskMode.Solid);
+        solidMaskMode.PerformClick();
+        maskDropdown.DropDown.Show(
+            maskDropdown.Owner!,
+            new Point(maskDropdown.Bounds.Left, maskDropdown.Bounds.Bottom));
+        System.Windows.Forms.Application.DoEvents();
+        Assert.False(maskSizeSeparator.Visible);
+        Assert.True(maskColorSeparator.Visible);
+        maskDropdown.DropDown.Close();
+
+        static T GetField<T>(RegionSelectorForm form, string fieldName) =>
+            (T)typeof(RegionSelectorForm)
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(form)!;
     }
 
     [Fact]

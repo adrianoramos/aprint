@@ -46,7 +46,7 @@ public sealed class EditorFormTests
         var captureDropdowns = captureActionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
 
         Assert.Equal(5, editorDropdowns.Length);
-        Assert.Equal(3, captureDropdowns.Length);
+        Assert.Equal(6, captureDropdowns.Length);
         Assert.All(editorDropdowns, button => Assert.Equal(14, button.Width));
         Assert.All(editorDropdowns, button => Assert.Equal(captureDropdowns[0].Width, button.Width));
         Assert.All(captureDropdowns, button => Assert.Equal(34, button.Height));
