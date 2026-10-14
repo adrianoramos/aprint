@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Diagnostics;
+using Aprint.Features.About;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
 using Aprint.Features.Settings;
@@ -24,6 +25,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly HashSet<EditorForm> _modelessEditors = [];
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
+    private AboutForm? _aboutForm;
     private string? _lastSavedFilePath;
     private Bitmap? _lastCapturedBitmap;
     private bool _isCaptureInProgress;
@@ -407,11 +409,23 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowAbout()
     {
-        MessageBox.Show(
-            AppLocalization.Translate("Tray.AboutText"),
-            AppLocalization.Translate("Tray.AboutTitle"),
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        if (_aboutForm is { IsDisposed: false })
+        {
+            _aboutForm.Activate();
+            return;
+        }
+
+        var aboutForm = new AboutForm();
+        _aboutForm = aboutForm;
+        try
+        {
+            aboutForm.ShowDialog();
+        }
+        finally
+        {
+            _aboutForm = null;
+            aboutForm.Dispose();
+        }
     }
 
     private void OpenSettings()

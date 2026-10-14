@@ -229,7 +229,22 @@
     <value>Erro ao abrir</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>Aprint - A única ferramenta de captura de tela permitida para uso ;) - Adriano Ramos</value>
+    <value>Uma poderosa ferramenta de captura de tela, altamente configurável e desenvolvida com foco em privacidade de dados e segurança para ambientes corporativos. Esta aplicação não utiliza bibliotecas externas de terceiros, nem realiza coleta ou envio de dados.</value>
+  </data>
+  <data name="Tray.AboutAuthor" xml:space="preserve">
+    <value>Criado por Adriano Ramos da Silva</value>
+  </data>
+  <data name="Tray.AboutVersion" xml:space="preserve">
+    <value>Versão {0}</value>
+  </data>
+  <data name="Tray.AboutLinkedIn" xml:space="preserve">
+    <value>linkedin.com/in/adrianorsilva</value>
+  </data>
+  <data name="Tray.AboutLinkedInToolTip" xml:space="preserve">
+    <value>Se eu fiz sua vida um pouco mais fácil, me dê um "Oi".</value>
+  </data>
+  <data name="Tray.AboutClose" xml:space="preserve">
+    <value>Fechar</value>
   </data>
   <data name="Tray.AboutTitle" xml:space="preserve">
     <value>Sobre</value>

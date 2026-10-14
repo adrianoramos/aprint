@@ -229,7 +229,22 @@
     <value>Open error</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>Aprint - The only screenshot tool allowed for use ;) - Adriano Ramos</value>
+    <value>A powerful, highly configurable screenshot tool developed with a focus on data privacy and security for corporate environments. This application does not use third-party external libraries or collect or transmit data.</value>
+  </data>
+  <data name="Tray.AboutAuthor" xml:space="preserve">
+    <value>Created by Adriano Ramos da Silva</value>
+  </data>
+  <data name="Tray.AboutVersion" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="Tray.AboutLinkedIn" xml:space="preserve">
+    <value>linkedin.com/in/adrianorsilva</value>
+  </data>
+  <data name="Tray.AboutLinkedInToolTip" xml:space="preserve">
+    <value>If I made your life a little easier, say "Hi".</value>
+  </data>
+  <data name="Tray.AboutClose" xml:space="preserve">
+    <value>Close</value>
   </data>
   <data name="Tray.AboutTitle" xml:space="preserve">
     <value>About</value>
