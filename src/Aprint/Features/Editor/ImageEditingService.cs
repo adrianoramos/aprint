@@ -13,26 +13,29 @@ public static class ImageEditingService
     public const int AnnotationPenWidth = 3;
     public const int TextMinimumWidth = 100;
     public const int CounterMarkerDiameter = 40;
+    public const int MinimumCounterMarkerDiameter = 16;
+    public const int MaximumCounterMarkerDiameter = 80;
     public const float CounterMarkerFontSize = 12F;
     private const int HighlighterAlpha = 105;
     private static readonly Dictionary<float, Font> CounterFonts = [];
     private static readonly object CounterFontSync = new();
 
-    public static CounterMarker CreateCounterMarker(Point requestedCenter, int value, Rectangle availableArea)
+    public static CounterMarker CreateCounterMarker(Point requestedCenter, int value, Rectangle availableArea, int diameter = CounterMarkerDiameter)
     {
-        var diameter = GetCounterMarkerDiameter(availableArea.Size);
-        var center = ClampCounterMarkerCenter(requestedCenter, availableArea, diameter);
-        return new CounterMarker(center, value, diameter);
+        var actualDiameter = GetCounterMarkerDiameter(availableArea.Size, diameter);
+        var center = ClampCounterMarkerCenter(requestedCenter, availableArea, actualDiameter);
+        return new CounterMarker(center, value, actualDiameter);
     }
 
-    public static int GetCounterMarkerDiameter(Size availableSize)
+    public static int GetCounterMarkerDiameter(Size availableSize, int requestedDiameter = CounterMarkerDiameter)
     {
         if (availableSize.Width <= 0 || availableSize.Height <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(availableSize));
         }
 
-        return Math.Min(CounterMarkerDiameter, Math.Min(availableSize.Width, availableSize.Height));
+        var diameter = Math.Clamp(requestedDiameter, MinimumCounterMarkerDiameter, MaximumCounterMarkerDiameter);
+        return Math.Min(diameter, Math.Min(availableSize.Width, availableSize.Height));
     }
 
     public static Point ClampCounterMarkerCenter(Point center, Rectangle availableArea, int diameter)
@@ -64,7 +67,7 @@ public static class ImageEditingService
     public static float GetCounterMarkerFontSize(int diameter) => Math.Clamp(
         CounterMarkerFontSize * diameter / CounterMarkerDiameter,
         6F,
-        CounterMarkerFontSize);
+        CounterMarkerFontSize * MaximumCounterMarkerDiameter / CounterMarkerDiameter);
 
     public static void DrawCounterMarker(Graphics graphics, CounterMarker marker, Color lineColor, Color? fillColor, Color? textColor = null)
     {

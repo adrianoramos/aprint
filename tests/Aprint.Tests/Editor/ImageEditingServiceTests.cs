@@ -37,6 +37,18 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void CounterMarkerUsesRequestedDiameterAndScalesItsFont()
+    {
+        var area = new Rectangle(0, 0, 120, 120);
+
+        var marker = ImageEditingService.CreateCounterMarker(new Point(60, 60), 8, area, 64);
+
+        Assert.Equal(64, marker.Diameter);
+        Assert.Equal(new Rectangle(28, 28, 64, 64), marker.Bounds);
+        Assert.Equal(19.2F, ImageEditingService.GetCounterMarkerFontSize(marker.Diameter), 1);
+    }
+
+    [Fact]
     public void DrawCounterMarkerUsesLineAndFillColorsIndependently()
     {
         using var bitmap = new Bitmap(40, 40);

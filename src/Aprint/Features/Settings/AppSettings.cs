@@ -53,6 +53,12 @@ public sealed class AppSettings
 
     public EditTool DefaultEditorTool { get; set; } = EditTool.Freehand;
 
+    public int LastCounterSize { get; set; } = 40;
+
+    public int LastCounterTextColorArgb { get; set; } = Color.Red.ToArgb();
+
+    public int LastCounterCircleColorArgb { get; set; } = Color.Red.ToArgb();
+
     public string LastTextFontFamily { get; set; } = "Segoe UI";
 
     public float LastTextFontSize { get; set; } = 12F;

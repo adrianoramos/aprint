@@ -411,6 +411,18 @@
   <data name="Editor.Counter" xml:space="preserve">
     <value>Contador</value>
   </data>
+  <data name="Editor.CounterOptions" xml:space="preserve">
+    <value>Opções do contador</value>
+  </data>
+  <data name="Editor.CounterSize" xml:space="preserve">
+    <value>Tamanho do contador</value>
+  </data>
+  <data name="Editor.CounterTextColor" xml:space="preserve">
+    <value>Cor do texto do contador</value>
+  </data>
+  <data name="Editor.CounterCircleColor" xml:space="preserve">
+    <value>Cor do círculo</value>
+  </data>
   <data name="Editor.Mask" xml:space="preserve">
     <value>Mascarar</value>
   </data>

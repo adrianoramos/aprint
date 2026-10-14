@@ -411,6 +411,18 @@
   <data name="Editor.Counter" xml:space="preserve">
     <value>Counter</value>
   </data>
+  <data name="Editor.CounterOptions" xml:space="preserve">
+    <value>Counter options</value>
+  </data>
+  <data name="Editor.CounterSize" xml:space="preserve">
+    <value>Counter size</value>
+  </data>
+  <data name="Editor.CounterTextColor" xml:space="preserve">
+    <value>Counter text color</value>
+  </data>
+  <data name="Editor.CounterCircleColor" xml:space="preserve">
+    <value>Circle color</value>
+  </data>
   <data name="Editor.Mask" xml:space="preserve">
     <value>Mask</value>
   </data>

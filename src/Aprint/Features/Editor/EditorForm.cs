@@ -229,6 +229,10 @@ public sealed class EditorForm : Form
     private readonly ToolStripMenuItem _drawingFillColorMenuItem;
     private readonly ToolStripMenuItem _drawingNoFillMenuItem;
     private readonly ToolStripButton _btnCounter;
+    private readonly ToolStripDropDownButton _btnCounterDropdown;
+    private readonly ToolStripMenuItem _counterSizeMenuItem;
+    private readonly ToolStripMenuItem _counterTextColorMenuItem;
+    private readonly ToolStripMenuItem _counterCircleColorMenuItem;
     private readonly ToolStripButton _btnHighlight;
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
     private readonly ToolStripMenuItem _highlightColorMenuItem;
@@ -274,6 +278,8 @@ public sealed class EditorForm : Form
     private Color _selectedColor = Color.Red;
     private Color _selectedHighlightColor = Color.Yellow;
     private Color _selectedMaskColor = Color.Red;
+    private Color _selectedCounterTextColor = Color.Red;
+    private Color _selectedCounterCircleColor = Color.Red;
     private Color _selectedTextColor = Color.Red;
     private Color? _selectedFillColor;
     private bool _isColorTargetManuallySelected;
@@ -283,6 +289,7 @@ public sealed class EditorForm : Form
     private MaskMode _maskMode = MaskMode.Pixelate;
     private int _highlightWidth = 18;
     private int _maskPixelSize = 6;
+    private int _counterSize = ImageEditingService.CounterMarkerDiameter;
     private int _nextCounterValue = 1;
     private bool _isDrawing;
     private Point _dragStart;
@@ -315,23 +322,32 @@ public sealed class EditorForm : Form
     public event Action<Color>? LineColorChanged;
     public event Action<Color>? HighlightColorChanged;
     public event Action<Color>? MaskColorChanged;
+    public event Action<Color>? CounterTextColorChanged;
+    public event Action<Color>? CounterCircleColorChanged;
     public event Action<Color>? TextColorChanged;
     public event Action<Color?>? FillColorChanged;
     public event Action<int>? MaskPixelSizeChanged;
+    public event Action<int>? CounterSizeChanged;
     public event Action? NewCaptureRequested;
     public event Action<string, float, FontStyle>? TextFormattingChanged;
     public event Action<int>? HighlightWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536)
     {
         _workingBitmap = (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
         _selectedColor = Color.FromArgb(lineColorArgb);
         _selectedHighlightColor = Color.FromArgb(highlightColorArgb);
         _selectedMaskColor = Color.FromArgb(maskColorArgb);
+        _selectedCounterTextColor = Color.FromArgb(counterTextColorArgb);
+        _selectedCounterCircleColor = Color.FromArgb(counterCircleColorArgb);
         _selectedTextColor = Color.FromArgb(textColorArgb);
         _selectedFillColor = fillColorArgb.HasValue ? Color.FromArgb(fillColorArgb.Value) : null;
         _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
+        _counterSize = Math.Clamp(
+            counterSize,
+            ImageEditingService.MinimumCounterMarkerDiameter,
+            ImageEditingService.MaximumCounterMarkerDiameter);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
         var installedFontFamilies = FontFamily.Families;
         _textFontFamily = installedFontFamilies
@@ -530,6 +546,65 @@ public sealed class EditorForm : Form
             Color.Black,
             isCheckable: true,
             shortcut: "F9");
+        _btnCounter.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
+        _btnCounterDropdown = new ToolStripDropDownButton
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Image,
+            ImageScaling = ToolStripItemImageScaling.None,
+            Margin = new Padding(0, 0, ToolButtonMargin, 0),
+            AutoSize = false,
+            Width = ToolStripMetrics.DropdownButtonWidth,
+            Height = ToolStripMetrics.DropdownButtonHeight,
+            AutoToolTip = false,
+            ToolTipText = AppLocalization.Translate("Editor.CounterOptions"),
+        };
+        _counterSizeMenuItem = new ToolStripMenuItem();
+        foreach (var size in new[] { 24, 32, 40, 48, 64, 80 })
+        {
+            _counterSizeMenuItem.DropDownItems.Add(CreateSizePresetMenuItem(
+                _btnCounterDropdown,
+                size,
+                _counterSize,
+                "px",
+                SetCounterSize));
+        }
+
+        _counterSizeMenuItem.DropDownItems.Add(new ToolStripSeparator());
+        _counterSizeMenuItem.DropDownItems.Add(CreateCustomSizeMenuItem(
+            _btnCounterDropdown,
+            "Editor.CounterSize",
+            ImageEditingService.MinimumCounterMarkerDiameter,
+            ImageEditingService.MaximumCounterMarkerDiameter,
+            () => _counterSize,
+            "px",
+            SetCounterSize));
+        _counterTextColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.CounterTextColor"))
+        {
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedCounterTextColor)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.CounterTextColor")}: {_selectedCounterTextColor.Name}",
+        };
+        _counterTextColorMenuItem.Click += (_, _) =>
+        {
+            _btnCounterDropdown.DropDown.Close();
+            PickCounterTextColor();
+        };
+        _counterCircleColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.CounterCircleColor"))
+        {
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.CounterCircleColor")}: {_selectedCounterCircleColor.Name}",
+        };
+        _counterCircleColorMenuItem.Click += (_, _) =>
+        {
+            _btnCounterDropdown.DropDown.Close();
+            PickCounterCircleColor();
+        };
+        _btnCounterDropdown.DropDownItems.AddRange([
+            _counterSizeMenuItem,
+            new ToolStripSeparator(),
+            _counterTextColorMenuItem,
+            _counterCircleColorMenuItem,
+        ]);
+        UpdateCounterMenu();
         _btnHighlight = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Highlight"),
             ToolIconKind.Highlight,
@@ -875,6 +950,7 @@ public sealed class EditorForm : Form
             _btnMask,
             _btnMaskModeDropdown,
             _btnCounter,
+            _btnCounterDropdown,
             _btnText,
             _btnTextFormatDropdown,
             _btnCrop,
@@ -894,6 +970,7 @@ public sealed class EditorForm : Form
         TrackToolGroupHover(toolStrip, _btnHighlight, _btnHighlightSizeDropdown);
         TrackToolGroupHover(toolStrip, _btnText, _btnTextFormatDropdown);
         TrackToolGroupHover(toolStrip, _btnMask, _btnMaskModeDropdown);
+        TrackToolGroupHover(toolStrip, _btnCounter, _btnCounterDropdown);
 
         foreach (ToolStripItem item in toolStrip.Items)
         {
@@ -1164,7 +1241,7 @@ public sealed class EditorForm : Form
 
     private string EnsureToolIconKey(ToolIconKind kind, Color color)
     {
-        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor;
+        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor or ToolIconKind.Counter;
         var imageKey = $"{_toolIconSize}:{(int)kind}";
 
         if (!isColorizedIcon && _toolIconImageList.Images.ContainsKey(imageKey))
@@ -1248,8 +1325,7 @@ public sealed class EditorForm : Form
 
         try
         {
-            // Aplica colorização apenas no ícone de "Cor"
-            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor && color != Color.Black)
+            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor or ToolIconKind.Counter && color != Color.Black)
             {
                 var colorizedBitmap = ColorizeIcon(baseBitmap, color);
                 baseBitmap.Dispose();
@@ -1446,6 +1522,11 @@ public sealed class EditorForm : Form
         {
             activeGroupButton = _btnText;
             activeGroupDropdown = _btnTextFormatDropdown;
+        }
+        else if (tool == EditTool.Counter)
+        {
+            activeGroupButton = _btnCounter;
+            activeGroupDropdown = _btnCounterDropdown;
         }
         else if (tool is EditTool.Blur or EditTool.Pixelated)
         {
@@ -2385,6 +2466,63 @@ public sealed class EditorForm : Form
         }
     }
 
+    private void SetCounterSize(int size)
+    {
+        _counterSize = Math.Clamp(
+            size,
+            ImageEditingService.MinimumCounterMarkerDiameter,
+            ImageEditingService.MaximumCounterMarkerDiameter);
+        UpdateCounterMenu();
+        CounterSizeChanged?.Invoke(_counterSize);
+    }
+
+    private void PickCounterTextColor()
+    {
+        using var dialog = new ColorDialog { Color = _selectedCounterTextColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedCounterTextColor = dialog.Color;
+            UpdateCounterMenu();
+            CounterTextColorChanged?.Invoke(_selectedCounterTextColor);
+            _pictureBox.Invalidate();
+        }
+    }
+
+    private void PickCounterCircleColor()
+    {
+        using var dialog = new ColorDialog { Color = _selectedCounterCircleColor, FullOpen = true };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedCounterCircleColor = dialog.Color;
+            UpdateCounterMenu();
+            CounterCircleColorChanged?.Invoke(_selectedCounterCircleColor);
+            _pictureBox.Invalidate();
+        }
+    }
+
+    private void UpdateCounterMenu()
+    {
+        _counterSizeMenuItem.Text =
+            $"{AppLocalization.Translate("Editor.CounterSize")} ({_counterSize} px)";
+        foreach (var menuItem in _counterSizeMenuItem.DropDownItems.OfType<ToolStripMenuItem>())
+        {
+            if (menuItem.Tag is int size)
+            {
+                menuItem.Checked = size == _counterSize;
+            }
+        }
+
+        var textIconKey = EnsureToolIconKey(ToolIconKind.TextColor, _selectedCounterTextColor);
+        _counterTextColorMenuItem.Image = _toolIconImageList.Images[textIconKey];
+        _counterTextColorMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.CounterTextColor")}: {_selectedCounterTextColor.Name}";
+        var circleIconKey = EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor);
+        _btnCounter.ImageKey = circleIconKey;
+        _counterCircleColorMenuItem.Image = _toolIconImageList.Images[circleIconKey];
+        _counterCircleColorMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.CounterCircleColor")}: {_selectedCounterCircleColor.Name}";
+    }
+
     private void SetTextFontStyle(FontStyle style, bool enabled)
     {
         _textFontStyle = enabled ? _textFontStyle | style : _textFontStyle & ~style;
@@ -2480,12 +2618,17 @@ public sealed class EditorForm : Form
     private void AddCounterMarker(Point location)
     {
         var imageArea = new Rectangle(Point.Empty, _workingBitmap.Size);
-        var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue, imageArea);
+        var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue, imageArea, _counterSize);
 
         using var graphics = Graphics.FromImage(_workingBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        ImageEditingService.DrawCounterMarker(graphics, marker, _selectedColor, _selectedFillColor, _selectedTextColor);
+        ImageEditingService.DrawCounterMarker(
+            graphics,
+            marker,
+            _selectedCounterCircleColor,
+            _selectedFillColor,
+            _selectedCounterTextColor);
 
         _nextCounterValue++;
         _pictureBox.Image = _workingBitmap;

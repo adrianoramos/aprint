@@ -224,7 +224,10 @@ public sealed class RegionSelectorForm : Form
     private Color _lineColor = Color.Red;
     private Color _highlightColor = Color.Yellow;
     private Color _maskColor = Color.Red;
+    private Color _counterTextColor = Color.Red;
+    private Color _counterCircleColor = Color.Red;
     private int _maskPixelSize = 6;
+    private int _counterSize = ImageEditingService.CounterMarkerDiameter;
     private int _highlightWidth = 18;
     private Color? _fillColor;
     private bool _showToolLabels = true;
@@ -278,7 +281,7 @@ public sealed class RegionSelectorForm : Form
 
     public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256, int maskColorArgb = -65536)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536)
     {
         _background = background;
         _screenUnderCursorAtStart = Screen.FromPoint(Cursor.Position).Bounds;
@@ -289,6 +292,9 @@ public sealed class RegionSelectorForm : Form
         _lineColor = Color.FromArgb(lineColorArgb);
         _highlightColor = Color.FromArgb(highlightColorArgb);
         _maskColor = Color.FromArgb(maskColorArgb);
+        _counterSize = Math.Clamp(counterSize, ImageEditingService.MinimumCounterMarkerDiameter, ImageEditingService.MaximumCounterMarkerDiameter);
+        _counterTextColor = Color.FromArgb(counterTextColorArgb);
+        _counterCircleColor = Color.FromArgb(counterCircleColorArgb);
         _highlightWidth = Math.Clamp(highlightWidth, 4, 48);
         _fillColor = fillColorArgb is int selectedFillColorArgb ? Color.FromArgb(selectedFillColorArgb) : null;
         _textFont.Dispose();
@@ -2085,7 +2091,7 @@ public sealed class RegionSelectorForm : Form
 
     private void AddCounterMarker(Point location)
     {
-        var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue++, _selection);
+        var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue++, _selection, _counterSize);
         _counterMarkers.Add(marker);
         Invalidate(Rectangle.Intersect(marker.Bounds, _selection));
     }
@@ -2097,7 +2103,7 @@ public sealed class RegionSelectorForm : Form
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         foreach (var marker in _counterMarkers)
         {
-            ImageEditingService.DrawCounterMarker(graphics, marker, _lineColor, _fillColor, _textColor);
+            ImageEditingService.DrawCounterMarker(graphics, marker, _counterCircleColor, _fillColor, _counterTextColor);
         }
 
         graphics.Restore(state);

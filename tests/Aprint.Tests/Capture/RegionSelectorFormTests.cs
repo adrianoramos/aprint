@@ -59,6 +59,50 @@ public sealed class RegionSelectorFormTests
     }
 
     [Fact]
+    public void CounterUsesConfiguredSizeAndIndependentTextAndCircleColors()
+    {
+        using var bitmap = new Bitmap(100, 100);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(
+            bitmap,
+            counterSize: 64,
+            counterTextColorArgb: Color.Lime.ToArgb(),
+            counterCircleColorArgb: Color.Blue.ToArgb());
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, 100, 100));
+        typeof(RegionSelectorForm).GetMethod("AddCounterMarker", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [new Point(50, 50)]);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            typeof(RegionSelectorForm).GetMethod("DrawCounterMarkers", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(selector, [graphics]);
+        }
+
+        var markers = (List<ImageEditingService.CounterMarker>)typeof(RegionSelectorForm)
+            .GetField("_counterMarkers", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        Assert.Equal(64, Assert.Single(markers).Diameter);
+        var hasBlueCirclePixels = false;
+        var hasGreenTextPixels = false;
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            for (var x = 0; x < bitmap.Width; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                hasBlueCirclePixels |= pixel.B > pixel.R && pixel.B > pixel.G;
+                hasGreenTextPixels |= pixel.G > pixel.R && pixel.G > pixel.B;
+            }
+        }
+
+        Assert.True(hasBlueCirclePixels);
+        Assert.True(hasGreenTextPixels);
+    }
+
+    [Fact]
     public void CoverMaskUsesItsOwnConfiguredColor()
     {
         using var bitmap = new Bitmap(8, 8);

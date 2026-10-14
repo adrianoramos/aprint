@@ -45,7 +45,7 @@ public sealed class EditorFormTests
             .GetValue(capture)!;
         var captureDropdowns = captureActionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
 
-        Assert.Equal(5, editorDropdowns.Length);
+        Assert.Equal(6, editorDropdowns.Length);
         Assert.Equal(3, captureDropdowns.Length);
         Assert.All(editorDropdowns, button => Assert.Equal(14, button.Width));
         Assert.All(editorDropdowns, button => Assert.Equal(captureDropdowns[0].Width, button.Width));
@@ -113,6 +113,7 @@ public sealed class EditorFormTests
     [InlineData(EditTool.Rectangle, "_btnDrawing", "_btnDrawingDropdown")]
     [InlineData(EditTool.Circle, "_btnDrawing", "_btnDrawingDropdown")]
     [InlineData(EditTool.Highlight, "_btnHighlight", "_btnHighlightSizeDropdown")]
+    [InlineData(EditTool.Counter, "_btnCounter", "_btnCounterDropdown")]
     [InlineData(EditTool.Text, "_btnText", "_btnTextFormatDropdown")]
     [InlineData(EditTool.Pixelated, "_btnMask", "_btnMaskModeDropdown")]
     public void SelectedSplitToolActivatesMatchingToolbarGroup(EditTool tool, string buttonFieldName, string dropdownFieldName)
@@ -247,6 +248,84 @@ public sealed class EditorFormTests
             .GetField("_selectedFillColor", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor));
         Assert.NotEqual(selectedFillToolTip, fillColorItem.ToolTipText);
+    }
+
+    [Fact]
+    public void CounterDropdownOffersSizeTextColorAndCircleColor()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty, initialTool: EditTool.Counter);
+        var counterDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnCounterDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var sizeMenu = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_counterSizeMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var textColorMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_counterTextColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var circleColorMenuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_counterCircleColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+
+        Assert.Contains(sizeMenu, counterDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.Contains(textColorMenuItem, counterDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.Contains(circleColorMenuItem, counterDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.Equal(new[] { 24, 32, 40, 48, 64, 80 }, sizeMenu.DropDownItems
+            .OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.Contains(sizeMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+        Assert.NotNull(textColorMenuItem.Image);
+        Assert.NotNull(circleColorMenuItem.Image);
+
+        var sizePreset = Assert.Single(
+            sizeMenu.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag is int size && size == 64);
+        sizePreset.PerformClick();
+        Assert.Equal(64, typeof(EditorForm)
+            .GetField("_counterSize", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
+    }
+
+    [Fact]
+    public void CounterMarkerUsesConfiguredSizeAndIndependentTextAndCircleColors()
+    {
+        using var bitmap = new Bitmap(100, 100);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var editor = new EditorForm(
+            bitmap,
+            string.Empty,
+            initialTool: EditTool.Counter,
+            counterSize: 64,
+            counterTextColorArgb: Color.Lime.ToArgb(),
+            counterCircleColorArgb: Color.Blue.ToArgb());
+        typeof(EditorForm).GetMethod("AddCounterMarker", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, [new Point(50, 50)]);
+        var workingBitmap = (Bitmap)typeof(EditorForm)
+            .GetField("_workingBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var blueCirclePixelFound = false;
+        var greenTextPixelFound = false;
+        for (var y = 0; y < workingBitmap.Height; y++)
+        {
+            for (var x = 0; x < workingBitmap.Width; x++)
+            {
+                var pixel = workingBitmap.GetPixel(x, y);
+                blueCirclePixelFound |= pixel.B > pixel.R && pixel.B > pixel.G;
+                greenTextPixelFound |= pixel.G > pixel.R && pixel.G > pixel.B;
+            }
+        }
+
+        Assert.True(blueCirclePixelFound);
+        Assert.True(greenTextPixelFound);
+        Assert.Equal(64, typeof(EditorForm)
+            .GetField("_counterSize", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
     }
 
     [Theory]
