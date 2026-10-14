@@ -93,7 +93,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         CaptureScreenshot(null);
     }
 
-    private void CaptureScreenshot(CaptureMode? captureModeOverride)
+    private async void CaptureScreenshot(CaptureMode? captureModeOverride)
     {
         if (_isCaptureInProgress)
         {
@@ -104,7 +104,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         try
         {
             var previousCaptureTool = _settings.LastCaptureTool;
-            using var result = _captureWorkflow.Execute(
+            using var result = await _captureWorkflow.ExecuteAsync(
                 _settings,
                 captureModeOverride,
                 settingsChanged: () => _settingsStore.Save(_settings),

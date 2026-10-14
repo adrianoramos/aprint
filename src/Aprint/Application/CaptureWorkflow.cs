@@ -8,7 +8,7 @@ namespace Aprint.Application;
 /// <summary>Executa o fluxo de captura e entrega o resultado pronto para apresentação.</summary>
 public sealed class CaptureWorkflow
 {
-    public CaptureResult? Execute(
+    public async Task<CaptureResult?> ExecuteAsync(
         AppSettings settings,
         CaptureMode? captureModeOverride = null,
         Action<Bitmap>? sendToEditor = null,
@@ -67,7 +67,7 @@ public sealed class CaptureWorkflow
             {
                 if (regionAction == RegionSelectionAction.Save && !settings.SaveEditorImageWithoutPrompt)
                 {
-                    filePath = ScreenshotService.SaveToDiskWithPrompt(bitmap, settings.SaveFolder);
+                    filePath = await ScreenshotService.SaveToDiskWithPromptAsync(bitmap, settings.SaveFolder);
                     if (filePath is null)
                     {
                         return null;
@@ -75,7 +75,7 @@ public sealed class CaptureWorkflow
                 }
                 else
                 {
-                    filePath = ScreenshotService.SaveToDisk(bitmap, settings.SaveFolder);
+                    filePath = await ScreenshotService.SaveToDiskAsync(bitmap, settings.SaveFolder);
                 }
             }
 
