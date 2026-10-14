@@ -212,6 +212,43 @@ public sealed class EditorFormTests
         Assert.Equal(EditTool.Crop, editor.SelectedTool);
     }
 
+    [Fact]
+    public void DrawingDropdownOffersLineAndFillColorOptionsWithPreviews()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty, fillColorArgb: Color.Magenta.ToArgb());
+        var drawingDropdown = (ToolStripDropDownButton)typeof(EditorForm)
+            .GetField("_btnDrawingDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var lineColorItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_drawingLineColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var fillColorItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_drawingFillColorMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        var noFillItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField("_drawingNoFillMenuItem", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+
+        Assert.Contains(lineColorItem, drawingDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.Contains(fillColorItem, drawingDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.Contains(noFillItem, drawingDropdown.DropDownItems.Cast<ToolStripItem>());
+        Assert.NotNull(lineColorItem.Image);
+        Assert.NotNull(fillColorItem.Image);
+        Assert.Equal("Stroke", lineColorItem.Tag?.ToString());
+        Assert.Equal("Fill", fillColorItem.Tag?.ToString());
+        Assert.Contains(Color.Red.ToArgb().ToString("x8"), lineColorItem.ToolTipText, StringComparison.OrdinalIgnoreCase);
+        Assert.False(string.IsNullOrWhiteSpace(fillColorItem.ToolTipText));
+        var selectedFillToolTip = fillColorItem.ToolTipText;
+
+        noFillItem.PerformClick();
+
+        Assert.Null(typeof(EditorForm)
+            .GetField("_selectedFillColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor));
+        Assert.NotEqual(selectedFillToolTip, fillColorItem.ToolTipText);
+    }
+
     [Theory]
     [InlineData(EditTool.Freehand)]
     [InlineData(EditTool.Line)]

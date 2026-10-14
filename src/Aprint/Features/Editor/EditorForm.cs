@@ -225,6 +225,9 @@ public sealed class EditorForm : Form
     private readonly PictureBox _pictureBox;
     private readonly ToolStripButton _btnDrawing;
     private readonly ToolStripDropDownButton _btnDrawingDropdown;
+    private readonly ToolStripMenuItem _drawingLineColorMenuItem;
+    private readonly ToolStripMenuItem _drawingFillColorMenuItem;
+    private readonly ToolStripMenuItem _drawingNoFillMenuItem;
     private readonly ToolStripButton _btnCounter;
     private readonly ToolStripButton _btnHighlight;
     private readonly ToolStripDropDownButton _btnHighlightSizeDropdown;
@@ -481,6 +484,45 @@ public sealed class EditorForm : Form
         AddDrawingToolMenuItem(EditTool.Arrow, ToolIconKind.Arrow, "Editor.Arrow", "F4");
         AddDrawingToolMenuItem(EditTool.Rectangle, ToolIconKind.Rectangle, "Editor.Rectangle", "F5");
         AddDrawingToolMenuItem(EditTool.Circle, ToolIconKind.Circle, "Editor.Circle", "F6");
+        _drawingLineColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.LineColor"))
+        {
+            Tag = ColorTarget.Stroke,
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedColor)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.LineColor")}: {_selectedColor.Name}",
+        };
+        _drawingLineColorMenuItem.Click += (_, _) =>
+        {
+            _btnDrawingDropdown.DropDown.Close();
+            SelectColorTarget(ColorTarget.Stroke, manuallySelected: true);
+            PickColor();
+        };
+        _drawingFillColorMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.FillColor"))
+        {
+            Tag = ColorTarget.Fill,
+            Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)],
+            ToolTipText = $"{AppLocalization.Translate("Editor.FillColor")}: {_selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill")}",
+        };
+        _drawingFillColorMenuItem.Click += (_, _) =>
+        {
+            _btnDrawingDropdown.DropDown.Close();
+            SelectColorTarget(ColorTarget.Fill, manuallySelected: true);
+            PickFillColor();
+        };
+        _drawingNoFillMenuItem = new ToolStripMenuItem(AppLocalization.Translate("Editor.NoFill"));
+        _drawingNoFillMenuItem.Click += (_, _) =>
+        {
+            _selectedFillColor = null;
+            UpdateColorPickerButtonAppearance();
+            FillColorChanged?.Invoke(null);
+            _btnDrawingDropdown.DropDown.Close();
+        };
+        _btnDrawingDropdown.DropDownItems.AddRange([
+            new ToolStripSeparator(),
+            _drawingLineColorMenuItem,
+            _drawingFillColorMenuItem,
+            new ToolStripSeparator(),
+            _drawingNoFillMenuItem,
+        ]);
 
         _btnCounter = CreateStandardToolButton(
             AppLocalization.Translate("Editor.Counter"),
@@ -1061,7 +1103,9 @@ public sealed class EditorForm : Form
         _btnDrawing.ToolTipText = $"{drawingLabel}: {tooltipToolLabel} ({shortcut})";
         _btnDrawing.AccessibleName = label;
 
-        foreach (ToolStripMenuItem menuItem in _btnDrawingDropdown.DropDownItems)
+        foreach (var menuItem in _btnDrawingDropdown.DropDownItems
+            .OfType<ToolStripMenuItem>()
+            .Where(menuItem => menuItem.Tag is EditTool))
         {
             menuItem.Checked = menuItem.Tag is EditTool menuTool && menuTool == tool;
         }
@@ -1522,6 +1566,10 @@ public sealed class EditorForm : Form
         _textColorMenuItem.Image = _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.TextColor, _selectedTextColor)];
         _fillColorMenuItem.Image = _toolIconImageList.Images[
             EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
+        _drawingFillColorMenuItem.Image = _toolIconImageList.Images[
+            EnsureToolIconKey(ToolIconKind.FillColor, _selectedFillColor ?? Color.Black)];
+        _drawingFillColorMenuItem.ToolTipText =
+            $"{AppLocalization.Translate("Editor.FillColor")}: {_selectedFillColor?.Name ?? AppLocalization.Translate("Editor.NoFill")}";
         _highlightTargetMenuItem.Image =
             _toolIconImageList.Images[EnsureToolIconKey(ToolIconKind.LineColor, _selectedHighlightColor)];
         _highlightTargetMenuItem.ToolTipText =
