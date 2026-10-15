@@ -55,7 +55,7 @@ internal sealed class AboutForm : Form
     private static Label CreateTitleLabel() => new()
     {
         AutoSize = false,
-        Bounds = new Rectangle(60, 24, 352, 34),
+        Bounds = new Rectangle(60, 20, 352, 34),
         Font = new Font("Segoe UI", 21F, FontStyle.Bold),
         Text = "Aprint",
     };
