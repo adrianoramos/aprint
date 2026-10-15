@@ -256,7 +256,7 @@
     <value>Hotkey</value>
   </data>
   <data name="Settings.ForcePrintScreen" xml:space="preserve">
-    <value>Use the default Windows key (Print Screen)</value>
+    <value>Use the Print Screen key to capture</value>
   </data>
   <data name="Settings.CaptureModeGroup" xml:space="preserve">
     <value>Capture mode</value>

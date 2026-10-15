@@ -256,7 +256,7 @@
     <value>Atalho</value>
   </data>
   <data name="Settings.ForcePrintScreen" xml:space="preserve">
-    <value>Usar tecla padrão do Windows (Print Screen)</value>
+    <value>Usar a tecla Print Screen para capturar</value>
   </data>
   <data name="Settings.CaptureModeGroup" xml:space="preserve">
     <value>Modo de captura</value>
