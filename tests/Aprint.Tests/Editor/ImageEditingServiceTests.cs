@@ -226,6 +226,33 @@ public sealed class ImageEditingServiceTests
     }
 
     [Theory]
+    [InlineData(EditTool.Freehand)]
+    [InlineData(EditTool.Line)]
+    [InlineData(EditTool.Arrow)]
+    public void ConstrainDrawingEndpointSnapsLinesToFortyFiveDegreeAngles(EditTool tool)
+    {
+        var constrainedEnd = ImageEditingService.ConstrainDrawingEndpoint(
+            new Point(10, 10),
+            new Point(18, 16),
+            tool);
+
+        Assert.Equal(new Point(17, 17), constrainedEnd);
+    }
+
+    [Theory]
+    [InlineData(EditTool.Rectangle)]
+    [InlineData(EditTool.Circle)]
+    public void ConstrainDrawingEndpointMakesShapesSquare(EditTool tool)
+    {
+        var start = new Point(10, 20);
+
+        var constrainedEnd = ImageEditingService.ConstrainDrawingEndpoint(start, new Point(18, 42), tool);
+        var bounds = ImageEditingService.CreateSelectionRectangle(start, constrainedEnd);
+
+        Assert.Equal(new Rectangle(10, 20, 22, 22), bounds);
+    }
+
+    [Theory]
     [InlineData(EditTool.Rectangle)]
     [InlineData(EditTool.Circle)]
     public void DrawShapeRemainsHollowWithoutFillColor(EditTool tool)

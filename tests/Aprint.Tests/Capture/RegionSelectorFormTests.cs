@@ -50,6 +50,22 @@ public sealed class RegionSelectorFormTests
     }
 
     [Fact]
+    public void SelectionDrawingEndpointUsesShiftConstraintOnlyWhenPressed()
+    {
+        var constrainEndpoint = typeof(RegionSelectorForm).GetMethod(
+            "ConstrainEndpointForShift",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var start = new Point(10, 10);
+        var end = new Point(18, 16);
+
+        var constrainedEnd = (Point)constrainEndpoint.Invoke(null, [start, end, EditTool.Line, true])!;
+        var unchangedEnd = (Point)constrainEndpoint.Invoke(null, [start, end, EditTool.Line, false])!;
+
+        Assert.Equal(new Point(17, 17), constrainedEnd);
+        Assert.Equal(end, unchangedEnd);
+    }
+
+    [Fact]
     public void HighlightStrokesUseTheirOwnConfiguredColor()
     {
         using var bitmap = new Bitmap(40, 40);

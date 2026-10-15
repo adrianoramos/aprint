@@ -278,6 +278,8 @@ public sealed class EditorForm : Form
     private bool _isDrawing;
     private Point _dragStart;
     private Point _lastFreehandPoint;
+    private readonly List<Point> _freehandPoints = [];
+    private bool _freehandShiftPressed;
     private readonly List<Point> _highlighterPoints = [];
     private Rectangle _textBounds;
     private int _textMinimumWidth;
@@ -1671,6 +1673,11 @@ public sealed class EditorForm : Form
         _isDrawing = true;
         _dragStart = e.Location;
         _lastFreehandPoint = e.Location;
+        if (_currentTool == EditTool.Freehand)
+        {
+            _freehandPoints.Clear();
+            _freehandPoints.Add(e.Location);
+        }
         if (_currentTool == EditTool.Highlight)
         {
             _highlighterPoints.Clear();
@@ -1768,19 +1775,28 @@ public sealed class EditorForm : Form
         }
         else if (_currentTool == EditTool.Freehand)
         {
-            using (var graphics = Graphics.FromImage(_workingBitmap))
+            if (_freehandPoints[^1] != e.Location)
             {
-                ImageEditingService.DrawFreehandSegment(graphics, _lastFreehandPoint, e.Location, _selectedColor, _lineWidth);
+                _freehandPoints.Add(e.Location);
             }
 
-            var dirtyRect = CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, _lineWidth + 2);
             _lastFreehandPoint = e.Location;
-            InvalidatePictureBoxRegion(dirtyRect);
+            _freehandShiftPressed = (Control.ModifierKeys & Keys.Shift) != 0;
+            _shapePreviewEnd = GetDrawingEndpoint(e.Location);
+            _shapePreviewVisible = _freehandPoints.Count > 1;
+            var currentDirtyRect = _freehandShiftPressed
+                ? CreateLineDirtyRectangle(_dragStart, _shapePreviewEnd, _lineWidth + 2)
+                : CreateLineDirtyRectangle(_freehandPoints, _lineWidth + 2);
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? currentDirtyRect
+                : Rectangle.Union(_lastPreviewDirtyRect, currentDirtyRect);
+            _lastPreviewDirtyRect = currentDirtyRect;
+            InvalidatePictureBoxRegion(repaintRegion);
         }
         else
         {
-            var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, _lineWidth + 4);
-            _shapePreviewEnd = e.Location;
+            _shapePreviewEnd = GetDrawingEndpoint(e.Location);
+            var currentDirtyRect = CreateToolDirtyRectangle(_dragStart, _shapePreviewEnd, _currentTool, _lineWidth + 4);
             _shapePreviewVisible = true;
 
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
@@ -1851,6 +1867,40 @@ public sealed class EditorForm : Form
             _pictureBox.Focus();
             _pictureBox.Invalidate(_textBounds);
         }
+        else if (_currentTool == EditTool.Freehand)
+        {
+            var shiftPressed = (Control.ModifierKeys & Keys.Shift) != 0;
+            var end = shiftPressed
+                ? ImageEditingService.ConstrainDrawingEndpoint(_dragStart, e.Location, EditTool.Freehand)
+                : e.Location;
+            if (shiftPressed)
+            {
+                using var graphics = Graphics.FromImage(_workingBitmap);
+                ImageEditingService.DrawFreehandSegment(graphics, _dragStart, end, _selectedColor, _lineWidth);
+            }
+            else
+            {
+                if (_freehandPoints.Count == 0 || _freehandPoints[^1] != e.Location)
+                {
+                    _freehandPoints.Add(e.Location);
+                }
+
+                using var graphics = Graphics.FromImage(_workingBitmap);
+                ImageEditingService.DrawFreehandStroke(graphics, _freehandPoints, _selectedColor, _lineWidth);
+            }
+
+            var finalDirtyRect = shiftPressed
+                ? CreateLineDirtyRectangle(_dragStart, end, _lineWidth + 2)
+                : CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, _lineWidth + 2);
+            var repaintRegion = _lastPreviewDirtyRect.IsEmpty
+                ? finalDirtyRect
+                : Rectangle.Union(_lastPreviewDirtyRect, finalDirtyRect);
+            _freehandPoints.Clear();
+            _shapePreviewVisible = false;
+            _lastPreviewDirtyRect = Rectangle.Empty;
+            _pictureBox.Image = _workingBitmap;
+            InvalidatePictureBoxRegion(repaintRegion);
+        }
         else if (_currentTool is EditTool.Blur or EditTool.Pixelated)
         {
             var selection = ImageEditingService.CreateSelectionRectangle(_dragStart, e.Location);
@@ -1864,13 +1914,14 @@ public sealed class EditorForm : Form
         }
         else if (_currentTool != EditTool.Freehand)
         {
-            var dirtyRect = CreateToolDirtyRectangle(_dragStart, e.Location, _currentTool, _lineWidth + 4);
+            var end = GetDrawingEndpoint(e.Location);
+            var dirtyRect = CreateToolDirtyRectangle(_dragStart, end, _currentTool, _lineWidth + 4);
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? dirtyRect
                 : Rectangle.Union(_lastPreviewDirtyRect, dirtyRect);
             using (var graphics = Graphics.FromImage(_workingBitmap))
             {
-                ImageEditingService.DrawAnnotation(graphics, _dragStart, e.Location, _currentTool, _selectedColor, _selectedFillColor, _lineWidth);
+                ImageEditingService.DrawAnnotation(graphics, _dragStart, end, _currentTool, _selectedColor, _selectedFillColor, _lineWidth);
             }
 
             _pictureBox.Image = _workingBitmap;
@@ -1911,6 +1962,21 @@ public sealed class EditorForm : Form
                 _selectedHighlightColor,
                 _highlightWidth,
                 new Rectangle(Point.Empty, _workingBitmap.Size));
+            DrawAutomaticMaskPreview(e.Graphics, e.ClipRectangle);
+            return;
+        }
+
+        if (_currentTool == EditTool.Freehand && _isDrawing && _shapePreviewVisible)
+        {
+            if (_freehandShiftPressed)
+            {
+                ImageEditingService.DrawFreehandSegment(e.Graphics, _dragStart, _shapePreviewEnd, _selectedColor, _lineWidth);
+            }
+            else
+            {
+                ImageEditingService.DrawFreehandStroke(e.Graphics, _freehandPoints, _selectedColor, _lineWidth);
+            }
+
             DrawAutomaticMaskPreview(e.Graphics, e.ClipRectangle);
             return;
         }
@@ -2587,6 +2653,30 @@ public sealed class EditorForm : Form
         var height = Math.Abs(end.Y - start.Y);
         var dirtyRect = new Rectangle(left, top, width, height);
         return InflateRectangle(dirtyRect, padding);
+    }
+
+    private static Rectangle CreateLineDirtyRectangle(IReadOnlyList<Point> points, int padding)
+    {
+        if (points.Count == 0)
+        {
+            return Rectangle.Empty;
+        }
+
+        var left = points.Min(point => point.X);
+        var top = points.Min(point => point.Y);
+        var right = points.Max(point => point.X);
+        var bottom = points.Max(point => point.Y);
+        return InflateRectangle(new Rectangle(left, top, right - left, bottom - top), padding);
+    }
+
+    private Point GetDrawingEndpoint(Point end)
+    {
+        if ((Control.ModifierKeys & Keys.Shift) == 0)
+        {
+            return end;
+        }
+
+        return ImageEditingService.ConstrainDrawingEndpoint(_dragStart, end, _currentTool);
     }
 
     private static Rectangle CreateToolDirtyRectangle(Point start, Point end, EditTool tool, int padding)

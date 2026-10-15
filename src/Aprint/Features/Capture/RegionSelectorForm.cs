@@ -209,6 +209,7 @@ public sealed class RegionSelectorForm : Form
     private readonly System.Windows.Forms.Timer _textCaretTimer = new() { Interval = 500 };
     private readonly System.Windows.Forms.Timer _sendToEditorFlashTimer = new() { Interval = 100 };
     private readonly List<List<Point>> _freehandStrokes = [];
+        private readonly List<Point> _freehandRawPoints = [];
     private readonly List<List<Point>> _highlightStrokes = [];
     private readonly List<(Point Start, Point End, bool IsArrow)> _lineAnnotations = [];
     private readonly List<ImageEditingService.CounterMarker> _counterMarkers = [];
@@ -560,7 +561,10 @@ public sealed class RegionSelectorForm : Form
                 if (_annotationTool == AnnotationTool.Freehand && _selection.Contains(e.Location))
                 {
                     _isDrawingFreehand = true;
-                    _freehandStrokes.Add([ClampToSelection(e.Location)]);
+                    var start = ClampToSelection(e.Location);
+                    _freehandRawPoints.Clear();
+                    _freehandRawPoints.Add(start);
+                    _freehandStrokes.Add([start]);
                     Capture = true;
                     return;
                 }
@@ -687,7 +691,8 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingLine)
         {
             var previousEnd = _lineEnd;
-            _lineEnd = ClampToSelection(e.Location);
+            var tool = _annotationTool == AnnotationTool.Arrow ? EditTool.Arrow : EditTool.Line;
+            _lineEnd = GetConstrainedAnnotationEndpoint(_lineStart, ClampToSelection(e.Location), tool);
             InvalidateLine(previousEnd, _lineEnd);
             return;
         }
@@ -695,7 +700,10 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingRectangle)
         {
             var previousEnd = _rectangleEnd;
-            _rectangleEnd = ClampToSelection(e.Location);
+            _rectangleEnd = GetConstrainedAnnotationEndpoint(
+                _rectangleStart,
+                ClampToSelection(e.Location),
+                EditTool.Rectangle);
             InvalidateShapePreview(_rectangleStart, previousEnd, _rectangleEnd);
             return;
         }
@@ -703,7 +711,10 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingCircle)
         {
             var previousEnd = _circleEnd;
-            _circleEnd = ClampToSelection(e.Location);
+            _circleEnd = GetConstrainedAnnotationEndpoint(
+                _circleStart,
+                ClampToSelection(e.Location),
+                EditTool.Circle);
             InvalidateShapePreview(_circleStart, previousEnd, _circleEnd);
             return;
         }
@@ -780,6 +791,7 @@ public sealed class RegionSelectorForm : Form
             AddFreehandPoint(e.Location);
             _isDrawingFreehand = false;
             Capture = false;
+            _freehandRawPoints.Clear();
             if (_freehandStrokes[^1].Count > 1)
             {
                 CommitAnnotationsAndRecordUndo();
@@ -803,7 +815,8 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingLine)
         {
             var previousEnd = _lineEnd;
-            _lineEnd = ClampToSelection(e.Location);
+            var tool = _annotationTool == AnnotationTool.Arrow ? EditTool.Arrow : EditTool.Line;
+            _lineEnd = GetConstrainedAnnotationEndpoint(_lineStart, ClampToSelection(e.Location), tool);
             _lineAnnotations.Add((_lineStart, _lineEnd, _annotationTool == AnnotationTool.Arrow));
             _isDrawingLine = false;
             Capture = false;
@@ -815,7 +828,10 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingRectangle)
         {
             var previousEnd = _rectangleEnd;
-            _rectangleEnd = ClampToSelection(e.Location);
+            _rectangleEnd = GetConstrainedAnnotationEndpoint(
+                _rectangleStart,
+                ClampToSelection(e.Location),
+                EditTool.Rectangle);
             _rectangles.Add(GetRectangle(_rectangleStart, _rectangleEnd));
             _isDrawingRectangle = false;
             Capture = false;
@@ -827,7 +843,10 @@ public sealed class RegionSelectorForm : Form
         if (_isDrawingCircle)
         {
             var previousEnd = _circleEnd;
-            _circleEnd = ClampToSelection(e.Location);
+            _circleEnd = GetConstrainedAnnotationEndpoint(
+                _circleStart,
+                ClampToSelection(e.Location),
+                EditTool.Circle);
             _circles.Add(GetRectangle(_circleStart, _circleEnd));
             _isDrawingCircle = false;
             Capture = false;
@@ -2637,28 +2656,69 @@ public sealed class RegionSelectorForm : Form
 
     private void AddFreehandPoint(Point location)
     {
-        if (_freehandStrokes.Count == 0)
+        if (_freehandStrokes.Count == 0 || _freehandRawPoints.Count == 0)
         {
             return;
         }
 
         var point = ClampToSelection(location);
         var stroke = _freehandStrokes[^1];
-        var previousPoint = stroke[^1];
-        if (point == previousPoint)
+        var previousBounds = GetFreehandStrokeBounds(stroke);
+        if (point != _freehandRawPoints[^1])
         {
-            return;
+            _freehandRawPoints.Add(point);
         }
 
-        stroke.Add(point);
-        var dirtyRectangle = Rectangle.FromLTRB(
-            Math.Min(previousPoint.X, point.X),
-            Math.Min(previousPoint.Y, point.Y),
-            Math.Max(previousPoint.X, point.X) + 1,
-            Math.Max(previousPoint.Y, point.Y) + 1);
-        dirtyRectangle.Inflate(_lineWidth + 2, _lineWidth + 2);
-        Invalidate(Rectangle.Intersect(dirtyRectangle, _selection));
+        stroke.Clear();
+        if ((Control.ModifierKeys & Keys.Shift) != 0)
+        {
+            var start = _freehandRawPoints[0];
+            var end = ImageEditingService.ConstrainDrawingEndpoint(start, _freehandRawPoints[^1], EditTool.Freehand);
+            stroke.Add(start);
+            if (end != start)
+            {
+                stroke.Add(end);
+            }
+        }
+        else
+        {
+            stroke.AddRange(_freehandRawPoints);
+        }
+
+        Invalidate(Rectangle.Intersect(
+            Rectangle.Union(previousBounds, GetFreehandStrokeBounds(stroke)),
+            _selection));
     }
+
+    private Rectangle GetFreehandStrokeBounds(IReadOnlyList<Point> points)
+    {
+        if (points.Count == 0)
+        {
+            return Rectangle.Empty;
+        }
+
+        var left = points[0].X;
+        var top = points[0].Y;
+        var right = left;
+        var bottom = top;
+        foreach (var point in points)
+        {
+            left = Math.Min(left, point.X);
+            top = Math.Min(top, point.Y);
+            right = Math.Max(right, point.X);
+            bottom = Math.Max(bottom, point.Y);
+        }
+
+        var bounds = Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
+        bounds.Inflate(_lineWidth + 2, _lineWidth + 2);
+        return bounds;
+    }
+
+    private Point GetConstrainedAnnotationEndpoint(Point start, Point end, EditTool tool) =>
+        ConstrainEndpointForShift(start, end, tool, (Control.ModifierKeys & Keys.Shift) != 0);
+
+    private static Point ConstrainEndpointForShift(Point start, Point end, EditTool tool, bool shiftPressed) =>
+        shiftPressed ? ImageEditingService.ConstrainDrawingEndpoint(start, end, tool) : end;
 
     private void AddHighlightPoint(Point location)
     {

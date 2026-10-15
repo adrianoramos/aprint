@@ -204,6 +204,37 @@ public static class ImageEditingService
         Math.Abs(start.X - end.X),
         Math.Abs(start.Y - end.Y));
 
+    public static Point ConstrainDrawingEndpoint(Point start, Point end, EditTool tool)
+    {
+        var deltaX = end.X - start.X;
+        var deltaY = end.Y - start.Y;
+        if (tool is EditTool.Freehand or EditTool.Line or EditTool.Arrow)
+        {
+            if (deltaX == 0 && deltaY == 0)
+            {
+                return end;
+            }
+
+            var distance = Math.Sqrt((deltaX * deltaX) + (deltaY * deltaY));
+            var angle = Math.Atan2(deltaY, deltaX);
+            var angleStep = Math.PI / 4;
+            var snappedAngle = Math.Round(angle / angleStep, MidpointRounding.AwayFromZero) * angleStep;
+            return new Point(
+                start.X + (int)Math.Round(distance * Math.Cos(snappedAngle), MidpointRounding.AwayFromZero),
+                start.Y + (int)Math.Round(distance * Math.Sin(snappedAngle), MidpointRounding.AwayFromZero));
+        }
+
+        if (tool is EditTool.Rectangle or EditTool.Circle)
+        {
+            var side = Math.Max(Math.Abs(deltaX), Math.Abs(deltaY));
+            var directionX = deltaX == 0 ? 1 : Math.Sign(deltaX);
+            var directionY = deltaY == 0 ? 1 : Math.Sign(deltaY);
+            return new Point(start.X + (directionX * side), start.Y + (directionY * side));
+        }
+
+        return end;
+    }
+
     public static Bitmap Crop(Bitmap bitmap, Rectangle area)
     {
         if (area.Width <= 0 || area.Height <= 0 ||
