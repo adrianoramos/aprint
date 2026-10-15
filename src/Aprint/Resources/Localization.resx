@@ -229,7 +229,7 @@
     <value>Erro ao abrir</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>Uma ferramenta de captura de tela poderosa e altamente configurável, projetada para ambientes corporativos e tendo a privacidade e a segurança de dados como prioridade. Ela não utiliza bibliotecas de terceiros e não coleta nem transmite quaisquer dados.</value>
+    <value>Uma ferramenta de captura de tela poderosa e altamente configurável, projetada para ambientes corporativos, que prioriza a privacidade e a segurança dos dados sem depender de bibliotecas de terceiros nem coletar ou transmitir quaisquer dados.</value>
   </data>
   <data name="Tray.AboutAuthor" xml:space="preserve">
     <value>Criado por Adriano Ramos da Silva</value>

@@ -229,7 +229,7 @@
     <value>Open error</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>A powerful, highly configurable screenshot tool designed for corporate environments with privacy and data security at its core. It uses no third-party libraries and does not collect or transmit any data.</value>
+    <value>A powerful and highly configurable screenshot tool designed for corporate environments, prioritizing privacy and data security without using third-party libraries or collecting or transmitting any data.</value>
   </data>
   <data name="Tray.AboutAuthor" xml:space="preserve">
     <value>Created by Adriano Ramos da Silva</value>
