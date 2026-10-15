@@ -7,6 +7,7 @@ internal sealed class AboutForm : Form
 {
     private const string LinkedInUrl = "https://www.linkedin.com/in/adrianorsilva/";
     private readonly ToolTip _linkToolTip = new();
+    private readonly Bitmap _titleIconImage = Program.AppIcon.ToBitmap();
 
     public AboutForm()
     {
@@ -22,6 +23,7 @@ internal sealed class AboutForm : Form
         AcceptButton = CreateCloseButton();
         CancelButton = (Button)AcceptButton;
 
+        Controls.Add(CreateTitleIcon(_titleIconImage));
         Controls.Add(CreateTitleLabel());
         Controls.Add(CreateVersionLabel());
         Controls.Add(CreateDescriptionLabel());
@@ -37,15 +39,23 @@ internal sealed class AboutForm : Form
         if (disposing)
         {
             _linkToolTip.Dispose();
+            _titleIconImage.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
+    private static PictureBox CreateTitleIcon(Image image) => new()
+    {
+        Bounds = new Rectangle(30, 30, 22, 22),
+        Image = image,
+        SizeMode = PictureBoxSizeMode.Zoom,
+    };
+
     private static Label CreateTitleLabel() => new()
     {
         AutoSize = false,
-        Bounds = new Rectangle(28, 24, 384, 34),
+        Bounds = new Rectangle(60, 24, 352, 34),
         Font = new Font("Segoe UI", 21F, FontStyle.Bold),
         Text = "Aprint",
     };
@@ -68,8 +78,8 @@ internal sealed class AboutForm : Form
 
     private static Label CreateAuthorLabel() => new()
     {
-        AutoSize = false,
-        Bounds = new Rectangle(30, 173, 380, 20),
+        AutoSize = true,
+        Location = new Point(30, 173),
         Text = AppLocalization.Translate("Tray.AboutAuthor"),
     };
 
@@ -77,8 +87,8 @@ internal sealed class AboutForm : Form
     {
         var link = new LinkLabel
         {
-            AutoSize = false,
-            Bounds = new Rectangle(30, 196, 380, 22),
+            AutoSize = true,
+            Location = new Point(30, 196),
             Text = AppLocalization.Translate("Tray.AboutLinkedIn"),
         };
         link.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(LinkedInUrl) { UseShellExecute = true });
