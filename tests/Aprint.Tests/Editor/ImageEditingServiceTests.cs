@@ -37,6 +37,18 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void CounterMarkerUsesRequestedDiameterAndScalesItsFont()
+    {
+        var area = new Rectangle(0, 0, 120, 120);
+
+        var marker = ImageEditingService.CreateCounterMarker(new Point(60, 60), 8, area, 64);
+
+        Assert.Equal(64, marker.Diameter);
+        Assert.Equal(new Rectangle(28, 28, 64, 64), marker.Bounds);
+        Assert.Equal(19.2F, ImageEditingService.GetCounterMarkerFontSize(marker.Diameter), 1);
+    }
+
+    [Fact]
     public void DrawCounterMarkerUsesLineAndFillColorsIndependently()
     {
         using var bitmap = new Bitmap(40, 40);
@@ -140,6 +152,54 @@ public sealed class ImageEditingServiceTests
     }
 
     [Fact]
+    public void DrawAnnotationHonorsConfiguredPenWidth()
+    {
+        using var thinBitmap = new Bitmap(40, 40);
+        using var thickBitmap = new Bitmap(40, 40);
+        using (var thinGraphics = Graphics.FromImage(thinBitmap))
+        using (var thickGraphics = Graphics.FromImage(thickBitmap))
+        {
+            thinGraphics.Clear(Color.White);
+            thickGraphics.Clear(Color.White);
+            ImageEditingService.DrawAnnotation(
+                thinGraphics,
+                new Point(5, 20),
+                new Point(35, 20),
+                EditTool.Line,
+                Color.Red,
+                width: 1);
+            ImageEditingService.DrawAnnotation(
+                thickGraphics,
+                new Point(5, 20),
+                new Point(35, 20),
+                EditTool.Line,
+                Color.Red,
+                width: 9);
+        }
+
+        var thinPixelCount = CountNonWhitePixels(thinBitmap);
+        var thickPixelCount = CountNonWhitePixels(thickBitmap);
+        Assert.True(thickPixelCount > thinPixelCount);
+
+        static int CountNonWhitePixels(Bitmap bitmap)
+        {
+            var count = 0;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                for (var x = 0; x < bitmap.Width; x++)
+                {
+                    if (bitmap.GetPixel(x, y).ToArgb() != Color.White.ToArgb())
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+    }
+
+    [Fact]
     public void DrawFreehandSegmentUsesSharedAnnotationColor()
     {
         using var bitmap = new Bitmap(24, 24);
@@ -163,6 +223,33 @@ public sealed class ImageEditingServiceTests
 
         Assert.NotEqual(Color.White.ToArgb(), bitmap.GetPixel(12, 12).ToArgb());
         Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(12, 2).ToArgb());
+    }
+
+    [Theory]
+    [InlineData(EditTool.Freehand)]
+    [InlineData(EditTool.Line)]
+    [InlineData(EditTool.Arrow)]
+    public void ConstrainDrawingEndpointSnapsLinesToFortyFiveDegreeAngles(EditTool tool)
+    {
+        var constrainedEnd = ImageEditingService.ConstrainDrawingEndpoint(
+            new Point(10, 10),
+            new Point(18, 16),
+            tool);
+
+        Assert.Equal(new Point(17, 17), constrainedEnd);
+    }
+
+    [Theory]
+    [InlineData(EditTool.Rectangle)]
+    [InlineData(EditTool.Circle)]
+    public void ConstrainDrawingEndpointMakesShapesSquare(EditTool tool)
+    {
+        var start = new Point(10, 20);
+
+        var constrainedEnd = ImageEditingService.ConstrainDrawingEndpoint(start, new Point(18, 42), tool);
+        var bounds = ImageEditingService.CreateSelectionRectangle(start, constrainedEnd);
+
+        Assert.Equal(new Rectangle(10, 20, 22, 22), bounds);
     }
 
     [Theory]

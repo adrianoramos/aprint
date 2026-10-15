@@ -229,7 +229,22 @@
     <value>Erro ao abrir</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>Aprint - A única ferramenta de captura de tela permitida para uso ;) - Adriano Ramos</value>
+    <value>Uma poderosa ferramenta de captura de tela, altamente configurável e desenvolvida com foco em privacidade de dados e segurança para ambientes corporativos. Esta aplicação não utiliza bibliotecas externas de terceiros, nem realiza coleta ou envio de dados.</value>
+  </data>
+  <data name="Tray.AboutAuthor" xml:space="preserve">
+    <value>Criado por Adriano Ramos da Silva</value>
+  </data>
+  <data name="Tray.AboutVersion" xml:space="preserve">
+    <value>Versão {0}</value>
+  </data>
+  <data name="Tray.AboutLinkedIn" xml:space="preserve">
+    <value>linkedin.com/in/adrianorsilva</value>
+  </data>
+  <data name="Tray.AboutLinkedInToolTip" xml:space="preserve">
+    <value>Se eu fiz sua vida um pouco mais fácil, me dê um "Oi".</value>
+  </data>
+  <data name="Tray.AboutClose" xml:space="preserve">
+    <value>Fechar</value>
   </data>
   <data name="Tray.AboutTitle" xml:space="preserve">
     <value>Sobre</value>
@@ -384,6 +399,9 @@
   <data name="Editor.LineColor" xml:space="preserve">
     <value>Cor da linha</value>
   </data>
+  <data name="Editor.LineWidth" xml:space="preserve">
+    <value>Espessura do traço</value>
+  </data>
   <data name="Editor.TextColor" xml:space="preserve">
     <value>Cor do texto</value>
   </data>
@@ -411,17 +429,44 @@
   <data name="Editor.Counter" xml:space="preserve">
     <value>Contador</value>
   </data>
+  <data name="Editor.CounterOptions" xml:space="preserve">
+    <value>Opções do contador</value>
+  </data>
+  <data name="Editor.CounterSize" xml:space="preserve">
+    <value>Tamanho do contador</value>
+  </data>
+  <data name="Editor.CounterTextColor" xml:space="preserve">
+    <value>Cor do texto do contador</value>
+  </data>
+  <data name="Editor.CounterCircleColor" xml:space="preserve">
+    <value>Cor do círculo</value>
+  </data>
   <data name="Editor.Mask" xml:space="preserve">
     <value>Mascarar</value>
   </data>
   <data name="Editor.MaskOptions" xml:space="preserve">
     <value>Opções de máscara</value>
   </data>
+  <data name="Editor.MaskColor" xml:space="preserve">
+    <value>Cor da máscara</value>
+  </data>
   <data name="Editor.Highlight" xml:space="preserve">
     <value>Realçar</value>
   </data>
   <data name="Editor.HighlightSize" xml:space="preserve">
     <value>Tamanho do realce</value>
+  </data>
+  <data name="Editor.HighlightColor" xml:space="preserve">
+    <value>Cor do realce</value>
+  </data>
+  <data name="Editor.Customize" xml:space="preserve">
+    <value>Personalizar...</value>
+  </data>
+  <data name="Editor.Font" xml:space="preserve">
+    <value>Escolher fonte...</value>
+  </data>
+  <data name="Editor.FontSize" xml:space="preserve">
+    <value>Tamanho da fonte</value>
   </data>
   <data name="Editor.Text" xml:space="preserve">
     <value>Texto</value>
@@ -434,6 +479,12 @@
   </data>
   <data name="Editor.CancelCrop" xml:space="preserve">
     <value>Cancelar</value>
+  </data>
+  <data name="Editor.ConfirmCropToolTip" xml:space="preserve">
+    <value>Confirmar (Enter)</value>
+  </data>
+  <data name="Editor.CancelCropToolTip" xml:space="preserve">
+    <value>Cancelar (Esc)</value>
   </data>
   <data name="Editor.TextFormatting" xml:space="preserve">
     <value>Formatação do texto</value>
@@ -506,6 +557,12 @@
   </data>
   <data name="Editor.CancelAutomaticMask" xml:space="preserve">
     <value>Cancelar máscaras</value>
+  </data>
+  <data name="Editor.ApplyAutomaticMaskToolTip" xml:space="preserve">
+    <value>Aplicar máscaras (Enter)</value>
+  </data>
+  <data name="Editor.CancelAutomaticMaskToolTip" xml:space="preserve">
+    <value>Cancelar máscaras (Esc)</value>
   </data>
   <data name="Editor.AutomaticMaskApplied" xml:space="preserve">
     <value>Máscaras aplicadas à imagem.</value>

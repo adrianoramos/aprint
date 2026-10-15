@@ -7,6 +7,34 @@ namespace Aprint.Tests.Capture;
 
 public sealed class RegionSelectorFormTests
 {
+    [Theory]
+    [InlineData(EditTool.Freehand)]
+    [InlineData(EditTool.Counter)]
+    [InlineData(EditTool.Highlight)]
+    [InlineData(EditTool.Blur)]
+    [InlineData(EditTool.Pixelated)]
+    [InlineData(EditTool.Text)]
+    public void FloatingBarsKeepDefaultCursorWhenRestoredToolChangesSelectionCursor(EditTool lastCaptureTool)
+    {
+        using var bitmap = new Bitmap(100, 100);
+        using var selector = new RegionSelectorForm(bitmap, lastCaptureTool: lastCaptureTool);
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, 100, 100));
+        selector.Cursor = (Cursor)typeof(RegionSelectorForm)
+            .GetMethod("GetCursorForLocation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [new Point(50, 50)])!;
+
+        Assert.Equal(lastCaptureTool == EditTool.Text ? Cursors.IBeam : Cursors.Cross, selector.Cursor);
+        foreach (var fieldName in new[] { "_actionBar", "_screenSelectionBar" })
+        {
+            var bar = (ToolStrip)typeof(RegionSelectorForm)
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(selector)!;
+
+            Assert.Equal(Cursors.Default, bar.Cursor);
+        }
+    }
+
     [Fact]
     public void DrawingButtonSelectsFreehandWhenLastToolWasNotADrawingTool()
     {
@@ -19,6 +47,135 @@ public sealed class RegionSelectorFormTests
         drawingButton.PerformClick();
 
         Assert.Equal(EditTool.Freehand, selector.LastUsedTool);
+    }
+
+    [Fact]
+    public void SelectionDrawingEndpointUsesShiftConstraintOnlyWhenPressed()
+    {
+        var constrainEndpoint = typeof(RegionSelectorForm).GetMethod(
+            "ConstrainEndpointForShift",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var start = new Point(10, 10);
+        var end = new Point(18, 16);
+
+        var constrainedEnd = (Point)constrainEndpoint.Invoke(null, [start, end, EditTool.Line, true])!;
+        var unchangedEnd = (Point)constrainEndpoint.Invoke(null, [start, end, EditTool.Line, false])!;
+
+        Assert.Equal(new Point(17, 17), constrainedEnd);
+        Assert.Equal(end, unchangedEnd);
+    }
+
+    [Fact]
+    public void HighlightStrokesUseTheirOwnConfiguredColor()
+    {
+        using var bitmap = new Bitmap(40, 40);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(
+            bitmap,
+            lineColorArgb: Color.Red.ToArgb(),
+            highlightColorArgb: Color.Blue.ToArgb(),
+            highlightWidth: 12);
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
+        var highlightStrokes = (List<List<Point>>)typeof(RegionSelectorForm)
+            .GetField("_highlightStrokes", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        highlightStrokes.Add([new Point(4, 20), new Point(36, 20)]);
+
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            typeof(RegionSelectorForm)
+                .GetMethod("DrawHighlightStrokes", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(selector, [graphics]);
+        }
+
+        var highlightedPixel = bitmap.GetPixel(20, 20);
+        Assert.True(highlightedPixel.B > highlightedPixel.R);
+        Assert.True(highlightedPixel.B > highlightedPixel.G);
+        Assert.Equal(Color.Red.ToArgb(), ((Color)typeof(RegionSelectorForm)
+            .GetField("_lineColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!).ToArgb());
+    }
+
+    [Fact]
+    public void CounterUsesConfiguredSizeAndIndependentTextAndCircleColors()
+    {
+        using var bitmap = new Bitmap(100, 100);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(
+            bitmap,
+            counterSize: 64,
+            counterTextColorArgb: Color.Lime.ToArgb(),
+            counterCircleColorArgb: Color.Blue.ToArgb());
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, 100, 100));
+        typeof(RegionSelectorForm).GetMethod("AddCounterMarker", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [new Point(50, 50)]);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            typeof(RegionSelectorForm).GetMethod("DrawCounterMarkers", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(selector, [graphics]);
+        }
+
+        var markers = (List<ImageEditingService.CounterMarker>)typeof(RegionSelectorForm)
+            .GetField("_counterMarkers", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        Assert.Equal(64, Assert.Single(markers).Diameter);
+        var hasBlueCirclePixels = false;
+        var hasGreenTextPixels = false;
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            for (var x = 0; x < bitmap.Width; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                hasBlueCirclePixels |= pixel.B > pixel.R && pixel.B > pixel.G;
+                hasGreenTextPixels |= pixel.G > pixel.R && pixel.G > pixel.B;
+            }
+        }
+
+        Assert.True(hasBlueCirclePixels);
+        Assert.True(hasGreenTextPixels);
+    }
+
+    [Fact]
+    public void CoverMaskUsesItsOwnConfiguredColor()
+    {
+        using var bitmap = new Bitmap(8, 8);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(
+            bitmap,
+            maskMode: MaskMode.Solid,
+            lineColorArgb: Color.Red.ToArgb(),
+            maskColorArgb: Color.Blue.ToArgb());
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(0, 0, 8, 8));
+        typeof(RegionSelectorForm).GetField("_maskStart", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Point(1, 1));
+        typeof(RegionSelectorForm).GetField("_maskEnd", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Point(5, 5));
+        typeof(RegionSelectorForm).GetField("_isDrawingMaskRegion", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, true);
+
+        typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 5, 5, 0)]);
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(2, 2).ToArgb());
+        Assert.Equal(Color.Red.ToArgb(), ((Color)typeof(RegionSelectorForm)
+            .GetField("_lineColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!).ToArgb());
     }
 
     [Theory]
@@ -314,7 +471,9 @@ public sealed class RegionSelectorFormTests
             .GetValue(selector)!;
         var expectedLabel = AppLocalization.Translate("Editor.Mask");
 
-        foreach (var menuItem in maskDropdownButton.DropDownItems.OfType<ToolStripMenuItem>())
+        foreach (var menuItem in maskDropdownButton.DropDownItems
+            .OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is MaskMode))
         {
             menuItem.PerformClick();
             Assert.Equal(expectedLabel, maskButton.Text);
@@ -333,13 +492,287 @@ public sealed class RegionSelectorFormTests
             .GetValue(selector)!;
         var dropdownButtons = actionBar.Items.OfType<ToolStripDropDownButton>().ToArray();
 
-        Assert.Equal(3, dropdownButtons.Length);
+        Assert.Equal(6, dropdownButtons.Length);
         Assert.All(dropdownButtons, button => Assert.Equal(14, button.Width));
         Assert.All(dropdownButtons, button => Assert.Equal(34, button.Height));
         var splitButtons = dropdownButtons
             .Select(button => (ToolStripButton)actionBar.Items[actionBar.Items.IndexOf(button) - 1]);
         Assert.All(splitButtons, button => Assert.Equal(34, button.Height));
         Assert.All(splitButtons, button => Assert.False(button.AutoSize));
+    }
+
+    [Fact]
+    public void FloatingToolbarOffersEditorConfigurationsForAllAnnotationTools()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var selector = new RegionSelectorForm(bitmap);
+        var drawingDropdown = GetField<ToolStripDropDownButton>(selector, "_drawingDropdownButton");
+        var highlightDropdown = GetField<ToolStripDropDownButton>(selector, "_highlightDropdownButton");
+        var maskDropdown = GetField<ToolStripDropDownButton>(selector, "_maskDropdownButton");
+        var counterDropdown = GetField<ToolStripDropDownButton>(selector, "_counterDropdownButton");
+        var textDropdown = GetField<ToolStripDropDownButton>(selector, "_textDropdownButton");
+
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.LineColor"));
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.FillColor"));
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.NoFill"));
+        var drawingWidthMenu = GetField<ToolStripMenuItem>(selector, "_drawingLineWidthMenuItem");
+        Assert.Equal(new[] { 1, 2, 3, 4, 6, 8, 12, 16 }, drawingWidthMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.Contains(drawingWidthMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+        Assert.Contains(drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item == drawingWidthMenu);
+        Assert.Single(drawingWidthMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag is int width && width == 8).PerformClick();
+        Assert.Equal(8, GetField<int>(selector, "_lineWidth"));
+
+        Assert.Equal(new[] { 4, 8, 16, 32 }, highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.Contains(highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_highlightColorMenuItem").Image);
+        Assert.Equal(2, maskDropdown.DropDownItems.OfType<ToolStripMenuItem>().Count(item => item.Tag is MaskMode));
+        Assert.Equal(new[] { 4, 6, 8, 12, 16, 24, 32 }, GetField<ToolStripMenuItem>(selector, "_maskPixelSizeMenuItem")
+            .DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_maskColorMenuItem").Image);
+        var automaticMaskMenuItem = Assert.Single(
+            maskDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "automatic-mask");
+        Assert.Equal("Ctrl+F8", automaticMaskMenuItem.ShortcutKeyDisplayString);
+
+        var counterSizeMenu = GetField<ToolStripMenuItem>(selector, "_counterSizeMenuItem");
+        Assert.Equal(new[] { 24, 32, 40, 48, 64, 80 }, counterSizeMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is int)
+            .Select(item => (int)item.Tag!));
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_counterTextColorMenuItem").Image);
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_counterCircleColorMenuItem").Image);
+        Assert.Contains(counterDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item == counterSizeMenu);
+
+        var textFontSizeMenu = GetField<ToolStripMenuItem>(selector, "_textFontSizeMenuItem");
+        Assert.Equal(new[] { 8F, 10F, 12F, 14F, 16F, 18F, 24F, 32F, 48F, 72F }, textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>()
+            .Where(item => item.Tag is float)
+            .Select(item => (float)item.Tag!));
+        Assert.DoesNotContain(textFontSizeMenu.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag?.ToString() == "custom-size");
+        Assert.Contains(textDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Text == AppLocalization.Translate("Editor.Font"));
+        Assert.NotNull(GetField<ToolStripMenuItem>(selector, "_textColorMenuItem").Image);
+        Assert.Equal(4, textDropdown.DropDownItems.OfType<ToolStripMenuItem>().Count(item => item.Tag is FontStyle));
+
+        var maskSizeSeparator = GetField<ToolStripSeparator>(selector, "_maskPixelSizeSeparator");
+        var maskColorSeparator = GetField<ToolStripSeparator>(selector, "_maskColorSeparator");
+        var actionBar = GetField<ToolStrip>(selector, "_actionBar");
+        selector.Show();
+        actionBar.Visible = true;
+        System.Windows.Forms.Application.DoEvents();
+        maskDropdown.DropDown.Show(
+            maskDropdown.Owner!,
+            new Point(maskDropdown.Bounds.Left, maskDropdown.Bounds.Bottom));
+        System.Windows.Forms.Application.DoEvents();
+        Assert.True(maskSizeSeparator.Visible);
+        Assert.False(maskColorSeparator.Visible);
+        maskDropdown.DropDown.Close();
+
+        var solidMaskMode = Assert.Single(maskDropdown.DropDownItems.OfType<ToolStripMenuItem>(), item => item.Tag is MaskMode mode && mode == MaskMode.Solid);
+        solidMaskMode.PerformClick();
+        maskDropdown.DropDown.Show(
+            maskDropdown.Owner!,
+            new Point(maskDropdown.Bounds.Left, maskDropdown.Bounds.Bottom));
+        System.Windows.Forms.Application.DoEvents();
+        Assert.False(maskSizeSeparator.Visible);
+        Assert.True(maskColorSeparator.Visible);
+        maskDropdown.DropDown.Close();
+
+        static T GetField<T>(RegionSelectorForm form, string fieldName) =>
+            (T)typeof(RegionSelectorForm)
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(form)!;
+    }
+
+    [Fact]
+    public void AutomaticMaskHidesToolsAndLocksSelectionUntilCancelled()
+    {
+        using var bitmap = new Bitmap(80, 80);
+        using var cancellation = new CancellationTokenSource();
+        using var selector = new RegionSelectorForm(bitmap);
+        selector.Show();
+        System.Windows.Forms.Application.DoEvents();
+        var selection = new Rectangle(10, 10, 50, 50);
+        var selectionField = typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        selectionField.SetValue(selector, selection);
+        var selectionInvalidated = false;
+        selector.Invalidated += (_, eventArgs) =>
+            selectionInvalidated |= eventArgs.InvalidRect.IntersectsWith(selection);
+        typeof(RegionSelectorForm).GetField("_isAutomaticMaskDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, true);
+        typeof(RegionSelectorForm).GetMethod("SetAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [true]);
+        typeof(RegionSelectorForm).GetField("_automaticMaskDetectionCancellation", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, cancellation);
+        Assert.True(selectionInvalidated);
+
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var applyButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskApplyButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var cancelButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskCancelButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var visibleActions = new ToolStripItem[] { applyButton, cancelButton };
+        Assert.Equal(visibleActions,
+            actionBar.Items.Cast<ToolStripItem>().Where(item => item.Visible));
+        var expectedCompactWidth = visibleActions.Sum(item => item.Width + item.Margin.Horizontal) + actionBar.Padding.Horizontal;
+        Assert.InRange(actionBar.Width, expectedCompactWidth, expectedCompactWidth + 2);
+        Assert.True(applyButton.Enabled);
+
+        var mouseDown = typeof(RegionSelectorForm).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseMove = typeof(RegionSelectorForm).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseUp = typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Left + 20, selection.Top + 20, 0)]);
+        Assert.Equal(Cursors.Cross, selector.Cursor);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Right + 20, selection.Bottom + 20, 0)]);
+        Assert.Equal(Cursors.Default, selector.Cursor);
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, selection.Right - 1, selection.Top + 20, 0)]);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 0, selection.Right + 20, selection.Top + 20, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, selection.Right + 20, selection.Top + 20, 0)]);
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, selection.Left + 20, selection.Top + 20, 0)]);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 0, selection.Left + 35, selection.Top + 35, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Right, 1, selection.Left + 35, selection.Top + 35, 0)]);
+
+        Assert.Equal(selection, (Rectangle)selectionField.GetValue(selector)!);
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isMoving", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isResizing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+
+        cancelButton.PerformClick();
+
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(selection, (Rectangle)selectionField.GetValue(selector)!);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.None, 0, selection.Right + 20, selection.Bottom + 20, 0)]);
+        Assert.Equal(Cursors.Default, selector.Cursor);
+        Assert.Contains(actionBar.Items.OfType<ToolStripButton>(), button => button.Visible && button != applyButton && button != cancelButton);
+    }
+
+    [Fact]
+    public void ConfirmingAutomaticMaskAppliesRegionsAndRestoresToolbar()
+    {
+        using var bitmap = new Bitmap(80, 80);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(bitmap);
+    selector.Show();
+    System.Windows.Forms.Application.DoEvents();
+        var selection = new Rectangle(10, 10, 50, 50);
+        typeof(RegionSelectorForm).GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, selection);
+        typeof(RegionSelectorForm).GetField("_maskMode", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, MaskMode.Solid);
+        typeof(RegionSelectorForm).GetField("_maskColor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, Color.Blue);
+        typeof(RegionSelectorForm).GetField("_isAutomaticMaskDetectionReady", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, true);
+        typeof(RegionSelectorForm).GetMethod("SetAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, [true]);
+
+        var mouseDown = typeof(RegionSelectorForm).GetMethod("OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseMove = typeof(RegionSelectorForm).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var mouseUp = typeof(RegionSelectorForm).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        mouseDown.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 20, 20, 0)]);
+        mouseMove.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 0, 30, 30, 0)]);
+        mouseUp.Invoke(selector, [new MouseEventArgs(MouseButtons.Left, 1, 30, 30, 0)]);
+
+        var regions = (System.Collections.IList)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskRegions", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var region = Assert.Single(regions.Cast<object>());
+        var preview = (Bitmap)region.GetType().GetProperty("Preview")!.GetValue(region)!;
+        var drawPreview = typeof(RegionSelectorForm).GetMethod("DrawAutomaticMaskPreview", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        using var previewCanvas = new Bitmap(80, 80);
+        using (var graphics = Graphics.FromImage(previewCanvas))
+        {
+            drawPreview.Invoke(selector, [graphics, selection]);
+            drawPreview.Invoke(selector, [graphics, selection]);
+        }
+
+        Assert.Same(preview, region.GetType().GetProperty("Preview")!.GetValue(region));
+        Assert.Equal(Color.Blue.ToArgb(), preview.GetPixel(5, 5).ToArgb());
+
+        var applyButton = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField("_automaticMaskApplyButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        applyButton.PerformClick();
+
+        Assert.Equal(Color.Blue.ToArgb(), bitmap.GetPixel(25, 25).ToArgb());
+        Assert.False((bool)typeof(RegionSelectorForm).GetField("_isAutomaticMaskSelectionActive", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(selector)!);
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        Assert.Contains(actionBar.Items.OfType<ToolStripButton>(), button => button.Visible && button != applyButton);
+    }
+
+    [Fact]
+    public void FloatingHighlightCustomizeDialogAppliesSizeWithoutManualInteraction()
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var selector = new RegionSelectorForm(bitmap);
+        selector.Show();
+        System.Windows.Forms.Application.DoEvents();
+        var highlightDropdown = (ToolStripDropDownButton)typeof(RegionSelectorForm)
+            .GetField("_highlightDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var customizeItem = Assert.Single(
+            highlightDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "custom-size");
+        var dialogWasShown = false;
+        var dialogWasTopMost = false;
+        var dialogWasOnScreen = false;
+        using var dialogDriver = new System.Windows.Forms.Timer { Interval = 50 };
+        dialogDriver.Tick += (_, _) =>
+        {
+            var dialog = System.Windows.Forms.Application.OpenForms
+                .Cast<Form>()
+                .FirstOrDefault(form => !ReferenceEquals(form, selector) && form.Visible);
+            if (dialog is null)
+            {
+                return;
+            }
+
+            dialogDriver.Stop();
+            dialogWasShown = true;
+            dialogWasTopMost = dialog.TopMost;
+            dialogWasOnScreen = Screen.FromRectangle(dialog.Bounds).WorkingArea.Contains(dialog.Bounds);
+            var valueInput = FindDescendants(dialog).OfType<NumericUpDown>().Single();
+            valueInput.Value = 24;
+            FindDescendants(dialog)
+                .OfType<Button>()
+                .Single(button => button.DialogResult == DialogResult.OK)
+                .PerformClick();
+        };
+
+        dialogDriver.Start();
+        customizeItem.PerformClick();
+
+        Assert.True(dialogWasShown);
+        Assert.True(dialogWasTopMost);
+        Assert.True(dialogWasOnScreen);
+        Assert.Equal(24, typeof(RegionSelectorForm)
+            .GetField("_highlightWidth", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector));
+
+        static IEnumerable<Control> FindDescendants(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (var descendant in FindDescendants(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
     }
 
     [Fact]
@@ -372,6 +805,30 @@ public sealed class RegionSelectorFormTests
             .GetValue(selector)!);
         Assert.False(selector.IsDisposed);
         Assert.Equal(DialogResult.None, selector.DialogResult);
+    }
+
+    [Fact]
+    public void SendingSelectionTransfersBitmapOwnershipWhenAccepted()
+    {
+        using var background = new Bitmap(8, 8);
+        using var selector = new RegionSelectorForm(background);
+        typeof(RegionSelectorForm)
+            .GetField("_selection", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(selector, new Rectangle(1, 1, 4, 4));
+        Bitmap? transferredBitmap = null;
+        selector.SendToEditorOwnershipRequested += bitmap =>
+        {
+            transferredBitmap = bitmap;
+            return true;
+        };
+
+        typeof(RegionSelectorForm)
+            .GetMethod("SendSelectionToEditor", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(selector, null);
+
+        using var ownedBitmap = Assert.IsType<Bitmap>(transferredBitmap);
+        Assert.Equal(new Size(4, 4), ownedBitmap.Size);
+        Assert.Equal(Color.Empty.ToArgb(), ownedBitmap.GetPixel(0, 0).ToArgb());
     }
 
     [Fact]

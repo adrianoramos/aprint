@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Diagnostics;
+using Aprint.Features.About;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
 using Aprint.Features.Settings;
@@ -24,6 +25,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly HashSet<EditorForm> _modelessEditors = [];
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
+    private AboutForm? _aboutForm;
     private string? _lastSavedFilePath;
     private Bitmap? _lastCapturedBitmap;
     private bool _isCaptureInProgress;
@@ -93,7 +95,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         CaptureScreenshot(null);
     }
 
-    private void CaptureScreenshot(CaptureMode? captureModeOverride)
+    private async void CaptureScreenshot(CaptureMode? captureModeOverride)
     {
         if (_isCaptureInProgress)
         {
@@ -104,7 +106,15 @@ public sealed class TrayApplicationContext : ApplicationContext
         try
         {
             var previousCaptureTool = _settings.LastCaptureTool;
-            using var result = _captureWorkflow.Execute(_settings, captureModeOverride, bitmap => OpenEditor(bitmap, showWithoutActivation: true));
+            using var result = await _captureWorkflow.ExecuteAsync(
+                _settings,
+                captureModeOverride,
+                settingsChanged: () => _settingsStore.Save(_settings),
+                sendToEditorWithOwnership: bitmap =>
+                {
+                    OpenEditor(bitmap, showWithoutActivation: true, takeBitmapOwnership: true);
+                    return true;
+                });
             if (_settings.LastCaptureTool != previousCaptureTool)
             {
                 _settingsStore.Save(_settings);
@@ -129,7 +139,7 @@ public sealed class TrayApplicationContext : ApplicationContext
                 }
 
                 _isCaptureInProgress = false;
-                OpenEditor(result.Bitmap);
+                OpenEditor(result.TakeBitmap(), takeBitmapOwnership: true);
                 return;
             }
 
@@ -167,10 +177,35 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false)
+    private void OpenEditor(Bitmap bitmap, bool topMost = false, bool showWithoutActivation = false, bool takeBitmapOwnership = false)
     {
         var initialTool = _settings.RememberLastEditorTool ? _settings.LastEditorTool : _settings.DefaultEditorTool;
-        var editor = new EditorForm(bitmap, _settings.SaveFolder, _settings.MaskMode, _settings.ShowToolLabels, _settings.CloseEditorOnCopyOrSave, initialTool, _settings.SaveEditorImageWithoutPrompt, _settings.AutoCloseEditorWhenInactive, _settings.EditorInactivityTimeoutSeconds, _settings.LastTextFontFamily, _settings.LastTextFontSize, _settings.LastTextFontStyle, _settings.LastHighlightWidth, _settings.LastLineColorArgb, _settings.LastTextColorArgb, _settings.LastFillColorArgb, _settings.LastMaskPixelSize, showWithoutActivation);
+        var editor = new EditorForm(
+            bitmap,
+            _settings.SaveFolder,
+            _settings.MaskMode,
+            _settings.ShowToolLabels,
+            _settings.CloseEditorOnCopyOrSave,
+            initialTool,
+            _settings.SaveEditorImageWithoutPrompt,
+            _settings.AutoCloseEditorWhenInactive,
+            _settings.EditorInactivityTimeoutSeconds,
+            _settings.LastTextFontFamily,
+            _settings.LastTextFontSize,
+            _settings.LastTextFontStyle,
+            _settings.LastHighlightWidth,
+            _settings.LastLineColorArgb,
+            _settings.LastTextColorArgb,
+            _settings.LastFillColorArgb,
+            _settings.LastMaskPixelSize,
+            showWithoutActivation,
+            _settings.LastHighlightColorArgb,
+            _settings.LastMaskColorArgb,
+            _settings.LastCounterSize,
+            _settings.LastCounterTextColorArgb,
+            _settings.LastCounterCircleColorArgb,
+            _settings.LastLineWidth,
+            takeBitmapOwnership);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 
@@ -191,6 +226,42 @@ public sealed class TrayApplicationContext : ApplicationContext
         editor.LineColorChanged += color =>
         {
             _settings.LastLineColorArgb = color.ToArgb();
+            _settingsStore.Save(_settings);
+        };
+
+        editor.LineWidthChanged += width =>
+        {
+            _settings.LastLineWidth = width;
+            _settingsStore.Save(_settings);
+        };
+
+        editor.HighlightColorChanged += color =>
+        {
+            _settings.LastHighlightColorArgb = color.ToArgb();
+            _settingsStore.Save(_settings);
+        };
+
+        editor.MaskColorChanged += color =>
+        {
+            _settings.LastMaskColorArgb = color.ToArgb();
+            _settingsStore.Save(_settings);
+        };
+
+        editor.CounterSizeChanged += size =>
+        {
+            _settings.LastCounterSize = size;
+            _settingsStore.Save(_settings);
+        };
+
+        editor.CounterTextColorChanged += color =>
+        {
+            _settings.LastCounterTextColorArgb = color.ToArgb();
+            _settingsStore.Save(_settings);
+        };
+
+        editor.CounterCircleColorChanged += color =>
+        {
+            _settings.LastCounterCircleColorArgb = color.ToArgb();
             _settingsStore.Save(_settings);
         };
 
@@ -338,11 +409,23 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowAbout()
     {
-        MessageBox.Show(
-            AppLocalization.Translate("Tray.AboutText"),
-            AppLocalization.Translate("Tray.AboutTitle"),
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        if (_aboutForm is { IsDisposed: false })
+        {
+            _aboutForm.Activate();
+            return;
+        }
+
+        var aboutForm = new AboutForm();
+        _aboutForm = aboutForm;
+        try
+        {
+            aboutForm.ShowDialog();
+        }
+        finally
+        {
+            _aboutForm = null;
+            aboutForm.Dispose();
+        }
     }
 
     private void OpenSettings()

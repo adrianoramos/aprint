@@ -38,6 +38,40 @@ public sealed class EditHistoryTests
     }
 
     [Fact]
+    public void HistorySnapshotsAreDeferredAndShareOneMemoryBudget()
+    {
+        using var bitmap = new Bitmap(2, 2, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var budget = new BitmapSnapshotBudget(maximumBytes: 16);
+        using var firstHistory = new EditHistory(bitmap, memoryBudget: budget);
+        using var secondHistory = new EditHistory(bitmap, memoryBudget: budget);
+
+        Assert.Equal(0, budget.RetainedBytes);
+
+        firstHistory.Capture(bitmap, nextCounterValue: 1);
+        Assert.True(firstHistory.CanUndo);
+        Assert.Equal(16, budget.RetainedBytes);
+
+        secondHistory.Capture(bitmap, nextCounterValue: 1);
+
+        Assert.False(firstHistory.CanUndo);
+        Assert.True(secondHistory.CanUndo);
+        Assert.Equal(16, budget.RetainedBytes);
+    }
+
+    [Fact]
+    public void HistorySkipsSnapshotLargerThanSharedMemoryBudget()
+    {
+        using var bitmap = new Bitmap(2, 2, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var budget = new BitmapSnapshotBudget(maximumBytes: 8);
+        using var history = new EditHistory(bitmap, memoryBudget: budget);
+
+        history.Capture(bitmap, nextCounterValue: 1);
+
+        Assert.False(history.CanUndo);
+        Assert.Equal(0, budget.RetainedBytes);
+    }
+
+    [Fact]
     public void UndoAndRedoRestoreDimensionsAfterCrop()
     {
         using var original = new Bitmap(4, 3);

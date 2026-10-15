@@ -229,7 +229,22 @@
     <value>Open error</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>Aprint - The only screenshot tool allowed for use ;) - Adriano Ramos</value>
+    <value>A powerful, highly configurable screenshot tool developed with a focus on data privacy and security for corporate environments. This application does not use third-party external libraries or collect or transmit data.</value>
+  </data>
+  <data name="Tray.AboutAuthor" xml:space="preserve">
+    <value>Created by Adriano Ramos da Silva</value>
+  </data>
+  <data name="Tray.AboutVersion" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="Tray.AboutLinkedIn" xml:space="preserve">
+    <value>linkedin.com/in/adrianorsilva</value>
+  </data>
+  <data name="Tray.AboutLinkedInToolTip" xml:space="preserve">
+    <value>If I made your life a little easier, say "Hi".</value>
+  </data>
+  <data name="Tray.AboutClose" xml:space="preserve">
+    <value>Close</value>
   </data>
   <data name="Tray.AboutTitle" xml:space="preserve">
     <value>About</value>
@@ -384,6 +399,9 @@
   <data name="Editor.LineColor" xml:space="preserve">
     <value>Line color</value>
   </data>
+  <data name="Editor.LineWidth" xml:space="preserve">
+    <value>Stroke width</value>
+  </data>
   <data name="Editor.TextColor" xml:space="preserve">
     <value>Text color</value>
   </data>
@@ -411,17 +429,44 @@
   <data name="Editor.Counter" xml:space="preserve">
     <value>Counter</value>
   </data>
+  <data name="Editor.CounterOptions" xml:space="preserve">
+    <value>Counter options</value>
+  </data>
+  <data name="Editor.CounterSize" xml:space="preserve">
+    <value>Counter size</value>
+  </data>
+  <data name="Editor.CounterTextColor" xml:space="preserve">
+    <value>Counter text color</value>
+  </data>
+  <data name="Editor.CounterCircleColor" xml:space="preserve">
+    <value>Circle color</value>
+  </data>
   <data name="Editor.Mask" xml:space="preserve">
     <value>Mask</value>
   </data>
   <data name="Editor.MaskOptions" xml:space="preserve">
     <value>Mask options</value>
   </data>
+  <data name="Editor.MaskColor" xml:space="preserve">
+    <value>Mask color</value>
+  </data>
   <data name="Editor.Highlight" xml:space="preserve">
     <value>Highlight</value>
   </data>
   <data name="Editor.HighlightSize" xml:space="preserve">
     <value>Highlight size</value>
+  </data>
+  <data name="Editor.HighlightColor" xml:space="preserve">
+    <value>Highlight color</value>
+  </data>
+  <data name="Editor.Customize" xml:space="preserve">
+    <value>Customize...</value>
+  </data>
+  <data name="Editor.Font" xml:space="preserve">
+    <value>Choose font...</value>
+  </data>
+  <data name="Editor.FontSize" xml:space="preserve">
+    <value>Font size</value>
   </data>
   <data name="Editor.Text" xml:space="preserve">
     <value>Text</value>
@@ -434,6 +479,12 @@
   </data>
   <data name="Editor.CancelCrop" xml:space="preserve">
     <value>Cancel</value>
+  </data>
+  <data name="Editor.ConfirmCropToolTip" xml:space="preserve">
+    <value>Confirm (Enter)</value>
+  </data>
+  <data name="Editor.CancelCropToolTip" xml:space="preserve">
+    <value>Cancel (Esc)</value>
   </data>
   <data name="Editor.TextFormatting" xml:space="preserve">
     <value>Text formatting</value>
@@ -506,6 +557,12 @@
   </data>
   <data name="Editor.CancelAutomaticMask" xml:space="preserve">
     <value>Cancel masks</value>
+  </data>
+  <data name="Editor.ApplyAutomaticMaskToolTip" xml:space="preserve">
+    <value>Apply masks (Enter)</value>
+  </data>
+  <data name="Editor.CancelAutomaticMaskToolTip" xml:space="preserve">
+    <value>Cancel masks (Esc)</value>
   </data>
   <data name="Editor.AutomaticMaskApplied" xml:space="preserve">
     <value>Masks applied to image.</value>

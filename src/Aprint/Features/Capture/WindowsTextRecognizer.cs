@@ -7,63 +7,85 @@ namespace Aprint.Features.Capture;
 public static class WindowsTextRegionDetector
 {
     private const int TileOverlap = 96;
+    private static readonly SemaphoreSlim DetectionSemaphore = new(1, 1);
 
-    public static async Task<IReadOnlyList<Rectangle>?> DetectRegionsAsync(Bitmap bitmap)
+    public static async Task<IReadOnlyList<Rectangle>?> DetectRegionsAsync(
+        Bitmap bitmap,
+        CancellationToken cancellationToken = default)
     {
-        var engine = OcrEngine.TryCreateFromUserProfileLanguages();
-        if (engine is null)
+        await DetectionSemaphore.WaitAsync(cancellationToken);
+        try
         {
-            return null;
-        }
-
-        var maximumDimension = checked((int)OcrEngine.MaxImageDimension);
-        var tileStride = maximumDimension - TileOverlap;
-        var lineBounds = new List<Rectangle>();
-
-        for (var top = 0; top < bitmap.Height; top += tileStride)
-        {
-            var height = Math.Min(maximumDimension, bitmap.Height - top);
-            for (var left = 0; left < bitmap.Width; left += tileStride)
+            cancellationToken.ThrowIfCancellationRequested();
+            var engine = OcrEngine.TryCreateFromUserProfileLanguages();
+            if (engine is null)
             {
-                var width = Math.Min(maximumDimension, bitmap.Width - left);
-                var tileBounds = new Rectangle(left, top, width, height);
-                using var encodedImage = await Task.Run(() => EncodeTile(bitmap, tileBounds));
+                return null;
+            }
 
-                using var randomAccessStream = encodedImage.AsRandomAccessStream();
-                var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
-                using var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
-                    BitmapPixelFormat.Bgra8,
-                    BitmapAlphaMode.Premultiplied);
-                var result = await engine.RecognizeAsync(softwareBitmap);
+            var maximumDimension = checked((int)OcrEngine.MaxImageDimension);
+            var tileStride = maximumDimension - TileOverlap;
+            var lineBounds = new List<Rectangle>();
 
-                foreach (var line in result.Lines)
+            for (var top = 0; top < bitmap.Height; top += tileStride)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var height = Math.Min(maximumDimension, bitmap.Height - top);
+                for (var left = 0; left < bitmap.Width; left += tileStride)
                 {
-                    var words = line.Words;
-                    if (words.Count == 0)
-                    {
-                        continue;
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var width = Math.Min(maximumDimension, bitmap.Width - left);
+                    var tileBounds = new Rectangle(left, top, width, height);
+                    using var encodedImage = await Task.Run(
+                        () => EncodeTile(bitmap, tileBounds),
+                        cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    var leftEdge = words.Min(word => word.BoundingRect.X);
-                    var topEdge = words.Min(word => word.BoundingRect.Y);
-                    var rightEdge = words.Max(word => word.BoundingRect.X + word.BoundingRect.Width);
-                    var bottomEdge = words.Max(word => word.BoundingRect.Y + word.BoundingRect.Height);
-                    var padding = Math.Max(2, (int)Math.Ceiling((bottomEdge - topEdge) * 0.08));
-                    var region = Rectangle.FromLTRB(
-                        Math.Max(0, (int)Math.Floor(leftEdge) - padding),
-                        Math.Max(0, (int)Math.Floor(topEdge) - padding),
-                        Math.Min(tileBounds.Width, (int)Math.Ceiling(rightEdge) + padding),
-                        Math.Min(tileBounds.Height, (int)Math.Ceiling(bottomEdge) + padding));
+                    using var randomAccessStream = encodedImage.AsRandomAccessStream();
+                    var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    using var softwareBitmap = await decoder.GetSoftwareBitmapAsync(
+                        BitmapPixelFormat.Bgra8,
+                        BitmapAlphaMode.Premultiplied);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = await engine.RecognizeAsync(softwareBitmap);
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    if (region.Width > 0 && region.Height > 0)
+                    foreach (var line in result.Lines)
                     {
-                        lineBounds.Add(new Rectangle(region.X + left, region.Y + top, region.Width, region.Height));
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var words = line.Words;
+                        if (words.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        var leftEdge = words.Min(word => word.BoundingRect.X);
+                        var topEdge = words.Min(word => word.BoundingRect.Y);
+                        var rightEdge = words.Max(word => word.BoundingRect.X + word.BoundingRect.Width);
+                        var bottomEdge = words.Max(word => word.BoundingRect.Y + word.BoundingRect.Height);
+                        var padding = Math.Max(2, (int)Math.Ceiling((bottomEdge - topEdge) * 0.08));
+                        var region = Rectangle.FromLTRB(
+                            Math.Max(0, (int)Math.Floor(leftEdge) - padding),
+                            Math.Max(0, (int)Math.Floor(topEdge) - padding),
+                            Math.Min(tileBounds.Width, (int)Math.Ceiling(rightEdge) + padding),
+                            Math.Min(tileBounds.Height, (int)Math.Ceiling(bottomEdge) + padding));
+
+                        if (region.Width > 0 && region.Height > 0)
+                        {
+                            lineBounds.Add(new Rectangle(region.X + left, region.Y + top, region.Width, region.Height));
+                        }
                     }
                 }
             }
-        }
 
-        return MergeDuplicateLines(lineBounds);
+            cancellationToken.ThrowIfCancellationRequested();
+            return MergeDuplicateLines(lineBounds);
+        }
+        finally
+        {
+            DetectionSemaphore.Release();
+        }
     }
 
     private static MemoryStream EncodeTile(Bitmap bitmap, Rectangle tileBounds)

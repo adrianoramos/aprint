@@ -53,6 +53,12 @@ public sealed class AppSettings
 
     public EditTool DefaultEditorTool { get; set; } = EditTool.Freehand;
 
+    public int LastCounterSize { get; set; } = 40;
+
+    public int LastCounterTextColorArgb { get; set; } = Color.Red.ToArgb();
+
+    public int LastCounterCircleColorArgb { get; set; } = Color.Red.ToArgb();
+
     public string LastTextFontFamily { get; set; } = "Segoe UI";
 
     public float LastTextFontSize { get; set; } = 12F;
@@ -61,7 +67,13 @@ public sealed class AppSettings
 
     public int LastHighlightWidth { get; set; } = 18;
 
+    public int LastHighlightColorArgb { get; set; } = Color.Yellow.ToArgb();
+
     public int LastLineColorArgb { get; set; } = Color.Red.ToArgb();
+
+    public int LastLineWidth { get; set; } = ImageEditingService.AnnotationPenWidth;
+
+    public int LastMaskColorArgb { get; set; } = Color.Red.ToArgb();
 
     public int LastTextColorArgb { get; set; } = Color.Red.ToArgb();
 
