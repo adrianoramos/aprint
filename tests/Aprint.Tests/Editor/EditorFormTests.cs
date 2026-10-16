@@ -6,6 +6,48 @@ namespace Aprint.Tests.Editor;
 
 public sealed class EditorFormTests
 {
+    [Theory]
+    [InlineData(1200, 900)]
+    [InlineData(1200, 120)]
+    [InlineData(120, 900)]
+    [InlineData(120, 120)]
+    public void ResizingScrolledEditorDoesNotExpandImageScrollArea(int imageWidth, int imageHeight)
+    {
+        using var bitmap = new Bitmap(imageWidth, imageHeight);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        editor.Show();
+        editor.WindowState = FormWindowState.Normal;
+        editor.ClientSize = new Size(700, 500);
+        System.Windows.Forms.Application.DoEvents();
+
+        var scrollPanel = editor.Controls.OfType<Panel>().Single();
+        var pictureBox = scrollPanel.Controls.OfType<PictureBox>().Single();
+        var originalScrollArea = scrollPanel.DisplayRectangle.Size;
+
+        for (var iteration = 0; iteration < 3; iteration++)
+        {
+            scrollPanel.AutoScrollPosition = new Point(200, 150);
+            editor.ClientSize = new Size(780, 580);
+            editor.ClientSize = new Size(700, 500);
+            System.Windows.Forms.Application.DoEvents();
+
+            Assert.Equal(originalScrollArea, scrollPanel.DisplayRectangle.Size);
+            Assert.Equal(
+                Math.Max(0, (scrollPanel.ClientSize.Width - pictureBox.Width) / 2),
+                pictureBox.Left - scrollPanel.AutoScrollPosition.X);
+            Assert.Equal(
+                Math.Max(0, (scrollPanel.ClientSize.Height - pictureBox.Height) / 2),
+                pictureBox.Top - scrollPanel.AutoScrollPosition.Y);
+
+            editor.WindowState = FormWindowState.Maximized;
+            System.Windows.Forms.Application.DoEvents();
+            editor.WindowState = FormWindowState.Normal;
+            System.Windows.Forms.Application.DoEvents();
+
+            Assert.Equal(originalScrollArea, scrollPanel.DisplayRectangle.Size);
+        }
+    }
+
     [Fact]
     public void InitialToolDefaultsToFreehandWhenNotProvided()
     {
@@ -350,6 +392,50 @@ public sealed class EditorFormTests
         Assert.Equal(64, typeof(EditorForm)
             .GetField("_counterSize", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor));
+    }
+
+    [Theory]
+    [InlineData("_selectedColor", "UpdateColorMenuPreviews", "_drawingLineColorMenuItem")]
+    [InlineData("_selectedFillColor", "UpdateColorMenuPreviews", "_drawingFillColorMenuItem")]
+    [InlineData("_selectedTextColor", "UpdateColorMenuPreviews", "_textFormatColorMenuItem")]
+    [InlineData("_selectedHighlightColor", "UpdateColorMenuPreviews", "_highlightColorMenuItem")]
+    [InlineData("_selectedMaskColor", "UpdateColorMenuPreviews", "_maskColorMenuItem")]
+    [InlineData("_selectedCounterTextColor", "UpdateCounterMenu", "_counterTextColorMenuItem")]
+    [InlineData("_selectedCounterCircleColor", "UpdateCounterMenu", "_counterCircleColorMenuItem")]
+    public void ChangingToolColorPreservesToolbarIconsAndUpdatesMenuPreview(
+        string colorFieldName, string updateMethodName, string menuFieldName)
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var toolbar = editor.Controls.OfType<ToolStrip>().Single();
+        var originalIcons = toolbar.Items.Cast<ToolStripItem>()
+            .Where(item => item.Image is not null)
+            .ToDictionary(item => item, item => GetPixels(item.Image!));
+
+        typeof(EditorForm).GetField(colorFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(editor, Color.Lime);
+        typeof(EditorForm).GetMethod(updateMethodName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, null);
+
+        foreach (var (item, originalPixels) in originalIcons)
+        {
+            Assert.Equal(originalPixels, GetPixels(item.Image!));
+        }
+
+        var menuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField(menuFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        Assert.NotNull(menuItem.Image);
+        using var preview = new Bitmap(menuItem.Image!);
+        Assert.Equal(Color.Lime.ToArgb(), preview.GetPixel(preview.Width / 2, preview.Height / 2).ToArgb());
+
+        static int[] GetPixels(Image image)
+        {
+            using var snapshot = new Bitmap(image);
+            return Enumerable.Range(0, snapshot.Width * snapshot.Height)
+                .Select(index => snapshot.GetPixel(index % snapshot.Width, index / snapshot.Width).ToArgb())
+                .ToArray();
+        }
     }
 
     [Fact]

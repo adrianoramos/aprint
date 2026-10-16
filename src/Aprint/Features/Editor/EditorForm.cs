@@ -944,7 +944,7 @@ public sealed class EditorForm : Form
         }
 
         var scrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        scrollPanel.Resize += (_, _) => CenterPictureBox(scrollPanel);
+        scrollPanel.Layout += (_, _) => CenterPictureBox(scrollPanel);
 
         _pictureBox = new PictureBox
         {
@@ -1006,7 +1006,8 @@ public sealed class EditorForm : Form
         var pictureBox = (PictureBox)scrollPanel.Controls[0];
         var x = Math.Max(0, (scrollPanel.ClientSize.Width - pictureBox.Width) / 2);
         var y = Math.Max(0, (scrollPanel.ClientSize.Height - pictureBox.Height) / 2);
-        pictureBox.Location = new Point(x, y);
+        var scrollPosition = scrollPanel.AutoScrollPosition;
+        pictureBox.Location = new Point(x + scrollPosition.X, y + scrollPosition.Y);
     }
 
     private void TrackToolGroupHover(ToolStrip toolStrip, ToolStripItem mainButton, ToolStripItem dropdownButton)
@@ -1168,7 +1169,7 @@ public sealed class EditorForm : Form
 
     private string EnsureToolIconKey(ToolIconKind kind, Color color)
     {
-        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor or ToolIconKind.Counter;
+        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor;
         var imageKey = $"{_toolIconSize}:{(int)kind}";
 
         if (!isColorizedIcon && _toolIconImageList.Images.ContainsKey(imageKey))
@@ -1252,7 +1253,7 @@ public sealed class EditorForm : Form
 
         try
         {
-            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor or ToolIconKind.Counter && color != Color.Black)
+            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor && color != Color.Black)
             {
                 var colorizedBitmap = ColorizeIcon(baseBitmap, color);
                 baseBitmap.Dispose();
@@ -2496,7 +2497,6 @@ public sealed class EditorForm : Form
         _counterTextColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.CounterTextColor")}: {_selectedCounterTextColor.Name}";
         var circleIconKey = EnsureColorSwatchIconKey(_selectedCounterCircleColor);
-        _btnCounter.ImageKey = EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor);
         _counterCircleColorMenuItem.Image = _toolIconImageList.Images[circleIconKey];
         _counterCircleColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.CounterCircleColor")}: {_selectedCounterCircleColor.Name}";
