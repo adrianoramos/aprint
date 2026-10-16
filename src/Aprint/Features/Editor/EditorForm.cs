@@ -428,6 +428,7 @@ public sealed class EditorForm : Form
             isCheckable: true,
             isChecked: true,
             shortcut: "F2");
+        _btnDrawing.Margin = new Padding(ToolButtonMargin, 0, 0, 0);
         _btnDrawing.Click += (_, _) => SetActiveTool(_selectedDrawingTool);
         _btnDrawingDropdown = new ToolStripDropDownButton
         {

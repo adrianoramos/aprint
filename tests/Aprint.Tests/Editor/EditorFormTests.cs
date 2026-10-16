@@ -92,6 +92,15 @@ public sealed class EditorFormTests
         var drawingDropdown = (ToolStripDropDownButton)typeof(EditorForm)
             .GetField("_btnDrawingDropdown", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(editor)!;
+        for (var index = 0; index < editorToolStrip.Items.Count - 1; index++)
+        {
+            if (editorToolStrip.Items[index] is ToolStripButton mainButton
+                && editorToolStrip.Items[index + 1] is ToolStripDropDownButton dropdownButton)
+            {
+                Assert.Equal(0, mainButton.Margin.Right + dropdownButton.Margin.Left);
+            }
+        }
+
         Assert.Equal(captureDropdowns[0].Height, drawingButton.Height);
         Assert.All(
             editorToolStrip.Items.OfType<ToolStripButton>(),
