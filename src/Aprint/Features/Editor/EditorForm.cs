@@ -1169,7 +1169,7 @@ public sealed class EditorForm : Form
 
     private string EnsureToolIconKey(ToolIconKind kind, Color color)
     {
-        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor or ToolIconKind.Counter;
+        var isColorizedIcon = kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor;
         var imageKey = $"{_toolIconSize}:{(int)kind}";
 
         if (!isColorizedIcon && _toolIconImageList.Images.ContainsKey(imageKey))
@@ -1253,7 +1253,7 @@ public sealed class EditorForm : Form
 
         try
         {
-            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor or ToolIconKind.Counter && color != Color.Black)
+            if (kind is ToolIconKind.LineColor or ToolIconKind.TextColor or ToolIconKind.FillColor && color != Color.Black)
             {
                 var colorizedBitmap = ColorizeIcon(baseBitmap, color);
                 baseBitmap.Dispose();
@@ -2497,7 +2497,6 @@ public sealed class EditorForm : Form
         _counterTextColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.CounterTextColor")}: {_selectedCounterTextColor.Name}";
         var circleIconKey = EnsureColorSwatchIconKey(_selectedCounterCircleColor);
-        _btnCounter.ImageKey = EnsureToolIconKey(ToolIconKind.Counter, _selectedCounterCircleColor);
         _counterCircleColorMenuItem.Image = _toolIconImageList.Images[circleIconKey];
         _counterCircleColorMenuItem.ToolTipText =
             $"{AppLocalization.Translate("Editor.CounterCircleColor")}: {_selectedCounterCircleColor.Name}";

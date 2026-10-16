@@ -394,6 +394,50 @@ public sealed class EditorFormTests
             .GetValue(editor));
     }
 
+    [Theory]
+    [InlineData("_selectedColor", "UpdateColorMenuPreviews", "_drawingLineColorMenuItem")]
+    [InlineData("_selectedFillColor", "UpdateColorMenuPreviews", "_drawingFillColorMenuItem")]
+    [InlineData("_selectedTextColor", "UpdateColorMenuPreviews", "_textFormatColorMenuItem")]
+    [InlineData("_selectedHighlightColor", "UpdateColorMenuPreviews", "_highlightColorMenuItem")]
+    [InlineData("_selectedMaskColor", "UpdateColorMenuPreviews", "_maskColorMenuItem")]
+    [InlineData("_selectedCounterTextColor", "UpdateCounterMenu", "_counterTextColorMenuItem")]
+    [InlineData("_selectedCounterCircleColor", "UpdateCounterMenu", "_counterCircleColorMenuItem")]
+    public void ChangingToolColorPreservesToolbarIconsAndUpdatesMenuPreview(
+        string colorFieldName, string updateMethodName, string menuFieldName)
+    {
+        using var bitmap = new Bitmap(20, 20);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var toolbar = editor.Controls.OfType<ToolStrip>().Single();
+        var originalIcons = toolbar.Items.Cast<ToolStripItem>()
+            .Where(item => item.Image is not null)
+            .ToDictionary(item => item, item => GetPixels(item.Image!));
+
+        typeof(EditorForm).GetField(colorFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(editor, Color.Lime);
+        typeof(EditorForm).GetMethod(updateMethodName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(editor, null);
+
+        foreach (var (item, originalPixels) in originalIcons)
+        {
+            Assert.Equal(originalPixels, GetPixels(item.Image!));
+        }
+
+        var menuItem = (ToolStripMenuItem)typeof(EditorForm)
+            .GetField(menuFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+        Assert.NotNull(menuItem.Image);
+        using var preview = new Bitmap(menuItem.Image!);
+        Assert.Equal(Color.Lime.ToArgb(), preview.GetPixel(preview.Width / 2, preview.Height / 2).ToArgb());
+
+        static int[] GetPixels(Image image)
+        {
+            using var snapshot = new Bitmap(image);
+            return Enumerable.Range(0, snapshot.Width * snapshot.Height)
+                .Select(index => snapshot.GetPixel(index % snapshot.Width, index / snapshot.Width).ToArgb())
+                .ToArray();
+        }
+    }
+
     [Fact]
     public void TextDropdownShowsCurrentTextColorPreview()
     {
