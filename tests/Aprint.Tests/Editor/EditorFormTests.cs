@@ -6,6 +6,48 @@ namespace Aprint.Tests.Editor;
 
 public sealed class EditorFormTests
 {
+    [Theory]
+    [InlineData(1200, 900)]
+    [InlineData(1200, 120)]
+    [InlineData(120, 900)]
+    [InlineData(120, 120)]
+    public void ResizingScrolledEditorDoesNotExpandImageScrollArea(int imageWidth, int imageHeight)
+    {
+        using var bitmap = new Bitmap(imageWidth, imageHeight);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        editor.Show();
+        editor.WindowState = FormWindowState.Normal;
+        editor.ClientSize = new Size(700, 500);
+        System.Windows.Forms.Application.DoEvents();
+
+        var scrollPanel = editor.Controls.OfType<Panel>().Single();
+        var pictureBox = scrollPanel.Controls.OfType<PictureBox>().Single();
+        var originalScrollArea = scrollPanel.DisplayRectangle.Size;
+
+        for (var iteration = 0; iteration < 3; iteration++)
+        {
+            scrollPanel.AutoScrollPosition = new Point(200, 150);
+            editor.ClientSize = new Size(780, 580);
+            editor.ClientSize = new Size(700, 500);
+            System.Windows.Forms.Application.DoEvents();
+
+            Assert.Equal(originalScrollArea, scrollPanel.DisplayRectangle.Size);
+            Assert.Equal(
+                Math.Max(0, (scrollPanel.ClientSize.Width - pictureBox.Width) / 2),
+                pictureBox.Left - scrollPanel.AutoScrollPosition.X);
+            Assert.Equal(
+                Math.Max(0, (scrollPanel.ClientSize.Height - pictureBox.Height) / 2),
+                pictureBox.Top - scrollPanel.AutoScrollPosition.Y);
+
+            editor.WindowState = FormWindowState.Maximized;
+            System.Windows.Forms.Application.DoEvents();
+            editor.WindowState = FormWindowState.Normal;
+            System.Windows.Forms.Application.DoEvents();
+
+            Assert.Equal(originalScrollArea, scrollPanel.DisplayRectangle.Size);
+        }
+    }
+
     [Fact]
     public void InitialToolDefaultsToFreehandWhenNotProvided()
     {

@@ -944,7 +944,7 @@ public sealed class EditorForm : Form
         }
 
         var scrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        scrollPanel.Resize += (_, _) => CenterPictureBox(scrollPanel);
+        scrollPanel.Layout += (_, _) => CenterPictureBox(scrollPanel);
 
         _pictureBox = new PictureBox
         {
@@ -1006,7 +1006,8 @@ public sealed class EditorForm : Form
         var pictureBox = (PictureBox)scrollPanel.Controls[0];
         var x = Math.Max(0, (scrollPanel.ClientSize.Width - pictureBox.Width) / 2);
         var y = Math.Max(0, (scrollPanel.ClientSize.Height - pictureBox.Height) / 2);
-        pictureBox.Location = new Point(x, y);
+        var scrollPosition = scrollPanel.AutoScrollPosition;
+        pictureBox.Location = new Point(x + scrollPosition.X, y + scrollPosition.Y);
     }
 
     private void TrackToolGroupHover(ToolStrip toolStrip, ToolStripItem mainButton, ToolStripItem dropdownButton)
