@@ -66,8 +66,10 @@ public sealed class SettingsStoreTests : IDisposable
 
         var settings = store.Load();
 
-        Assert.Equal(CaptureAction.SaveToDiskOnly, settings.CaptureAction);
-        Assert.Equal(CaptureMode.AllScreens, settings.CaptureMode);
+        Assert.Equal(CaptureAction.ClipboardOnly, settings.CaptureAction);
+        Assert.Equal(NotificationClickAction.OpenEditor, settings.NotificationClickAction);
+        Assert.Equal(CaptureMode.SelectArea, settings.CaptureMode);
+        Assert.False(settings.ShowToolLabels);
         Assert.True(settings.HotkeyCtrl);
         Assert.True(settings.HotkeyShift);
     }

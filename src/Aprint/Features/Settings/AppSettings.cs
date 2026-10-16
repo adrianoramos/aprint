@@ -18,11 +18,11 @@ public sealed class AppSettings
 
     public bool ShowNotificationAfterCapture { get; set; } = true;
 
-    public CaptureAction CaptureAction { get; set; } = CaptureAction.SaveToDiskOnly;
+    public CaptureAction CaptureAction { get; set; } = CaptureAction.ClipboardOnly;
 
-    public NotificationClickAction NotificationClickAction { get; set; } = NotificationClickAction.None;
+    public NotificationClickAction NotificationClickAction { get; set; } = NotificationClickAction.OpenEditor;
 
-    public CaptureMode CaptureMode { get; set; } = CaptureMode.AllScreens;
+    public CaptureMode CaptureMode { get; set; } = CaptureMode.SelectArea;
 
     public OutsideCaptureClickAction OutsideCaptureClickAction { get; set; } = OutsideCaptureClickAction.SelectNewArea;
 
@@ -37,7 +37,7 @@ public sealed class AppSettings
 
     public EditTool LastCaptureTool { get; set; } = EditTool.Freehand;
 
-    public bool ShowToolLabels { get; set; } = true;
+    public bool ShowToolLabels { get; set; } = false;
 
     public bool SaveEditorImageWithoutPrompt { get; set; }
 
