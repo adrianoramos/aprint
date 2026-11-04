@@ -66,6 +66,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         };
         _notifyIcon.DoubleClick += (_, _) => CaptureScreenshot();
         _notifyIcon.BalloonTipClicked += (_, _) => HandleBalloonTipClicked();
+        _notifyIcon.BalloonTipClosed += (_, _) =>
+        {
+            _lastCapturedBitmap?.Dispose();
+            _lastCapturedBitmap = null;
+        };
 
         ApplyLocalizedTexts();
 
