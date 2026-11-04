@@ -8,6 +8,51 @@ namespace Aprint.Tests.Capture;
 public sealed class RegionSelectorFormTests
 {
     [Theory]
+    [InlineData("_screenSelectionBar")]
+    [InlineData("_actionBar")]
+    public void FloatingBarCornersAreSymmetric(string fieldName)
+    {
+        using var bitmap = new Bitmap(100, 100);
+        using var selector = new RegionSelectorForm(bitmap);
+        var bar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        using var host = new Form
+        {
+            BackColor = Color.Magenta,
+            ClientSize = new Size(1000, 100),
+            FormBorderStyle = FormBorderStyle.None,
+            ShowInTaskbar = false,
+        };
+        host.Controls.Add(bar);
+        bar.Visible = true;
+        bar.Location = new Point(10, 10);
+        host.Show();
+        using var rendered = new Bitmap(host.ClientSize.Width, host.ClientSize.Height);
+        host.DrawToBitmap(rendered, host.ClientRectangle);
+        Assert.NotNull(bar.Region);
+
+        for (var cornerOffset = 0; cornerOffset < 4; cornerOffset++)
+        {
+            for (var row = 0; row < bar.Height; row++)
+            {
+                var leftPixel = rendered.GetPixel(bar.Left + cornerOffset, bar.Top + row);
+                var rightPixel = rendered.GetPixel(bar.Right - 1 - cornerOffset, bar.Top + row);
+                Assert.Equal(leftPixel, rightPixel);
+                Assert.Equal(leftPixel, rendered.GetPixel(bar.Left + cornerOffset, bar.Bottom - 1 - row));
+                Assert.Equal(bar.Region.IsVisible(cornerOffset, row),
+                    bar.Region.IsVisible(bar.Width - 1 - cornerOffset, row));
+                Assert.Equal(bar.Region.IsVisible(cornerOffset, row),
+                    bar.Region.IsVisible(cornerOffset, bar.Height - 1 - row));
+            }
+        }
+
+        Assert.False(bar.Region.IsVisible(0, 0));
+        Assert.True(bar.Region.IsVisible(0, bar.Height / 2));
+            Assert.Equal(bar.BackColor.ToArgb(), rendered.GetPixel(bar.Left, bar.Top + bar.Height / 2).ToArgb());
+    }
+
+    [Theory]
     [InlineData(EditTool.Freehand)]
     [InlineData(EditTool.Counter)]
     [InlineData(EditTool.Highlight)]
