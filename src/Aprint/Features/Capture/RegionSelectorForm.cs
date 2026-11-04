@@ -2902,7 +2902,7 @@ public sealed class RegionSelectorForm : Form
             Math.Max(start.Y, end.Y) + 1);
 
     private void SelectAnnotationTool(AnnotationTool tool, ToolStripButton drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon)
-        => SelectAnnotationTool(tool, drawingButton, selectedMenuItem, selectedIcon, toggleIfAlreadyActive: true);
+        => SelectAnnotationTool(tool, drawingButton, selectedMenuItem, selectedIcon, toggleIfAlreadyActive: false);
 
     private void SelectAnnotationTool(AnnotationTool tool, ToolStripButton drawingButton, ToolStripMenuItem? selectedMenuItem, Image selectedIcon, bool toggleIfAlreadyActive)
     {
@@ -2940,7 +2940,7 @@ public sealed class RegionSelectorForm : Form
     }
 
     private void ToggleStandaloneTool(AnnotationTool tool)
-        => SetStandaloneTool(tool, toggleIfAlreadyActive: true);
+        => SetStandaloneTool(tool, toggleIfAlreadyActive: false);
 
     private void SetStandaloneTool(AnnotationTool tool, bool toggleIfAlreadyActive)
     {
@@ -3063,14 +3063,12 @@ public sealed class RegionSelectorForm : Form
 
         if (_annotationTool == _selectedAnnotationTool)
         {
-            _annotationTool = AnnotationTool.None;
+            return;
         }
-        else
-        {
-            _annotationTool = _selectedAnnotationTool;
-            _isMaskModeActive = false;
-            UpdateMaskButtonAppearance();
-        }
+
+        _annotationTool = _selectedAnnotationTool;
+        _isMaskModeActive = false;
+        UpdateMaskButtonAppearance();
 
         Cursor = GetCursorForLocation(PointToClient(Cursor.Position));
         UpdateDrawingButtonAppearance();

@@ -94,6 +94,45 @@ public sealed class RegionSelectorFormTests
         Assert.Equal(EditTool.Freehand, selector.LastUsedTool);
     }
 
+    [Theory]
+    [InlineData(EditTool.Circle, "_drawingButton", "Circle")]
+    [InlineData(EditTool.Highlight, "_highlightButton", "Highlight")]
+    [InlineData(EditTool.Counter, "_counterButton", "Counter")]
+    [InlineData(EditTool.Text, "_textButton", "Text")]
+    public void ClickingActiveToolButtonKeepsToolActive(EditTool tool, string buttonFieldName, string expectedActiveTool)
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap, lastCaptureTool: tool);
+        var button = (ToolStripButton)typeof(RegionSelectorForm)
+            .GetField(buttonFieldName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var activeToolField = typeof(RegionSelectorForm)
+            .GetField("_annotationTool", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        button.PerformClick();
+
+        Assert.Equal(expectedActiveTool, activeToolField.GetValue(selector)!.ToString());
+    }
+
+    [Fact]
+    public void SelectingActiveDrawingMenuItemKeepsToolActive()
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var selector = new RegionSelectorForm(bitmap, lastCaptureTool: EditTool.Circle);
+        var drawingDropdown = (ToolStripDropDownButton)typeof(RegionSelectorForm)
+            .GetField("_drawingDropdownButton", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var circleMenuItem = Assert.Single(
+            drawingDropdown.DropDownItems.OfType<ToolStripMenuItem>(),
+            item => item.Tag?.ToString() == "Circle");
+
+        circleMenuItem.PerformClick();
+
+        Assert.Equal("Circle", typeof(RegionSelectorForm)
+            .GetField("_annotationTool", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!.ToString());
+    }
+
     [Fact]
     public void SelectionDrawingEndpointUsesShiftConstraintOnlyWhenPressed()
     {
