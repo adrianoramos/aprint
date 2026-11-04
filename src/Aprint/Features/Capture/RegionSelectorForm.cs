@@ -56,7 +56,64 @@ public sealed class RegionSelectorForm : Form
         }
     }
 
-    private sealed class ActionBarRenderer() : ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable())
+    private sealed class FloatingBar : ToolStrip
+    {
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateRoundedRegion();
+        }
+
+        protected override void OnDpiChangedAfterParent(EventArgs e)
+        {
+            base.OnDpiChangedAfterParent(e);
+            UpdateRoundedRegion();
+        }
+
+        private void UpdateRoundedRegion()
+        {
+            if (Width <= 0 || Height <= 0)
+            {
+                return;
+            }
+
+            var radius = Math.Min(LogicalToDeviceUnits(4), Math.Min(Width, Height) / 2);
+            var roundedRegion = new Region(ClientRectangle);
+            for (var row = 0; row < radius; row++)
+            {
+                var verticalDistance = radius - row - 0.5;
+                var inset = (int)Math.Ceiling(radius - Math.Sqrt(radius * radius - verticalDistance * verticalDistance) - 0.5);
+                roundedRegion.Exclude(new Rectangle(0, row, inset, 1));
+                roundedRegion.Exclude(new Rectangle(Width - inset, row, inset, 1));
+                roundedRegion.Exclude(new Rectangle(0, Height - 1 - row, inset, 1));
+                roundedRegion.Exclude(new Rectangle(Width - inset, Height - 1 - row, inset, 1));
+            }
+
+            var previousRegion = Region;
+            Region = roundedRegion;
+            previousRegion?.Dispose();
+        }
+    }
+
+    private class FloatingBarRenderer : ToolStripProfessionalRenderer
+    {
+        public FloatingBarRenderer() : base(ToolStripColorPalette.CreateColorTable())
+        {
+            RoundedEdges = false;
+        }
+
+        protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+        {
+            using var brush = new SolidBrush(ToolStripColorPalette.BarBackground);
+            e.Graphics.FillRectangle(brush, e.ToolStrip.ClientRectangle);
+        }
+
+        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+        {
+        }
+    }
+
+    private sealed class ActionBarRenderer() : FloatingBarRenderer
     {
         private ToolStripItem? _hoveredMainButton;
         private ToolStripItem? _hoveredDropdownButton;
@@ -1112,7 +1169,7 @@ public sealed class RegionSelectorForm : Form
 
     private ToolStrip CreateScreenSelectionBar(Rectangle[] screens)
     {
-        var toolStrip = new ToolStrip
+        var toolStrip = new FloatingBar
         {
             BackColor = ToolStripColorPalette.BarBackground,
             AutoSize = true,
@@ -1121,7 +1178,7 @@ public sealed class RegionSelectorForm : Form
             Dock = DockStyle.None,
             GripStyle = ToolStripGripStyle.Hidden,
             Padding = new Padding(6),
-            Renderer = new ToolStripProfessionalRenderer(ToolStripColorPalette.CreateColorTable()),
+            Renderer = new FloatingBarRenderer(),
             ShowItemToolTips = true,
         };
 
@@ -1222,7 +1279,7 @@ public sealed class RegionSelectorForm : Form
     {
         var renderer = new ActionBarRenderer();
         _actionBarRenderer = renderer;
-        var toolStrip = new ToolStrip
+        var toolStrip = new FloatingBar
         {
             BackColor = ToolStripColorPalette.BarBackground,
             AutoSize = true,
