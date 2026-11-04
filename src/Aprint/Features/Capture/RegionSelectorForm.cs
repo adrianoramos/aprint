@@ -598,8 +598,10 @@ public sealed class RegionSelectorForm : Form
 
                 if (_annotationTool == AnnotationTool.Counter && _selection.Contains(e.Location))
                 {
-                    SaveUndoState();
-                    AddCounterMarker(ClampToSelection(e.Location));
+                    var location = ClampToSelection(e.Location);
+                    var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue, _selection, _counterSize);
+                    SaveUndoRegions(GetPendingAnnotationRegions().Append(marker.Bounds));
+                    AddCounterMarker(location);
                     CommitAnnotations();
                     Invalidate(_selection);
                     return;
@@ -921,7 +923,7 @@ public sealed class RegionSelectorForm : Form
             Capture = false;
             if (area.Width > 0 && area.Height > 0)
             {
-                SaveUndoState();
+                SaveUndoRegion(area);
                 ImageEditingService.ApplyMask(_background, area, _maskMode, _maskColor, _maskPixelSize);
                 Invalidate(area);
             }
@@ -2517,7 +2519,7 @@ public sealed class RegionSelectorForm : Form
             _isDrawingLine || _isDrawingRectangle || _isDrawingCircle;
         if (hasAnnotations)
         {
-            SaveUndoState();
+            SaveUndoRegions(GetPendingAnnotationRegions());
         }
 
         CommitAnnotations();
@@ -2525,9 +2527,84 @@ public sealed class RegionSelectorForm : Form
         Invalidate(_selection);
     }
 
-    private void SaveUndoState()
+    private IEnumerable<Rectangle> GetPendingAnnotationRegions()
     {
-        _editHistory.Capture(_background, _nextCounterValue);
+        var regions = new List<Rectangle>();
+        foreach (var stroke in _freehandStrokes)
+        {
+            AddPointBounds(regions, stroke, ImageEditingService.AnnotationPenWidth + 2);
+        }
+
+        foreach (var stroke in _highlightStrokes)
+        {
+            AddPointBounds(regions, stroke, (_highlightWidth / 2) + 2);
+        }
+
+        foreach (var annotation in _lineAnnotations)
+        {
+            regions.Add(InflateAnnotationBounds(
+                ImageEditingService.CreateSelectionRectangle(annotation.Start, annotation.End)));
+        }
+
+        foreach (var marker in _counterMarkers)
+        {
+            regions.Add(Rectangle.Inflate(marker.Bounds, 2, 2));
+        }
+
+        foreach (var bounds in _rectangles)
+        {
+            regions.Add(InflateAnnotationBounds(bounds));
+        }
+
+        foreach (var bounds in _circles)
+        {
+            regions.Add(InflateAnnotationBounds(bounds));
+        }
+
+        if (_isDrawingLine)
+        {
+            regions.Add(InflateAnnotationBounds(ImageEditingService.CreateSelectionRectangle(_lineStart, _lineEnd)));
+        }
+
+        if (_isDrawingRectangle)
+        {
+            regions.Add(InflateAnnotationBounds(ImageEditingService.CreateSelectionRectangle(_rectangleStart, _rectangleEnd)));
+        }
+
+        if (_isDrawingCircle)
+        {
+            regions.Add(InflateAnnotationBounds(ImageEditingService.CreateSelectionRectangle(_circleStart, _circleEnd)));
+        }
+
+        return regions;
+    }
+
+    private static void AddPointBounds(List<Rectangle> regions, IReadOnlyList<Point> points, int padding)
+    {
+        if (points.Count == 0)
+        {
+            return;
+        }
+
+        var left = points.Min(point => point.X);
+        var top = points.Min(point => point.Y);
+        var right = points.Max(point => point.X) + 1;
+        var bottom = points.Max(point => point.Y) + 1;
+        regions.Add(Rectangle.Inflate(Rectangle.FromLTRB(left, top, right, bottom), padding, padding));
+    }
+
+    private static Rectangle InflateAnnotationBounds(Rectangle bounds) =>
+        Rectangle.Inflate(bounds, ImageEditingService.MaximumAnnotationPenWidth + 4, ImageEditingService.MaximumAnnotationPenWidth + 4);
+
+    private void SaveUndoRegion(Rectangle changedRegion)
+    {
+        _editHistory.CaptureRegion(_background, changedRegion, _nextCounterValue);
+        UpdateHistoryButtons();
+    }
+
+    private void SaveUndoRegions(IEnumerable<Rectangle> changedRegions)
+    {
+        _editHistory.CaptureRegions(_background, changedRegions, _nextCounterValue);
         UpdateHistoryButtons();
     }
 
@@ -2540,8 +2617,11 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        using var bitmap = previousState.Value.Bitmap;
-        RestoreBackground(bitmap);
+        if (!ReferenceEquals(previousState.Value.Bitmap, _background))
+        {
+            using var bitmap = previousState.Value.Bitmap;
+            RestoreBackground(bitmap);
+        }
         _nextCounterValue = previousState.Value.NextCounterValue;
         UpdateHistoryButtons();
         Invalidate(_selection);
@@ -2556,8 +2636,11 @@ public sealed class RegionSelectorForm : Form
             return;
         }
 
-        using var bitmap = nextState.Value.Bitmap;
-        RestoreBackground(bitmap);
+        if (!ReferenceEquals(nextState.Value.Bitmap, _background))
+        {
+            using var bitmap = nextState.Value.Bitmap;
+            RestoreBackground(bitmap);
+        }
         _nextCounterValue = nextState.Value.NextCounterValue;
         UpdateHistoryButtons();
         Invalidate(_selection);
@@ -2634,7 +2717,7 @@ public sealed class RegionSelectorForm : Form
         _isTextSelected = false;
         if (_textBuffer.Length > 0)
         {
-            SaveUndoState();
+            SaveUndoRegion(_textBounds);
             ImageEditingService.ApplyText(_background, _textBounds, _textBuffer, _textColor, _textFont);
         }
 
@@ -3282,7 +3365,7 @@ public sealed class RegionSelectorForm : Form
         if (regions.Length > 0)
         {
             CommitAnnotationsAndRecordUndo();
-            SaveUndoState();
+            SaveUndoRegions(regions.Select(region => region.Bounds));
             using var graphics = Graphics.FromImage(_background);
             graphics.CompositingMode = CompositingMode.SourceCopy;
             foreach (var region in regions)

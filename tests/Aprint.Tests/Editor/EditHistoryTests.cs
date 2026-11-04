@@ -72,6 +72,32 @@ public sealed class EditHistoryTests
     }
 
     [Fact]
+    public void RegionSnapshotUsesOnlyChangedPixelsAndUndoesInPlace()
+    {
+        using var bitmap = new Bitmap(100, 100, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        bitmap.SetPixel(20, 30, Color.White);
+        var budget = new BitmapSnapshotBudget(maximumBytes: 1024);
+        using var history = new EditHistory(bitmap, memoryBudget: budget);
+        var changedRegion = new Rectangle(20, 30, 5, 7);
+
+        history.CaptureRegion(bitmap, changedRegion, nextCounterValue: 1);
+        bitmap.SetPixel(20, 30, Color.Red);
+
+        Assert.Equal(5 * 7 * 4, budget.RetainedBytes);
+        var undone = history.Undo(bitmap, currentNextCounterValue: 2);
+        Assert.NotNull(undone);
+        Assert.Same(bitmap, undone.Value.Bitmap);
+        Assert.Equal(1, undone.Value.NextCounterValue);
+        Assert.Equal(Color.White.ToArgb(), bitmap.GetPixel(20, 30).ToArgb());
+
+        var redone = history.Redo(bitmap, currentNextCounterValue: undone.Value.NextCounterValue);
+        Assert.NotNull(redone);
+        Assert.Same(bitmap, redone.Value.Bitmap);
+        Assert.Equal(2, redone.Value.NextCounterValue);
+        Assert.Equal(Color.Red.ToArgb(), bitmap.GetPixel(20, 30).ToArgb());
+    }
+
+    [Fact]
     public void UndoAndRedoRestoreDimensionsAfterCrop()
     {
         using var original = new Bitmap(4, 3);

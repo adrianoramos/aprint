@@ -202,6 +202,7 @@ public sealed class EditorForm : Form
     private CancellationTokenSource? _textRegionDetectionCancellation;
     private bool _textRegionDetectionReady;
     private bool _textRegionDetectionInProgress;
+    private int _isSaving;
     private bool _isAutomaticMaskSelectionActive;
     private bool _isAutomaticMaskRevealActive;
     private string _initialFolder;
@@ -1567,6 +1568,18 @@ public sealed class EditorForm : Form
         UpdateHistoryButtons();
     }
 
+    private void SaveUndoRegion(Rectangle changedRegion)
+    {
+        _editHistory.CaptureRegion(_workingBitmap, changedRegion, _nextCounterValue);
+        UpdateHistoryButtons();
+    }
+
+    private void SaveUndoRegions(IEnumerable<Rectangle> changedRegions)
+    {
+        _editHistory.CaptureRegions(_workingBitmap, changedRegions, _nextCounterValue);
+        UpdateHistoryButtons();
+    }
+
     private void UndoLastEdit()
     {
         var replacement = _editHistory.Undo(_workingBitmap, _nextCounterValue);
@@ -1580,7 +1593,10 @@ public sealed class EditorForm : Form
         var current = _workingBitmap;
         _workingBitmap = replacement.Value.Bitmap;
         _nextCounterValue = replacement.Value.NextCounterValue;
-        current.Dispose();
+        if (!ReferenceEquals(current, _workingBitmap))
+        {
+            current.Dispose();
+        }
 
         _pictureBox.Image = _workingBitmap;
         if (_currentTool == EditTool.Crop)
@@ -1608,7 +1624,10 @@ public sealed class EditorForm : Form
         var current = _workingBitmap;
         _workingBitmap = replacement.Value.Bitmap;
         _nextCounterValue = replacement.Value.NextCounterValue;
-        current.Dispose();
+        if (!ReferenceEquals(current, _workingBitmap))
+        {
+            current.Dispose();
+        }
 
         _pictureBox.Image = _workingBitmap;
         if (_currentTool == EditTool.Crop)
@@ -1685,8 +1704,6 @@ public sealed class EditorForm : Form
             _highlighterPoints.Clear();
             _highlighterPoints.Add(e.Location);
         }
-
-        SaveUndoState();
 
         if (_currentTool == EditTool.Counter)
         {
@@ -1845,6 +1862,7 @@ public sealed class EditorForm : Form
                 _highlighterPoints.Add(e.Location);
             }
 
+            SaveUndoRegion(CreateLineDirtyRectangle(_highlighterPoints, _highlightWidth + 2));
             ImageEditingService.ApplyHighlighter(_workingBitmap, _highlighterPoints, _selectedHighlightColor, _highlightWidth);
             _highlighterPoints.Clear();
             _pictureBox.Image = _workingBitmap;
@@ -1875,6 +1893,10 @@ public sealed class EditorForm : Form
             var end = shiftPressed
                 ? ImageEditingService.ConstrainDrawingEndpoint(_dragStart, e.Location, EditTool.Freehand)
                 : e.Location;
+            var finalDirtyRect = shiftPressed
+                ? CreateLineDirtyRectangle(_dragStart, end, _lineWidth + 2)
+                : CreateLineDirtyRectangle(_freehandPoints, _lineWidth + 2);
+            SaveUndoRegion(finalDirtyRect);
             if (shiftPressed)
             {
                 using var graphics = Graphics.FromImage(_workingBitmap);
@@ -1891,9 +1913,6 @@ public sealed class EditorForm : Form
                 ImageEditingService.DrawFreehandStroke(graphics, _freehandPoints, _selectedColor, _lineWidth);
             }
 
-            var finalDirtyRect = shiftPressed
-                ? CreateLineDirtyRectangle(_dragStart, end, _lineWidth + 2)
-                : CreateLineDirtyRectangle(_lastFreehandPoint, e.Location, _lineWidth + 2);
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? finalDirtyRect
                 : Rectangle.Union(_lastPreviewDirtyRect, finalDirtyRect);
@@ -1918,6 +1937,7 @@ public sealed class EditorForm : Form
         {
             var end = GetDrawingEndpoint(e.Location);
             var dirtyRect = CreateToolDirtyRectangle(_dragStart, end, _currentTool, _lineWidth + 4);
+            SaveUndoRegion(dirtyRect);
             var repaintRegion = _lastPreviewDirtyRect.IsEmpty
                 ? dirtyRect
                 : Rectangle.Union(_lastPreviewDirtyRect, dirtyRect);
@@ -2126,6 +2146,7 @@ public sealed class EditorForm : Form
 
     private void ApplyMaskToSelection(Rectangle area)
     {
+        SaveUndoRegion(area);
         ImageEditingService.ApplyMask(_workingBitmap, area, _maskMode, _selectedMaskColor, _maskPixelSize);
         _pictureBox.Image = _workingBitmap;
         InvalidatePictureBoxRegion(InflateRectangle(area, 2));
@@ -2577,6 +2598,11 @@ public sealed class EditorForm : Form
         _textCaretTimer.Stop();
         _isEditingText = false;
         _isTextSelected = false;
+        if (_textBuffer.Length > 0)
+        {
+            SaveUndoRegion(_textBounds);
+        }
+
         ImageEditingService.ApplyText(_workingBitmap, _textBounds, _textBuffer, _selectedTextColor, _textFont);
         _textBuffer = string.Empty;
         _textCaretVisible = false;
@@ -2598,6 +2624,7 @@ public sealed class EditorForm : Form
     {
         var imageArea = new Rectangle(Point.Empty, _workingBitmap.Size);
         var marker = ImageEditingService.CreateCounterMarker(location, _nextCounterValue, imageArea, _counterSize);
+        SaveUndoRegion(InflateRectangle(marker.Bounds, 2));
 
         using var graphics = Graphics.FromImage(_workingBitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -2708,41 +2735,41 @@ public sealed class EditorForm : Form
 
     private async Task SaveAsAsync()
     {
-        if (_textRegionDetectionInProgress)
-        {
-            return;
-        }
-
-        string destinationPath;
-        if (_saveWithoutPrompt)
-        {
-            destinationPath = _automaticSavePath;
-        }
-        else
-        {
-            using var dialog = new SaveFileDialog
-            {
-                Filter = AppLocalization.Translate("Editor.SaveFilter"),
-                FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-                InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
-            };
-
-            if (dialog.ShowDialog(this) != DialogResult.OK)
-            {
-                return;
-            }
-
-            destinationPath = dialog.FileName;
-        }
-
-        using var saveCopy = CreateProtectedImage();
-        if (saveCopy is null)
+        if (_textRegionDetectionInProgress || Interlocked.CompareExchange(ref _isSaving, 1, 0) != 0)
         {
             return;
         }
 
         try
         {
+            string destinationPath;
+            if (_saveWithoutPrompt)
+            {
+                destinationPath = _automaticSavePath;
+            }
+            else
+            {
+                using var dialog = new SaveFileDialog
+                {
+                    Filter = AppLocalization.Translate("Editor.SaveFilter"),
+                    FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+                    InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
+                };
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                destinationPath = dialog.FileName;
+            }
+
+            using var saveCopy = CreateProtectedImage();
+            if (saveCopy is null)
+            {
+                return;
+            }
+
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
             var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
             {
@@ -2778,6 +2805,10 @@ public sealed class EditorForm : Form
             }
 
             MessageBox.Show(this, ex.Message, AppLocalization.Translate("App.Name"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            Volatile.Write(ref _isSaving, 0);
         }
     }
 
@@ -3215,7 +3246,7 @@ public sealed class EditorForm : Form
         var selectedRegions = _maskRegions.Where(region => region.ShouldMask).ToArray();
         if (selectedRegions.Length > 0)
         {
-            SaveUndoState();
+            SaveUndoRegions(selectedRegions.Select(region => region.Bounds));
             foreach (var region in selectedRegions)
             {
                 ImageEditingService.ApplyMask(_workingBitmap, region.Bounds, _maskMode, _selectedMaskColor, _maskPixelSize);

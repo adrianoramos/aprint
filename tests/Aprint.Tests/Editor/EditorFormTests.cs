@@ -91,6 +91,23 @@ public sealed class EditorFormTests
         Assert.False(redoButton.Enabled);
     }
 
+    [Fact]
+    public async Task SaveAsRejectsAConcurrentRequest()
+    {
+        using var bitmap = new Bitmap(2, 2);
+        using var editor = new EditorForm(bitmap, string.Empty, saveWithoutPrompt: true);
+        var savingField = typeof(EditorForm).GetField("_isSaving", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        savingField.SetValue(editor, 1);
+        var savedCount = 0;
+        editor.Saved += _ => savedCount++;
+        var saveMethod = typeof(EditorForm).GetMethod("SaveAsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        await (Task)saveMethod.Invoke(editor, null)!;
+
+        Assert.Equal(0, savedCount);
+        Assert.Equal(1, (int)savingField.GetValue(editor)!);
+    }
+
     [Theory]
     [InlineData((EditTool)int.MaxValue, EditTool.Freehand)]
     [InlineData(EditTool.Line, EditTool.Line)]
