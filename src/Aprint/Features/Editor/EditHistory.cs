@@ -126,6 +126,26 @@ public sealed class EditHistory : IDisposable
         TrimToHistoryLimit();
     }
 
+    public void CaptureRegion(Bitmap bitmap, Rectangle changedRegion, int nextCounterValue) =>
+        CaptureRegions(bitmap, [changedRegion], nextCounterValue);
+
+    public void CaptureRegions(Bitmap bitmap, IEnumerable<Rectangle> changedRegions, int nextCounterValue)
+    {
+        var regions = NormalizeRegions(bitmap, changedRegions);
+        if (regions.Count == 0)
+        {
+            return;
+        }
+
+        DisposeAll(_redoStack);
+        if (!PushRegionSnapshots(_undoStack, bitmap, regions, nextCounterValue))
+        {
+            DisposeAll(_undoStack);
+        }
+
+        TrimToHistoryLimit();
+    }
+
     public (Bitmap Bitmap, int NextCounterValue)? Undo(Bitmap currentBitmap, int currentNextCounterValue)
     {
         if (_undoStack.Count == 0)
@@ -134,9 +154,19 @@ public sealed class EditHistory : IDisposable
         }
 
         var snapshot = TakeSnapshot(_undoStack);
-        PushSnapshot(_redoStack, currentBitmap, currentNextCounterValue);
+        if (snapshot.FullBitmap is { } fullBitmap)
+        {
+            PushSnapshot(_redoStack, currentBitmap, currentNextCounterValue);
+            TrimToHistoryLimit();
+            return (fullBitmap, snapshot.NextCounterValue);
+        }
+
+        var regions = snapshot.RegionSnapshots!;
+        PushRegionSnapshots(_redoStack, currentBitmap, regions.Select(region => region.Bounds), currentNextCounterValue);
+        ApplyRegionSnapshots(currentBitmap, regions);
+        DisposeRegionSnapshots(regions);
         TrimToHistoryLimit();
-        return snapshot;
+        return (currentBitmap, snapshot.NextCounterValue);
     }
 
     public (Bitmap Bitmap, int NextCounterValue)? Redo(Bitmap currentBitmap, int currentNextCounterValue)
@@ -147,9 +177,19 @@ public sealed class EditHistory : IDisposable
         }
 
         var snapshot = TakeSnapshot(_redoStack);
-        PushSnapshot(_undoStack, currentBitmap, currentNextCounterValue);
+        if (snapshot.FullBitmap is { } fullBitmap)
+        {
+            PushSnapshot(_undoStack, currentBitmap, currentNextCounterValue);
+            TrimToHistoryLimit();
+            return (fullBitmap, snapshot.NextCounterValue);
+        }
+
+        var regions = snapshot.RegionSnapshots!;
+        PushRegionSnapshots(_undoStack, currentBitmap, regions.Select(region => region.Bounds), currentNextCounterValue);
+        ApplyRegionSnapshots(currentBitmap, regions);
+        DisposeRegionSnapshots(regions);
         TrimToHistoryLimit();
-        return snapshot;
+        return (currentBitmap, snapshot.NextCounterValue);
     }
 
     public void Dispose()
@@ -170,7 +210,7 @@ public sealed class EditHistory : IDisposable
         try
         {
             snapshot = (Bitmap)bitmap.Clone();
-            var entry = new HistoryEntry(this, stack, snapshot, nextCounterValue, memoryBytes);
+            var entry = new HistoryEntry(this, stack, snapshot, null, nextCounterValue, memoryBytes);
             entry.StackNode = stack.AddLast(entry);
             _memoryBudget.Commit(entry);
             snapshot = null;
@@ -181,6 +221,48 @@ public sealed class EditHistory : IDisposable
             if (snapshot is not null)
             {
                 snapshot.Dispose();
+                _memoryBudget.ReleaseReservation(memoryBytes);
+            }
+        }
+    }
+
+    private bool PushRegionSnapshots(
+        LinkedList<HistoryEntry> stack,
+        Bitmap bitmap,
+        IEnumerable<Rectangle> changedRegions,
+        int nextCounterValue)
+    {
+        var regions = NormalizeRegions(bitmap, changedRegions);
+        if (regions.Count == 0)
+        {
+            return false;
+        }
+
+        var memoryBytes = regions.Sum(region => EstimateMemoryBytes(bitmap, region));
+        if (!_memoryBudget.TryReserve(memoryBytes))
+        {
+            return false;
+        }
+
+        var snapshots = new List<RegionSnapshot>(regions.Count);
+        try
+        {
+            foreach (var region in regions)
+            {
+                snapshots.Add(new RegionSnapshot(region, (Bitmap)bitmap.Clone(region, bitmap.PixelFormat)));
+            }
+
+            var entry = new HistoryEntry(this, stack, null, snapshots, nextCounterValue, memoryBytes);
+            entry.StackNode = stack.AddLast(entry);
+            _memoryBudget.Commit(entry);
+            snapshots = [];
+            return true;
+        }
+        finally
+        {
+            if (snapshots.Count > 0)
+            {
+                DisposeRegionSnapshots(snapshots);
                 _memoryBudget.ReleaseReservation(memoryBytes);
             }
         }
@@ -212,21 +294,72 @@ public sealed class EditHistory : IDisposable
 
     private int GetTotalStateCount() => _undoStack.Count + _redoStack.Count;
 
-    private static long EstimateMemoryBytes(Bitmap bitmap)
+    private static long EstimateMemoryBytes(Bitmap bitmap, Rectangle? region = null)
     {
         var bitsPerPixel = Image.GetPixelFormatSize(bitmap.PixelFormat);
         var bytesPerPixel = Math.Max(1, (bitsPerPixel + 7) / 8);
-        return (long)bitmap.Width * bitmap.Height * bytesPerPixel;
+        var size = region?.Size ?? bitmap.Size;
+        return (long)size.Width * size.Height * bytesPerPixel;
     }
 
-    private (Bitmap Bitmap, int NextCounterValue) TakeSnapshot(LinkedList<HistoryEntry> stack)
+    private static List<Rectangle> NormalizeRegions(Bitmap bitmap, IEnumerable<Rectangle> changedRegions)
+    {
+        var bitmapBounds = new Rectangle(Point.Empty, bitmap.Size);
+        var regions = new List<Rectangle>();
+        foreach (var changedRegion in changedRegions)
+        {
+            var region = Rectangle.Intersect(bitmapBounds, changedRegion);
+            if (region.IsEmpty)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < regions.Count;)
+            {
+                if (regions[index].IntersectsWith(region))
+                {
+                    region = Rectangle.Union(region, regions[index]);
+                    regions.RemoveAt(index);
+                    index = 0;
+                }
+                else
+                {
+                    index++;
+                }
+            }
+
+            regions.Add(region);
+        }
+
+        return regions;
+    }
+
+    private static void ApplyRegionSnapshots(Bitmap bitmap, IReadOnlyList<RegionSnapshot> snapshots)
+    {
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+        foreach (var snapshot in snapshots)
+        {
+            graphics.DrawImageUnscaled(snapshot.Bitmap, snapshot.Bounds.Location);
+        }
+    }
+
+    private static void DisposeRegionSnapshots(IEnumerable<RegionSnapshot> snapshots)
+    {
+        foreach (var snapshot in snapshots)
+        {
+            snapshot.Bitmap.Dispose();
+        }
+    }
+
+    private HistoryEntry TakeSnapshot(LinkedList<HistoryEntry> stack)
     {
         var node = stack.Last!;
         var snapshot = node.Value;
         stack.RemoveLast();
         snapshot.StackNode = null;
         _memoryBudget.Release(snapshot);
-        return (snapshot.Bitmap, snapshot.NextCounterValue);
+        return snapshot;
     }
 
     private void DisposeAll(LinkedList<HistoryEntry> stack)
@@ -246,7 +379,7 @@ public sealed class EditHistory : IDisposable
         }
 
         _memoryBudget.Release(entry);
-        entry.Bitmap.Dispose();
+        DisposeEntryBitmaps(entry);
     }
 
     internal void RemoveEvictedSnapshot(HistoryEntry entry)
@@ -257,13 +390,23 @@ public sealed class EditHistory : IDisposable
             entry.StackNode = null;
         }
 
-        entry.Bitmap.Dispose();
+        DisposeEntryBitmaps(entry);
+    }
+
+    private static void DisposeEntryBitmaps(HistoryEntry entry)
+    {
+        entry.FullBitmap?.Dispose();
+        if (entry.RegionSnapshots is not null)
+        {
+            DisposeRegionSnapshots(entry.RegionSnapshots);
+        }
     }
 
     internal sealed class HistoryEntry(
         EditHistory owner,
         LinkedList<HistoryEntry> stack,
-        Bitmap bitmap,
+        Bitmap? fullBitmap,
+        List<RegionSnapshot>? regionSnapshots,
         int nextCounterValue,
         long memoryBytes)
     {
@@ -271,7 +414,9 @@ public sealed class EditHistory : IDisposable
 
         public LinkedList<HistoryEntry> Stack { get; } = stack;
 
-        public Bitmap Bitmap { get; } = bitmap;
+        public Bitmap? FullBitmap { get; } = fullBitmap;
+
+        public List<RegionSnapshot>? RegionSnapshots { get; } = regionSnapshots;
 
         public int NextCounterValue { get; } = nextCounterValue;
 
@@ -281,4 +426,6 @@ public sealed class EditHistory : IDisposable
 
         public LinkedListNode<HistoryEntry>? BudgetNode { get; set; }
     }
+
+    internal sealed record RegionSnapshot(Rectangle Bounds, Bitmap Bitmap);
 }
