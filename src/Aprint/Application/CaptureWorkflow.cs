@@ -67,7 +67,10 @@ public sealed class CaptureWorkflow
             {
                 if (regionAction == RegionSelectionAction.Save && !settings.SaveEditorImageWithoutPrompt)
                 {
-                    filePath = await ScreenshotService.SaveToDiskWithPromptAsync(bitmap, settings.SaveFolder);
+                    filePath = await ScreenshotService.SaveToDiskWithPromptAsync(
+                        bitmap,
+                        settings.SaveFolder,
+                        settings.DefaultScreenshotFormat);
                     if (filePath is null)
                     {
                         return null;
@@ -75,7 +78,10 @@ public sealed class CaptureWorkflow
                 }
                 else
                 {
-                    filePath = await ScreenshotService.SaveToDiskAsync(bitmap, settings.SaveFolder);
+                    filePath = await ScreenshotService.SaveToDiskAsync(
+                        bitmap,
+                        settings.SaveFolder,
+                        settings.DefaultScreenshotFormat);
                 }
             }
 

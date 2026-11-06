@@ -18,6 +18,7 @@ public sealed class SettingsStoreTests : IDisposable
             SaveFolder = @"C:\Capturas",
             ShowNotificationAfterCapture = false,
             CaptureAction = CaptureAction.Both,
+            DefaultScreenshotFormat = ScreenshotFileFormat.Jpeg,
             NotificationClickAction = NotificationClickAction.OpenEditor,
             CaptureMode = CaptureMode.SelectArea,
             OutsideCaptureClickAction = OutsideCaptureClickAction.ExitCaptureMode,
@@ -69,6 +70,7 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(CaptureAction.ClipboardOnly, settings.CaptureAction);
         Assert.Equal(NotificationClickAction.OpenEditor, settings.NotificationClickAction);
         Assert.Equal(CaptureMode.SelectArea, settings.CaptureMode);
+        Assert.Equal(ScreenshotFileFormat.Png, settings.DefaultScreenshotFormat);
         Assert.False(settings.ShowToolLabels);
         Assert.True(settings.HotkeyCtrl);
         Assert.True(settings.HotkeyShift);

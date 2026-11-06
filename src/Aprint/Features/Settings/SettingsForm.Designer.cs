@@ -41,6 +41,8 @@ partial class SettingsForm
     private Label lblSavePath = null!;
     private TextBox txtSaveFolder = null!;
     private Button btnBrowse = null!;
+    private Label lblDefaultScreenshotFormat = null!;
+    private ComboBox cmbDefaultScreenshotFormat = null!;
     private Label lblDefaultEditorTool = null!;
 
     protected override void Dispose(bool disposing)
@@ -80,6 +82,8 @@ partial class SettingsForm
         lblSavePath = new Label();
         txtSaveFolder = new TextBox();
         btnBrowse = new Button();
+        lblDefaultScreenshotFormat = new Label();
+        cmbDefaultScreenshotFormat = new ComboBox();
         tabEditor = new TabPage();
         chkOpenEditor = new CheckBox();
         chkCloseEditorOnCopyOrSave = new CheckBox();
@@ -109,7 +113,7 @@ partial class SettingsForm
         tabSettings.Location = new Point(12, 12);
         tabSettings.Name = "tabSettings";
         tabSettings.SelectedIndex = 0;
-        tabSettings.Size = new Size(436, 300);
+        tabSettings.Size = new Size(436, 332);
         tabSettings.TabIndex = 0;
         // 
         // tabGeneral
@@ -125,7 +129,7 @@ partial class SettingsForm
         tabGeneral.Location = new Point(4, 24);
         tabGeneral.Name = "tabGeneral";
         tabGeneral.Padding = new Padding(3);
-        tabGeneral.Size = new Size(428, 272);
+        tabGeneral.Size = new Size(428, 304);
         tabGeneral.TabIndex = 0;
         tabGeneral.Text = "Geral";
         tabGeneral.UseVisualStyleBackColor = true;
@@ -204,7 +208,7 @@ partial class SettingsForm
         tabHotkey.Location = new Point(4, 24);
         tabHotkey.Name = "tabHotkey";
         tabHotkey.Padding = new Padding(3);
-        tabHotkey.Size = new Size(428, 272);
+        tabHotkey.Size = new Size(428, 304);
         tabHotkey.TabIndex = 1;
         tabHotkey.Text = "Atalho";
         tabHotkey.UseVisualStyleBackColor = true;
@@ -274,10 +278,12 @@ partial class SettingsForm
         tabCapture.Controls.Add(lblSavePath);
         tabCapture.Controls.Add(txtSaveFolder);
         tabCapture.Controls.Add(btnBrowse);
+        tabCapture.Controls.Add(lblDefaultScreenshotFormat);
+        tabCapture.Controls.Add(cmbDefaultScreenshotFormat);
         tabCapture.Location = new Point(4, 24);
         tabCapture.Name = "tabCapture";
         tabCapture.Padding = new Padding(3);
-        tabCapture.Size = new Size(428, 272);
+        tabCapture.Size = new Size(428, 304);
         tabCapture.TabIndex = 2;
         tabCapture.Text = "Captura";
         tabCapture.UseVisualStyleBackColor = true;
@@ -360,6 +366,24 @@ partial class SettingsForm
         btnBrowse.TabIndex = 14;
         btnBrowse.Text = "&Procurar...";
         btnBrowse.Click += btnBrowse_Click;
+        //
+        // lblDefaultScreenshotFormat
+        //
+        lblDefaultScreenshotFormat.AutoSize = true;
+        lblDefaultScreenshotFormat.Location = new Point(15, 232);
+        lblDefaultScreenshotFormat.Name = "lblDefaultScreenshotFormat";
+        lblDefaultScreenshotFormat.Size = new Size(152, 15);
+        lblDefaultScreenshotFormat.TabIndex = 15;
+        lblDefaultScreenshotFormat.Text = "Formato padrão da imagem:";
+        //
+        // cmbDefaultScreenshotFormat
+        //
+        cmbDefaultScreenshotFormat.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbDefaultScreenshotFormat.FormattingEnabled = true;
+        cmbDefaultScreenshotFormat.Location = new Point(15, 251);
+        cmbDefaultScreenshotFormat.Name = "cmbDefaultScreenshotFormat";
+        cmbDefaultScreenshotFormat.Size = new Size(398, 23);
+        cmbDefaultScreenshotFormat.TabIndex = 16;
         // 
         // tabEditor
         // 
@@ -375,7 +399,7 @@ partial class SettingsForm
         tabEditor.Location = new Point(4, 24);
         tabEditor.Name = "tabEditor";
         tabEditor.Padding = new Padding(3);
-        tabEditor.Size = new Size(428, 272);
+        tabEditor.Size = new Size(428, 304);
         tabEditor.TabIndex = 3;
         tabEditor.Text = "Editor";
         tabEditor.UseVisualStyleBackColor = true;
@@ -473,7 +497,7 @@ partial class SettingsForm
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(280, 324);
+        btnSave.Location = new Point(280, 356);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -483,7 +507,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 324);
+        btnCancel.Location = new Point(368, 356);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -496,7 +520,7 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(460, 364);
+        ClientSize = new Size(460, 396);
         Controls.Add(tabSettings);
         Controls.Add(btnSave);
         Controls.Add(btnCancel);

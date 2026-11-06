@@ -282,6 +282,18 @@
   <data name="Settings.SavePathLabel" xml:space="preserve">
     <value>Save files to folder:</value>
   </data>
+  <data name="Settings.DefaultScreenshotFormat" xml:space="preserve">
+    <value>Default image format:</value>
+  </data>
+  <data name="Settings.ScreenshotFormatPng" xml:space="preserve">
+    <value>PNG image</value>
+  </data>
+  <data name="Settings.ScreenshotFormatJpeg" xml:space="preserve">
+    <value>JPEG image</value>
+  </data>
+  <data name="Settings.ScreenshotFormatBmp" xml:space="preserve">
+    <value>BMP image</value>
+  </data>
   <data name="Settings.Browse" xml:space="preserve">
     <value>&amp;Browse...</value>
   </data>

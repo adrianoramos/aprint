@@ -20,6 +20,8 @@ public sealed class AppSettings
 
     public CaptureAction CaptureAction { get; set; } = CaptureAction.ClipboardOnly;
 
+    public ScreenshotFileFormat DefaultScreenshotFormat { get; set; } = ScreenshotFileFormat.Png;
+
     public NotificationClickAction NotificationClickAction { get; set; } = NotificationClickAction.OpenEditor;
 
     public CaptureMode CaptureMode { get; set; } = CaptureMode.SelectArea;

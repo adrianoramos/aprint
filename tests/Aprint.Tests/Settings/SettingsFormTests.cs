@@ -107,7 +107,39 @@ public sealed class SettingsFormTests
         Assert.Equal(captureMode.Right, generalTab.Controls["cmbNotificationClick"]!.Right);
         Assert.Equal(captureMode.Right, generalTab.Controls["cmbLanguage"]!.Right);
         Assert.Empty(form.Controls.OfType<GroupBox>());
-        Assert.Equal(364, form.ClientSize.Height);
+        Assert.Equal(396, form.ClientSize.Height);
+    }
+
+    [Theory]
+    [InlineData("pt-BR", "Formato padrão da imagem:", "Imagem JPEG")]
+    [InlineData("en-US", "Default image format:", "JPEG image")]
+    [InlineData("es", "Formato de imagen predeterminado:", "Imagen JPEG")]
+    public void DefaultScreenshotFormatIsLocalizedAndSelectedOnCaptureTab(
+        string language,
+        string expectedLabel,
+        string expectedSelection)
+    {
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            using var form = new SettingsForm(new AppSettings { DefaultScreenshotFormat = ScreenshotFileFormat.Jpeg });
+            var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
+            var captureTab = tabControl.TabPages[2];
+            var label = Assert.IsType<Label>(captureTab.Controls["lblDefaultScreenshotFormat"]);
+            var format = Assert.IsType<ComboBox>(captureTab.Controls["cmbDefaultScreenshotFormat"]);
+
+            Assert.Equal(expectedLabel, label.Text);
+            Assert.Equal(3, format.Items.Count);
+            Assert.Equal(1, format.SelectedIndex);
+            Assert.Equal(expectedSelection, format.SelectedItem);
+            Assert.Equal(format.Right, captureTab.Controls["cmbCaptureMode"]!.Right);
+            Assert.True(format.Bottom <= captureTab.ClientSize.Height - 15);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+        }
     }
 
     [Theory]

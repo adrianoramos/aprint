@@ -59,6 +59,10 @@
   <data name="Settings.CaptureSelectArea" xml:space="preserve"><value>Seleccionar área</value></data>
   <data name="Settings.ActionGroup" xml:space="preserve"><value>Después de capturar la pantalla:</value></data>
   <data name="Settings.SavePathLabel" xml:space="preserve"><value>Guardar archivos en la carpeta:</value></data>
+  <data name="Settings.DefaultScreenshotFormat" xml:space="preserve"><value>Formato de imagen predeterminado:</value></data>
+  <data name="Settings.ScreenshotFormatPng" xml:space="preserve"><value>Imagen PNG</value></data>
+  <data name="Settings.ScreenshotFormatJpeg" xml:space="preserve"><value>Imagen JPEG</value></data>
+  <data name="Settings.ScreenshotFormatBmp" xml:space="preserve"><value>Imagen BMP</value></data>
   <data name="Settings.Browse" xml:space="preserve"><value>&amp;Examinar...</value></data>
   <data name="Settings.SaveToDiskOnly" xml:space="preserve"><value>Guardar en el disco</value></data>
   <data name="Settings.ClipboardOnly" xml:space="preserve"><value>Copiar al portapapeles</value></data>
