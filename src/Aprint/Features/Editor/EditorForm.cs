@@ -3054,8 +3054,9 @@ public sealed class EditorForm : Form
 
         try
         {
-            using var source = (Bitmap)_workingBitmap.Clone();
-            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source, cancellation.Token);
+            var sourceSize = _workingBitmap.Size;
+            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(
+                () => (Bitmap)_workingBitmap.Clone(), cancellation.Token);
             if (IsDisposed || generation != _textRegionDetectionGeneration)
             {
                 return;
@@ -3069,7 +3070,7 @@ public sealed class EditorForm : Form
 
             _maskRegions.Clear();
             _maskRegions.AddRange(detectedRegions.Select(region => new MaskRegion(region)));
-            _maskDetectionImageSize = source.Size;
+            _maskDetectionImageSize = sourceSize;
             _textRegionDetectionInProgress = false;
             _textRegionDetectionReady = true;
             _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate(_maskRegions.Count == 0

@@ -3223,8 +3223,8 @@ public sealed class RegionSelectorForm : Form
 
         try
         {
-            using var source = _background.Clone(selection, PixelFormat.Format32bppArgb);
-            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source, cancellation.Token);
+            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(
+                () => _background.Clone(selection, PixelFormat.Format32bppArgb), cancellation.Token);
             if (IsDisposed || generation != _automaticMaskDetectionGeneration)
             {
                 return;
