@@ -63,6 +63,7 @@ SignedUninstaller=yes
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
 Name: "startup"; Description: "Run {#MyAppName} at system startup"; GroupDescription: "Startup Options:"
