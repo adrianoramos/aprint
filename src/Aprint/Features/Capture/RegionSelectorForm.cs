@@ -2,12 +2,25 @@ using Aprint.Features.Settings;
 using Aprint.Features.Editor;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace Aprint.Features.Capture;
 
 /// <summary>Overlay em tela cheia (todas as telas) que permite ao usuário arrastar o mouse para selecionar uma área a capturar.</summary>
 public sealed class RegionSelectorForm : Form
 {
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+
+    [DllImport("user32.dll")]
+    private static extern int GetUpdateRgn(IntPtr window, IntPtr region, [MarshalAs(UnmanagedType.Bool)] bool erase);
+
+    [DllImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DeleteObject(IntPtr handle);
+
+    private Region? _paintUpdateRegion;
+
     private enum AnnotationTool
     {
         None,
@@ -481,15 +494,87 @@ public sealed class RegionSelectorForm : Form
         _actionBar.Visible = false;
     }
 
+    protected override void WndProc(ref Message message)
+    {
+        if (message.Msg != 0x000F || message.WParam != IntPtr.Zero)
+        {
+            base.WndProc(ref message);
+            return;
+        }
+
+        var nativeRegion = CreateRectRgn(0, 0, 0, 0);
+        if (nativeRegion == IntPtr.Zero)
+        {
+            base.WndProc(ref message);
+            return;
+        }
+
+        try
+        {
+            if (GetUpdateRgn(Handle, nativeRegion, false) <= 1)
+            {
+                base.WndProc(ref message);
+                return;
+            }
+
+            using var updateRegion = Region.FromHrgn(nativeRegion);
+            var previousRegion = _paintUpdateRegion;
+            _paintUpdateRegion = updateRegion;
+            try
+            {
+                base.WndProc(ref message);
+            }
+            finally
+            {
+                _paintUpdateRegion = previousRegion;
+            }
+        }
+        finally
+        {
+            DeleteObject(nativeRegion);
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
-        e.Graphics.DrawImageUnscaled(_background, Point.Empty);
-        e.Graphics.FillRectangle(_overlayBrush, ClientRectangle);
+        using var clip = e.Graphics.Clip;
+        clip.Intersect(e.ClipRectangle);
+        if (_paintUpdateRegion is not null)
+        {
+            clip.Intersect(_paintUpdateRegion);
+        }
+
+        using var transform = new Matrix();
+        var imageBounds = new Rectangle(Point.Empty, _background.Size);
+        foreach (var scan in clip.GetRegionScans(transform))
+        {
+            var bounds = Rectangle.Intersect(Rectangle.Ceiling(scan), imageBounds);
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                continue;
+            }
+
+            e.Graphics.DrawImage(_background, bounds, bounds, GraphicsUnit.Pixel);
+            using var outsideSelection = new Region(bounds);
+            if (_selection.Width > 0 && _selection.Height > 0)
+            {
+                outsideSelection.Exclude(_selection);
+            }
+
+            var state = e.Graphics.Save();
+            try
+            {
+                e.Graphics.SetClip(outsideSelection, CombineMode.Intersect);
+                e.Graphics.FillRectangle(_overlayBrush, bounds);
+            }
+            finally
+            {
+                e.Graphics.Restore(state);
+            }
+        }
 
         if (_selection is { Width: > 0, Height: > 0 })
         {
-            // Revela o conteúdo original (sem escurecer) dentro da área selecionada.
-            e.Graphics.DrawImage(_background, _selection, _selection, GraphicsUnit.Pixel);
             DrawFreehandStrokes(e.Graphics);
             DrawHighlightStrokes(e.Graphics);
             DrawLines(e.Graphics);
@@ -798,15 +883,52 @@ public sealed class RegionSelectorForm : Form
                 return;
             }
 
-            var invalidRectangle = Rectangle.Union(_selection, nextSelection);
-            invalidRectangle.Inflate(HandleSize, HandleSize);
+            var previousSelection = _selection;
             _selection = nextSelection;
-            Invalidate(invalidRectangle);
+            using var dirtyRegion = CreateSelectionDirtyRegion(previousSelection, nextSelection);
+            Invalidate(dirtyRegion);
         }
 
         if (!_isSelecting && !_isResizing && !_isMoving)
         {
             Cursor = GetCursorForLocation(e.Location);
+        }
+    }
+
+    private static Region CreateSelectionDirtyRegion(Rectangle previousSelection, Rectangle nextSelection)
+    {
+        var dirtyRegion = new Region();
+        dirtyRegion.MakeEmpty();
+        if (previousSelection.Width > 0 && previousSelection.Height > 0)
+        {
+            dirtyRegion.Union(previousSelection);
+        }
+
+        if (nextSelection.Width > 0 && nextSelection.Height > 0)
+        {
+            dirtyRegion.Xor(nextSelection);
+        }
+
+        IncludeSelectionDecorations(dirtyRegion, previousSelection);
+        IncludeSelectionDecorations(dirtyRegion, nextSelection);
+        return dirtyRegion;
+    }
+
+    private static void IncludeSelectionDecorations(Region region, Rectangle bounds)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
+
+        const int padding = 4;
+        region.Union(new Rectangle(bounds.Left - padding, bounds.Top - padding, bounds.Width + (padding * 2), padding * 2));
+        region.Union(new Rectangle(bounds.Left - padding, bounds.Bottom - padding, bounds.Width + (padding * 2), padding * 2));
+        region.Union(new Rectangle(bounds.Left - padding, bounds.Top - padding, padding * 2, bounds.Height + (padding * 2)));
+        region.Union(new Rectangle(bounds.Right - padding, bounds.Top - padding, padding * 2, bounds.Height + (padding * 2)));
+        foreach (var handle in GetHandleRectangles(bounds))
+        {
+            region.Union(Rectangle.Inflate(handle, 1, 1));
         }
     }
 

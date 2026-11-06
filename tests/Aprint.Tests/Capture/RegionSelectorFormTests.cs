@@ -7,6 +7,125 @@ namespace Aprint.Tests.Capture;
 
 public sealed class RegionSelectorFormTests
 {
+    [Fact]
+    public void BufferedSelectionPaintPreservesNativeUpdateRegion()
+    {
+        using var background = new Bitmap(140, 100);
+        using (var graphics = Graphics.FromImage(background))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(background);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var selectionField = typeof(RegionSelectorForm).GetField("_selection", flags)!;
+        var paintRegionField = typeof(RegionSelectorForm).GetField("_paintUpdateRegion", flags)!;
+        var paint = typeof(RegionSelectorForm).GetMethod("OnPaint", flags)!;
+        var previous = new Rectangle(20, 20, 60, 35);
+        var next = new Rectangle(20, 20, 70, 40);
+        using var rendered = new Bitmap(background.Width, background.Height);
+        selectionField.SetValue(selector, previous);
+        using (var graphics = Graphics.FromImage(rendered))
+        using (var args = new PaintEventArgs(graphics, new Rectangle(Point.Empty, rendered.Size)))
+        {
+            paint.Invoke(selector, [args]);
+        }
+
+        background.SetPixel(50, 38, Color.Magenta);
+        using var dirtyRegion = (Region)typeof(RegionSelectorForm)
+            .GetMethod("CreateSelectionDirtyRegion", BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, [previous, next])!;
+        selectionField.SetValue(selector, next);
+        paintRegionField.SetValue(selector, dirtyRegion);
+        try
+        {
+            using var graphics = Graphics.FromImage(rendered);
+            var boundingClip = Rectangle.Ceiling(dirtyRegion.GetBounds(graphics));
+            graphics.SetClip(boundingClip);
+            using var args = new PaintEventArgs(graphics, boundingClip);
+            paint.Invoke(selector, [args]);
+            Assert.Equal(Color.White.ToArgb(), rendered.GetPixel(50, 38).ToArgb());
+        }
+        finally
+        {
+            paintRegionField.SetValue(selector, null);
+        }
+    }
+
+    [Theory]
+    [InlineData(512)]
+    [InlineData(4096)]
+    [InlineData(6000)]
+    public void GrowingLargeSelectionDoesNotInvalidateUnchangedInterior(int width)
+    {
+        var previous = new Rectangle(20, 20, width, 800);
+        var next = new Rectangle(20, 20, width + 12, 805);
+        var createRegion = typeof(RegionSelectorForm).GetMethod("CreateSelectionDirtyRegion", BindingFlags.Static | BindingFlags.NonPublic)!;
+        using var dirtyRegion = (Region)createRegion.Invoke(null, [previous, next])!;
+        using var transform = new System.Drawing.Drawing2D.Matrix();
+
+        Assert.False(dirtyRegion.IsVisible(previous.Left + (width / 2), previous.Top + 400));
+        Assert.True(dirtyRegion.IsVisible(previous.Right + 8, previous.Top + 400));
+        Assert.True(dirtyRegion.IsVisible(previous.Left, previous.Top));
+        Assert.True(dirtyRegion.IsVisible(next.Right, next.Bottom));
+        var repaintedArea = dirtyRegion.GetRegionScans(transform).Sum(bounds => bounds.Width * bounds.Height);
+        Assert.True(repaintedArea < (long)previous.Width * previous.Height / 4);
+    }
+
+    [Theory]
+    [InlineData(20, 20, 90, 50)]
+    [InlineData(20, 20, 30, 20)]
+    [InlineData(45, 30, 60, 35)]
+    public void IncrementalSelectionPaintMatchesFullPaint(int left, int top, int width, int height)
+    {
+        using var background = new Bitmap(140, 100);
+        using (var graphics = Graphics.FromImage(background))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var selector = new RegionSelectorForm(background);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var selectionField = typeof(RegionSelectorForm).GetField("_selection", flags)!;
+        var paint = typeof(RegionSelectorForm).GetMethod("OnPaint", flags)!;
+        var imageBounds = new Rectangle(Point.Empty, background.Size);
+        var previous = new Rectangle(20, 20, 60, 35);
+        var next = new Rectangle(left, top, width, height);
+        using var incremental = new Bitmap(background.Width, background.Height);
+        selectionField.SetValue(selector, previous);
+        using (var graphics = Graphics.FromImage(incremental))
+        using (var args = new PaintEventArgs(graphics, imageBounds))
+        {
+            paint.Invoke(selector, [args]);
+        }
+
+        using var dirtyRegion = (Region)typeof(RegionSelectorForm)
+            .GetMethod("CreateSelectionDirtyRegion", BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, [previous, next])!;
+        selectionField.SetValue(selector, next);
+        using (var graphics = Graphics.FromImage(incremental))
+        {
+            graphics.SetClip(dirtyRegion, System.Drawing.Drawing2D.CombineMode.Replace);
+            using var args = new PaintEventArgs(graphics, Rectangle.Ceiling(dirtyRegion.GetBounds(graphics)));
+            paint.Invoke(selector, [args]);
+        }
+
+        using var complete = new Bitmap(background.Width, background.Height);
+        using (var graphics = Graphics.FromImage(complete))
+        using (var args = new PaintEventArgs(graphics, imageBounds))
+        {
+            paint.Invoke(selector, [args]);
+        }
+
+        for (var row = 0; row < background.Height; row++)
+        {
+            for (var column = 0; column < background.Width; column++)
+            {
+                Assert.Equal(complete.GetPixel(column, row).ToArgb(), incremental.GetPixel(column, row).ToArgb());
+            }
+        }
+    }
+
     [Theory]
     [InlineData("_screenSelectionBar")]
     [InlineData("_actionBar")]
