@@ -3351,23 +3351,38 @@ public sealed class EditorForm : Form
             return null;
         }
 
-        var protectedImage = (Bitmap)_workingBitmap.Clone();
-        if (!_textRegionDetectionReady)
+        return CreateProtectedCopy(_workingBitmap, protectedImage =>
         {
+            if (!_textRegionDetectionReady)
+            {
+                return;
+            }
+
+            foreach (var region in _maskRegions.Where(region => region.ShouldMask))
+            {
+                ImageEditingService.ApplyMask(
+                    protectedImage,
+                    region.Bounds,
+                    _maskMode,
+                    _selectedMaskColor,
+                    _maskPixelSize);
+            }
+        });
+    }
+
+    private static Bitmap CreateProtectedCopy(Bitmap source, Action<Bitmap> applyMasks)
+    {
+        var protectedImage = (Bitmap)source.Clone();
+        try
+        {
+            applyMasks(protectedImage);
             return protectedImage;
         }
-
-        foreach (var region in _maskRegions.Where(region => region.ShouldMask))
+        catch
         {
-            ImageEditingService.ApplyMask(
-                protectedImage,
-                region.Bounds,
-                _maskMode,
-                _selectedMaskColor,
-                _maskPixelSize);
+            protectedImage.Dispose();
+            throw;
         }
-
-        return protectedImage;
     }
 
     protected override void Dispose(bool disposing)

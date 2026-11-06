@@ -6,6 +6,28 @@ namespace Aprint.Tests.Editor;
 
 public sealed class EditorFormTests
 {
+    [Fact]
+    public void ProtectedCopyIsDisposedWhenMaskingFails()
+    {
+        using var source = new Bitmap(4, 4);
+        source.SetPixel(0, 0, Color.White);
+        Bitmap? copy = null;
+        var failure = new InvalidOperationException("Masking failed.");
+        Action<Bitmap> applyMasks = bitmap =>
+        {
+            copy = bitmap;
+            throw failure;
+        };
+        var factory = typeof(EditorForm).GetMethod("CreateProtectedCopy", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var exception = Assert.Throws<TargetInvocationException>(() => factory.Invoke(null, [source, applyMasks]));
+
+        Assert.Same(failure, exception.InnerException);
+        Assert.NotNull(copy);
+        Assert.Throws<ArgumentException>(() => copy.GetPixel(0, 0));
+        Assert.Equal(Color.White.ToArgb(), source.GetPixel(0, 0).ToArgb());
+    }
+
     [Theory]
     [InlineData(1200, 900)]
     [InlineData(1200, 120)]
