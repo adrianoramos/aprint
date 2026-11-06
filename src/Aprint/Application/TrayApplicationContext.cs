@@ -210,7 +210,8 @@ public sealed class TrayApplicationContext : ApplicationContext
             _settings.LastCounterTextColorArgb,
             _settings.LastCounterCircleColorArgb,
             _settings.LastLineWidth,
-            takeBitmapOwnership);
+            takeBitmapOwnership,
+            _settings.DefaultScreenshotFormat);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
 

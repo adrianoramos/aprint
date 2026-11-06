@@ -31,6 +31,7 @@ public sealed partial class SettingsForm : Form
             SaveFolder = currentSettings.SaveFolder,
             ShowNotificationAfterCapture = currentSettings.ShowNotificationAfterCapture,
             CaptureAction = currentSettings.CaptureAction,
+            DefaultScreenshotFormat = ScreenshotFileFormats.Normalize(currentSettings.DefaultScreenshotFormat),
             NotificationClickAction = currentSettings.NotificationClickAction,
             CaptureMode = currentSettings.CaptureMode,
             OutsideCaptureClickAction = currentSettings.OutsideCaptureClickAction,
@@ -191,6 +192,15 @@ public sealed partial class SettingsForm : Form
         });
         cmbCaptureAction.SelectedIndex = (int)_workingSettings.CaptureAction;
 
+        cmbDefaultScreenshotFormat.Items.Clear();
+        cmbDefaultScreenshotFormat.Items.AddRange(new object[]
+        {
+            AppLocalization.Translate("Settings.ScreenshotFormatPng"),
+            AppLocalization.Translate("Settings.ScreenshotFormatJpeg"),
+            AppLocalization.Translate("Settings.ScreenshotFormatBmp"),
+        });
+        cmbDefaultScreenshotFormat.SelectedIndex = (int)_workingSettings.DefaultScreenshotFormat;
+
         cmbOutsideCaptureClickAction.Items.Clear();
         cmbOutsideCaptureClickAction.Items.AddRange(new object[]
         {
@@ -274,6 +284,7 @@ public sealed partial class SettingsForm : Form
         lblCaptureAction.Text = AppLocalization.Translate("Settings.ActionGroup");
         lblOutsideCaptureClickAction.Text = AppLocalization.Translate("Settings.OutsideCaptureClickActionLabel");
         lblSavePath.Text = AppLocalization.Translate("Settings.SavePathLabel");
+        lblDefaultScreenshotFormat.Text = AppLocalization.Translate("Settings.DefaultScreenshotFormat");
         btnBrowse.Text = AppLocalization.Translate("Settings.Browse");
         lblNotificationClick.Text = AppLocalization.Translate("Settings.NotificationClickLabel");
         tabEditor.Text = AppLocalization.Translate("Settings.EditorGroup");
@@ -360,6 +371,8 @@ public sealed partial class SettingsForm : Form
         _workingSettings.DefaultEditorTool = (EditTool)(cmbDefaultEditorTool.SelectedIndex >= 0 ? cmbDefaultEditorTool.SelectedIndex : 0);
         _workingSettings.Language = (cmbLanguage.SelectedItem as LanguageItem)?.Code ?? AppLocalization.SystemLanguageCode;
         _workingSettings.CaptureAction = action;
+        _workingSettings.DefaultScreenshotFormat = ScreenshotFileFormats.Normalize(
+            (ScreenshotFileFormat)cmbDefaultScreenshotFormat.SelectedIndex);
         _workingSettings.NotificationClickAction = (NotificationClickAction)Math.Max(cmbNotificationClick.SelectedIndex, 0);
         _workingSettings.HotkeyCtrl = chkCtrl.Checked;
         _workingSettings.HotkeyShift = chkShift.Checked;

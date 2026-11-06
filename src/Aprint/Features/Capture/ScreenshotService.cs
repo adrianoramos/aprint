@@ -23,28 +23,38 @@ public static class ScreenshotService
         return bitmap;
     }
 
-    /// <summary>Salva o bitmap como PNG na pasta informada. Retorna o caminho do arquivo gerado.</summary>
-    public static string SaveToDisk(Bitmap bitmap, string saveFolder)
+    /// <summary>Salva o bitmap no formato informado na pasta escolhida e retorna o caminho do arquivo gerado.</summary>
+    public static string SaveToDisk(
+        Bitmap bitmap,
+        string saveFolder,
+        ScreenshotFileFormat format = ScreenshotFileFormat.Png)
     {
-        var fileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png";
+        format = ScreenshotFileFormats.Normalize(format);
+        var fileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}{ScreenshotFileFormats.GetExtension(format)}";
         var filePath = Path.Combine(saveFolder, fileName);
-        SaveToFile(bitmap, filePath, ImageFormat.Png);
+        SaveToFile(bitmap, filePath, ScreenshotFileFormats.GetImageFormat(format));
         return filePath;
     }
 
-    /// <summary>Saves a PNG on a worker thread. Keep the bitmap alive and unchanged until the task completes.</summary>
-    public static Task<string> SaveToDiskAsync(Bitmap bitmap, string saveFolder) =>
-        Task.Run(() => SaveToDisk(bitmap, saveFolder));
+    /// <summary>Salva a imagem em uma thread de trabalho. Mantenha o bitmap intacto até a conclusão.</summary>
+    public static Task<string> SaveToDiskAsync(
+        Bitmap bitmap,
+        string saveFolder,
+        ScreenshotFileFormat format = ScreenshotFileFormat.Png) =>
+        Task.Run(() => SaveToDisk(bitmap, saveFolder, format));
 
     /// <summary>Exibe o diálogo de gravação e salva a imagem no formato escolhido. Retorna null se cancelado.</summary>
-    public static string? SaveToDiskWithPrompt(Bitmap bitmap, string initialFolder)
+    public static string? SaveToDiskWithPrompt(
+        Bitmap bitmap,
+        string initialFolder,
+        ScreenshotFileFormat defaultFormat = ScreenshotFileFormat.Png)
     {
-        using var dialog = new SaveFileDialog
-        {
-            Filter = AppLocalization.Translate("Editor.SaveFilter"),
-            FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-            InitialDirectory = Directory.Exists(initialFolder) ? initialFolder : string.Empty,
-        };
+        using var dialog = new SaveFileDialog();
+        ScreenshotFileFormats.ConfigureSaveFileDialog(
+            dialog,
+            AppLocalization.Translate("Editor.SaveFilter"),
+            initialFolder,
+            defaultFormat);
 
         if (dialog.ShowDialog() != DialogResult.OK)
         {
@@ -52,19 +62,22 @@ public static class ScreenshotService
         }
 
         var filePath = dialog.FileName;
-        SaveToFile(bitmap, filePath, GetImageFormat(filePath));
+        SaveToFile(bitmap, filePath, ScreenshotFileFormats.GetImageFormat(filePath, defaultFormat));
         return dialog.FileName;
     }
 
     /// <summary>Shows the save dialog on the caller thread, then encodes and writes the image on a worker thread.</summary>
-    public static async Task<string?> SaveToDiskWithPromptAsync(Bitmap bitmap, string initialFolder)
+    public static async Task<string?> SaveToDiskWithPromptAsync(
+        Bitmap bitmap,
+        string initialFolder,
+        ScreenshotFileFormat defaultFormat = ScreenshotFileFormat.Png)
     {
-        using var dialog = new SaveFileDialog
-        {
-            Filter = AppLocalization.Translate("Editor.SaveFilter"),
-            FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-            InitialDirectory = Directory.Exists(initialFolder) ? initialFolder : string.Empty,
-        };
+        using var dialog = new SaveFileDialog();
+        ScreenshotFileFormats.ConfigureSaveFileDialog(
+            dialog,
+            AppLocalization.Translate("Editor.SaveFilter"),
+            initialFolder,
+            defaultFormat);
 
         if (dialog.ShowDialog() != DialogResult.OK)
         {
@@ -72,17 +85,10 @@ public static class ScreenshotService
         }
 
         var filePath = dialog.FileName;
-        var format = GetImageFormat(filePath);
+        var format = ScreenshotFileFormats.GetImageFormat(filePath, defaultFormat);
         await Task.Run(() => SaveToFile(bitmap, filePath, format));
         return filePath;
     }
-
-    private static ImageFormat GetImageFormat(string filePath) => Path.GetExtension(filePath).ToLowerInvariant() switch
-    {
-        ".jpg" or ".jpeg" => ImageFormat.Jpeg,
-        ".bmp" => ImageFormat.Bmp,
-        _ => ImageFormat.Png,
-    };
 
     private static void SaveToFile(Bitmap bitmap, string filePath, ImageFormat format)
     {

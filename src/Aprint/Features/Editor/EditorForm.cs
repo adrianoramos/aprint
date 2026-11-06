@@ -218,6 +218,7 @@ public sealed class EditorForm : Form
     private readonly bool _saveWithoutPrompt;
     private readonly bool _showWithoutActivation;
     private readonly string _automaticSavePath;
+    private readonly ScreenshotFileFormat _defaultScreenshotFormat;
     private readonly ImageList _toolIconImageList;
     private readonly int _toolIconSize;
     private readonly Dictionary<string, Bitmap> _toolIconBitmaps = [];
@@ -328,7 +329,7 @@ public sealed class EditorForm : Form
     public event Action<int>? HighlightWidthChanged;
     public event Action<int>? LineWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth, bool takeBitmapOwnership = false)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth, bool takeBitmapOwnership = false, ScreenshotFileFormat defaultScreenshotFormat = ScreenshotFileFormat.Png)
     {
         _workingBitmap = takeBitmapOwnership ? bitmap : (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
@@ -379,10 +380,13 @@ public sealed class EditorForm : Form
         }
         _editHistory = new EditHistory(_workingBitmap, _nextCounterValue);
         _initialFolder = initialFolder;
+        _defaultScreenshotFormat = ScreenshotFileFormats.Normalize(defaultScreenshotFormat);
         var saveFolder = string.IsNullOrWhiteSpace(_initialFolder)
             ? Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
             : _initialFolder;
-        _automaticSavePath = Path.Combine(saveFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
+        _automaticSavePath = Path.Combine(
+            saveFolder,
+            $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}{ScreenshotFileFormats.GetExtension(_defaultScreenshotFormat)}");
         _maskMode = maskMode;
         _toolIconSize = GetToolIconSizeForDpi(DeviceDpi);
         _toolIconImageList = CreateToolIconImageList(_toolIconSize);
@@ -2773,12 +2777,12 @@ public sealed class EditorForm : Form
             }
             else
             {
-                using var dialog = new SaveFileDialog
-                {
-                    Filter = AppLocalization.Translate("Editor.SaveFilter"),
-                    FileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-                    InitialDirectory = Directory.Exists(_initialFolder) ? _initialFolder : string.Empty,
-                };
+                using var dialog = new SaveFileDialog();
+                ScreenshotFileFormats.ConfigureSaveFileDialog(
+                    dialog,
+                    AppLocalization.Translate("Editor.SaveFilter"),
+                    _initialFolder,
+                    _defaultScreenshotFormat);
 
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -2800,12 +2804,7 @@ public sealed class EditorForm : Form
             var maskColor = _selectedMaskColor;
             var pixelSize = _maskPixelSize;
             using var saveCopy = (Bitmap)_workingBitmap.Clone();
-            var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
-            {
-                ".jpg" or ".jpeg" => ImageFormat.Jpeg,
-                ".bmp" => ImageFormat.Bmp,
-                _ => ImageFormat.Png,
-            };
+            var format = ScreenshotFileFormats.GetImageFormat(destinationPath, _defaultScreenshotFormat);
 
             await SavePreparedImageAsync(saveCopy, regions, maskMode, maskColor, pixelSize, destinationPath, format);
 
