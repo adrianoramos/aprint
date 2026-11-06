@@ -31,7 +31,7 @@ public sealed class SettingsFormTests
             var editorCheckboxes = editorTab.Controls.OfType<CheckBox>().OrderBy(control => control.Top).ToArray();
             for (var index = 1; index < editorCheckboxes.Length; index++)
             {
-                Assert.Equal(28, editorCheckboxes[index].Top - editorCheckboxes[index - 1].Top);
+                Assert.True(editorCheckboxes[index].Top >= editorCheckboxes[index - 1].Bottom);
             }
 
             option.Checked = !showToolLabels;
@@ -107,6 +107,49 @@ public sealed class SettingsFormTests
         Assert.Equal(captureMode.Right, generalTab.Controls["cmbNotificationClick"]!.Right);
         Assert.Equal(captureMode.Right, generalTab.Controls["cmbLanguage"]!.Right);
         Assert.Empty(form.Controls.OfType<GroupBox>());
-        Assert.Equal(320, form.ClientSize.Height);
+        Assert.Equal(364, form.ClientSize.Height);
+    }
+
+    [Theory]
+    [InlineData("es")]
+    [InlineData("en-US")]
+    public void EditorOptionsDoNotOverlapLocalizedLabels(string language)
+    {
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            using var form = new SettingsForm(new AppSettings());
+            var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
+            var editorTab = tabControl.TabPages[3];
+            var openEditor = Assert.IsType<CheckBox>(editorTab.Controls["chkOpenEditor"]);
+            var closeEditor = Assert.IsType<CheckBox>(editorTab.Controls["chkCloseEditorOnCopyOrSave"]);
+            var editorStartState = Assert.IsType<ComboBox>(editorTab.Controls["cmbEditorStartState"]);
+            var autoClose = Assert.IsType<CheckBox>(editorTab.Controls["chkAutoCloseEditorWhenInactive"]);
+            var inactivityTimeout = Assert.IsType<ComboBox>(editorTab.Controls["cmbEditorInactivityTimeout"]);
+            var rememberLastTool = Assert.IsType<CheckBox>(editorTab.Controls["chkRememberLastTool"]);
+            var defaultToolLabel = Assert.IsType<Label>(editorTab.Controls["lblDefaultEditorTool"]);
+            var defaultTool = Assert.IsType<ComboBox>(editorTab.Controls["cmbDefaultEditorTool"]);
+            var captureTab = tabControl.TabPages[2];
+            var captureModeLabel = Assert.IsType<Label>(captureTab.Controls["lblCaptureMode"]);
+            var captureMode = Assert.IsType<ComboBox>(captureTab.Controls["cmbCaptureMode"]);
+            var nextCaptureLabel = Assert.IsType<Label>(captureTab.Controls["lblOutsideCaptureClickAction"]);
+
+            Assert.True(editorStartState.Top >= openEditor.Bottom);
+            Assert.True(inactivityTimeout.Top >= autoClose.Bottom);
+            Assert.Equal(captureMode.Top - captureModeLabel.Top, defaultTool.Top - defaultToolLabel.Top);
+            Assert.Equal(nextCaptureLabel.Top - captureMode.Bottom, closeEditor.Top - editorStartState.Bottom);
+            Assert.Equal(nextCaptureLabel.Top - captureMode.Bottom, rememberLastTool.Top - inactivityTimeout.Bottom);
+            Assert.All(
+                editorTab.Controls.OfType<CheckBox>(),
+                checkBox => Assert.True(checkBox.Right <= editorTab.ClientSize.Width - 15));
+            Assert.All(
+                new[] { editorStartState, inactivityTimeout, defaultTool },
+                comboBox => Assert.Equal(editorTab.ClientSize.Width - 15, comboBox.Right));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+        }
     }
 }
