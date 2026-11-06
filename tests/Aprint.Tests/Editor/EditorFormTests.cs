@@ -6,6 +6,54 @@ namespace Aprint.Tests.Editor;
 
 public sealed class EditorFormTests
 {
+    [Theory]
+    [InlineData(70, 10, false)]
+    [InlineData(10, 70, false)]
+    [InlineData(70, 60, false)]
+    [InlineData(70, 10, true)]
+    [InlineData(10, 70, true)]
+    [InlineData(70, 60, true)]
+    public void FreehandUndoIncludesMouseUpBeyondLastMouseMove(int endX, int endY, bool includeMouseMove)
+    {
+        using var bitmap = new Bitmap(80, 80);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var pictureBox = (PictureBox)typeof(EditorForm).GetField("_pictureBox", flags)!.GetValue(editor)!;
+        var bitmapField = typeof(EditorForm).GetField("_workingBitmap", flags)!;
+        typeof(EditorForm).GetMethod("PictureBox_MouseDown", flags)!
+            .Invoke(editor, [pictureBox, new MouseEventArgs(MouseButtons.Left, 1, 10, 10, 0)]);
+        if (includeMouseMove)
+        {
+            typeof(EditorForm).GetMethod("PictureBox_MouseMove", flags)!
+                .Invoke(editor, [pictureBox, new MouseEventArgs(MouseButtons.Left, 0, 12, 12, 0)]);
+        }
+
+        typeof(EditorForm).GetMethod("PictureBox_MouseUp", flags)!
+            .Invoke(editor, [pictureBox, new MouseEventArgs(MouseButtons.Left, 1, endX, endY, 0)]);
+        var drawnBitmap = (Bitmap)bitmapField.GetValue(editor)!;
+        var endpointColor = drawnBitmap.GetPixel(endX, endY).ToArgb();
+        Assert.NotEqual(Color.White.ToArgb(), endpointColor);
+
+        typeof(EditorForm).GetMethod("UndoLastEdit", flags)!.Invoke(editor, null);
+        var undoneBitmap = (Bitmap)bitmapField.GetValue(editor)!;
+        for (var row = 0; row < undoneBitmap.Height; row++)
+        {
+            for (var column = 0; column < undoneBitmap.Width; column++)
+            {
+                Assert.Equal(Color.White.ToArgb(), undoneBitmap.GetPixel(column, row).ToArgb());
+            }
+        }
+
+        typeof(EditorForm).GetMethod("RedoLastEdit", flags)!.Invoke(editor, null);
+        var redoneBitmap = (Bitmap)bitmapField.GetValue(editor)!;
+        Assert.Equal(endpointColor, redoneBitmap.GetPixel(endX, endY).ToArgb());
+    }
+
     [Fact]
     public void ProtectedCopyIsDisposedWhenMaskingFails()
     {

@@ -1893,6 +1893,11 @@ public sealed class EditorForm : Form
             var end = shiftPressed
                 ? ImageEditingService.ConstrainDrawingEndpoint(_dragStart, e.Location, EditTool.Freehand)
                 : e.Location;
+            if (!shiftPressed && (_freehandPoints.Count == 0 || _freehandPoints[^1] != end))
+            {
+                _freehandPoints.Add(end);
+            }
+
             var finalDirtyRect = shiftPressed
                 ? CreateLineDirtyRectangle(_dragStart, end, _lineWidth + 2)
                 : CreateLineDirtyRectangle(_freehandPoints, _lineWidth + 2);
@@ -1904,11 +1909,6 @@ public sealed class EditorForm : Form
             }
             else
             {
-                if (_freehandPoints.Count == 0 || _freehandPoints[^1] != e.Location)
-                {
-                    _freehandPoints.Add(e.Location);
-                }
-
                 using var graphics = Graphics.FromImage(_workingBitmap);
                 ImageEditingService.DrawFreehandStroke(graphics, _freehandPoints, _selectedColor, _lineWidth);
             }
