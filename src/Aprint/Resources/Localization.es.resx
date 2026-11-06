@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="App.Name" xml:space="preserve"><value>Aprint</value></data>
+  <data name="App.AlreadyRunning" xml:space="preserve"><value>Aprint ya se está ejecutando en la bandeja del sistema.</value></data>
+  <data name="Tray.CaptureNow" xml:space="preserve"><value>Capturar ahora</value></data>
+  <data name="Tray.SelectArea" xml:space="preserve"><value>Seleccionar área</value></data>
+  <data name="Capture.Region.Capture" xml:space="preserve"><value>Capturar</value></data>
+  <data name="Capture.Region.FullScreen" xml:space="preserve"><value>Pantalla completa</value></data>
+  <data name="Capture.Region.CurrentScreen" xml:space="preserve"><value>Pantalla</value></data>
+  <data name="Capture.Region.Screen" xml:space="preserve"><value>Pantalla</value></data>
+  <data name="Capture.Region.FullScreenTooltip" xml:space="preserve"><value>Capturar toda la pantalla</value></data>
+  <data name="Capture.Region.CurrentScreenTooltip" xml:space="preserve"><value>Capturar la pantalla actual</value></data>
+  <data name="Capture.Region.ScreenTooltip" xml:space="preserve"><value>Capturar la pantalla {0}</value></data>
+  <data name="Capture.Region.SendToEditor" xml:space="preserve"><value>Enviar al editor</value></data>
+  <data name="Capture.Region.Actions" xml:space="preserve"><value>Acciones de captura</value></data>
+  <data name="Capture.Region.Drawing" xml:space="preserve"><value>Dibujar</value></data>
+  <data name="Capture.Region.Freehand" xml:space="preserve"><value>A mano alzada</value></data>
+  <data name="Capture.Region.Line" xml:space="preserve"><value>Línea</value></data>
+  <data name="Capture.Region.Arrow" xml:space="preserve"><value>Flecha</value></data>
+  <data name="Capture.Region.Rectangle" xml:space="preserve"><value>Rectángulo</value></data>
+  <data name="Capture.Region.Circle" xml:space="preserve"><value>Círculo</value></data>
+  <data name="Capture.Region.Save" xml:space="preserve"><value>Guardar</value></data>
+  <data name="Capture.Region.Copy" xml:space="preserve"><value>Copiar</value></data>
+  <data name="Tray.CaptureFullScreen" xml:space="preserve"><value>Capturar toda la pantalla</value></data>
+  <data name="Tray.Settings" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Tray.About" xml:space="preserve"><value>Acerca de</value></data>
+  <data name="Tray.Exit" xml:space="preserve"><value>Salir</value></data>
+  <data name="Tray.IconText" xml:space="preserve"><value>Aprint - Captura de pantalla</value></data>
+  <data name="Tray.HotkeyRegisterError" xml:space="preserve"><value>No se pudo registrar el atajo de teclado global. Es posible que otra aplicación ya lo esté usando.</value></data>
+  <data name="Tray.ScreenshotCaptured" xml:space="preserve"><value>Captura de pantalla realizada</value></data>
+  <data name="Tray.EditorOpened" xml:space="preserve"><value>Se abrió el editor para finalizar la captura.</value></data>
+  <data name="Tray.ClipboardOnly" xml:space="preserve"><value>Copiado al portapapeles.</value></data>
+  <data name="Tray.SavedTo" xml:space="preserve"><value>Guardado en: {0}</value></data>
+  <data name="Tray.BothSavedAndClipboard" xml:space="preserve"><value>Copiado al portapapeles y guardado en: {0}</value></data>
+  <data name="Tray.CapturedFallback" xml:space="preserve"><value>Captura de pantalla realizada.</value></data>
+  <data name="Tray.CaptureError" xml:space="preserve"><value>Error al capturar la pantalla</value></data>
+  <data name="Tray.ScreenshotSaved" xml:space="preserve"><value>Captura de pantalla guardada</value></data>
+  <data name="Tray.ScreenshotCopied" xml:space="preserve"><value>Captura de pantalla copiada</value></data>
+  <data name="Tray.OpenError" xml:space="preserve"><value>Error al abrir</value></data>
+  <data name="Tray.AboutText" xml:space="preserve"><value>Una herramienta de captura de pantalla potente y altamente configurable, diseñada para entornos corporativos y centrada en la privacidad y la seguridad de los datos. No utiliza bibliotecas de terceros ni recopila ni transmite datos.</value></data>
+  <data name="Tray.AboutAuthor" xml:space="preserve"><value>Creado por Adriano Ramos da Silva</value></data>
+  <data name="Tray.AboutVersion" xml:space="preserve"><value>Versión {0}</value></data>
+  <data name="Tray.AboutLinkedIn" xml:space="preserve"><value>linkedin.com/in/adrianorsilva</value></data>
+  <data name="Tray.AboutLinkedInToolTip" xml:space="preserve"><value>Si te he facilitado un poco la vida, salúdame.</value></data>
+  <data name="Tray.AboutClose" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="Tray.AboutTitle" xml:space="preserve"><value>Acerca de</value></data>
+  <data name="Settings.FormTitle" xml:space="preserve"><value>Aprint - Configuración</value></data>
+  <data name="Settings.HotkeyGroup" xml:space="preserve"><value>Atajo de teclado</value></data>
+  <data name="Settings.ForcePrintScreen" xml:space="preserve"><value>Usar la tecla Impr Pant para capturar</value></data>
+  <data name="Settings.CaptureModeGroup" xml:space="preserve"><value>Modo de captura</value></data>
+  <data name="Settings.CaptureGroup" xml:space="preserve"><value>Captura</value></data>
+  <data name="Settings.CaptureModeLabel" xml:space="preserve"><value>Modo de captura:</value></data>
+  <data name="Settings.CaptureAllScreens" xml:space="preserve"><value>Predeterminado (pantalla completa)</value></data>
+  <data name="Settings.CaptureCursorScreen" xml:space="preserve"><value>Pantalla donde está el cursor</value></data>
+  <data name="Settings.CaptureSelectArea" xml:space="preserve"><value>Seleccionar área</value></data>
+  <data name="Settings.ActionGroup" xml:space="preserve"><value>Después de capturar la pantalla:</value></data>
+  <data name="Settings.SavePathLabel" xml:space="preserve"><value>Guardar archivos en la carpeta:</value></data>
+  <data name="Settings.Browse" xml:space="preserve"><value>&amp;Examinar...</value></data>
+  <data name="Settings.SaveToDiskOnly" xml:space="preserve"><value>Guardar en el disco</value></data>
+  <data name="Settings.ClipboardOnly" xml:space="preserve"><value>Copiar al portapapeles</value></data>
+  <data name="Settings.NotificationClickGroup" xml:space="preserve"><value>Al hacer clic en la notificación</value></data>
+  <data name="Settings.ClickNone" xml:space="preserve"><value>No hacer nada</value></data>
+  <data name="Settings.ClickOpenFolder" xml:space="preserve"><value>Abrir carpeta</value></data>
+  <data name="Settings.ClickOpenFile" xml:space="preserve"><value>Abrir archivo</value></data>
+  <data name="Settings.ClickOpenEditor" xml:space="preserve"><value>Abrir editor</value></data>
+  <data name="Settings.GeneralGroup" xml:space="preserve"><value>General</value></data>
+  <data name="Settings.EditorGroup" xml:space="preserve"><value>Editor</value></data>
+  <data name="Settings.NotificationClickLabel" xml:space="preserve"><value>Al hacer clic en la notificación:</value></data>
+  <data name="Settings.OpenEditorAfterCapture" xml:space="preserve"><value>Abrir el editor después de capturar</value></data>
+  <data name="Settings.OutsideCaptureClickActionLabel" xml:space="preserve"><value>Al hacer clic fuera del área de captura:</value></data>
+  <data name="Settings.OutsideClickSelectNewArea" xml:space="preserve"><value>Seleccionar una nueva área</value></data>
+  <data name="Settings.OutsideClickExit" xml:space="preserve"><value>Salir del modo de selección</value></data>
+  <data name="Settings.OutsideClickNone" xml:space="preserve"><value>No hacer nada</value></data>
+  <data name="Settings.ShowToolLabels" xml:space="preserve"><value>Mostrar etiquetas en los botones</value></data>
+  <data name="Settings.SaveEditorImageWithoutPrompt" xml:space="preserve"><value>Guardar sin preguntar</value></data>
+  <data name="Settings.CloseEditorOnCopyOrSave" xml:space="preserve"><value>Cerrar el editor al copiar o guardar la imagen</value></data>
+  <data name="Settings.AutoCloseEditorWhenInactive" xml:space="preserve"><value>Cerrar automáticamente cuando esté inactivo</value></data>
+  <data name="Settings.Inactivity30Seconds" xml:space="preserve"><value>30 segundos</value></data>
+  <data name="Settings.Inactivity1Minute" xml:space="preserve"><value>1 minuto</value></data>
+  <data name="Settings.Inactivity3Minutes" xml:space="preserve"><value>3 minutos</value></data>
+  <data name="Settings.Inactivity5Minutes" xml:space="preserve"><value>5 minutos</value></data>
+  <data name="Settings.ShowNotification" xml:space="preserve"><value>Mostrar una notificación después de capturar</value></data>
+  <data name="Settings.PlaySound" xml:space="preserve"><value>Reproducir el sonido de notificación de Windows al capturar</value></data>
+  <data name="Settings.StartWithWindows" xml:space="preserve"><value>Iniciar automáticamente con Windows</value></data>
+  <data name="Settings.LanguageLabel" xml:space="preserve"><value>Idioma:</value></data>
+  <data name="Settings.LanguageSystem" xml:space="preserve"><value>Usar el idioma del sistema</value></data>
+  <data name="Settings.LanguagePortugueseBrazil" xml:space="preserve"><value>Portugués (Brasil)</value></data>
+  <data name="Settings.LanguageEnglishUs" xml:space="preserve"><value>Inglés (Estados Unidos)</value></data>
+  <data name="Settings.LanguageSpanish" xml:space="preserve"><value>Español</value></data>
+  <data name="Settings.Save" xml:space="preserve"><value>&amp;Guardar</value></data>
+  <data name="Settings.Cancel" xml:space="preserve"><value>&amp;Cancelar</value></data>
+  <data name="Settings.SelectSaveFolder" xml:space="preserve"><value>Selecciona la carpeta donde se guardarán las capturas</value></data>
+  <data name="Settings.InvalidFolder" xml:space="preserve"><value>Proporciona una carpeta válida para guardar.</value></data>
+  <data name="Settings.WarningTitle" xml:space="preserve"><value>Aprint</value></data>
+  <data name="Settings.SelectModifier" xml:space="preserve"><value>Selecciona al menos una tecla modificadora (Ctrl, Mayús, Alt o Win) para el atajo.</value></data>
+  <data name="Editor.FormTitle" xml:space="preserve"><value>Aprint - Editor</value></data>
+  <data name="Editor.LineColor" xml:space="preserve"><value>Color de línea</value></data>
+  <data name="Editor.LineWidth" xml:space="preserve"><value>Grosor del trazo</value></data>
+  <data name="Editor.TextColor" xml:space="preserve"><value>Color del texto</value></data>
+  <data name="Editor.FillColor" xml:space="preserve"><value>Color de relleno</value></data>
+  <data name="Editor.NoFill" xml:space="preserve"><value>Sin relleno</value></data>
+  <data name="Editor.Freehand" xml:space="preserve"><value>A mano alzada</value></data>
+  <data name="Editor.Line" xml:space="preserve"><value>Línea</value></data>
+  <data name="Editor.Arrow" xml:space="preserve"><value>Flecha</value></data>
+  <data name="Editor.Rectangle" xml:space="preserve"><value>Rectángulo</value></data>
+  <data name="Editor.Circle" xml:space="preserve"><value>Círculo</value></data>
+  <data name="Editor.Counter" xml:space="preserve"><value>Contador</value></data>
+  <data name="Editor.CounterOptions" xml:space="preserve"><value>Opciones del contador</value></data>
+  <data name="Editor.CounterSize" xml:space="preserve"><value>Tamaño del contador</value></data>
+  <data name="Editor.CounterTextColor" xml:space="preserve"><value>Color del texto del contador</value></data>
+  <data name="Editor.CounterCircleColor" xml:space="preserve"><value>Color del círculo</value></data>
+  <data name="Editor.Mask" xml:space="preserve"><value>Máscara</value></data>
+  <data name="Editor.MaskOptions" xml:space="preserve"><value>Opciones de máscara</value></data>
+  <data name="Editor.MaskColor" xml:space="preserve"><value>Color de la máscara</value></data>
+  <data name="Editor.Highlight" xml:space="preserve"><value>Resaltado</value></data>
+  <data name="Editor.HighlightSize" xml:space="preserve"><value>Tamaño del resaltado</value></data>
+  <data name="Editor.HighlightColor" xml:space="preserve"><value>Color del resaltado</value></data>
+  <data name="Editor.Customize" xml:space="preserve"><value>Personalizar...</value></data>
+  <data name="Editor.Font" xml:space="preserve"><value>Elegir fuente...</value></data>
+  <data name="Editor.FontSize" xml:space="preserve"><value>Tamaño de fuente</value></data>
+  <data name="Editor.Text" xml:space="preserve"><value>Texto</value></data>
+  <data name="Editor.Crop" xml:space="preserve"><value>Recortar</value></data>
+  <data name="Editor.ConfirmCrop" xml:space="preserve"><value>Confirmar</value></data>
+  <data name="Editor.CancelCrop" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Editor.ConfirmCropToolTip" xml:space="preserve"><value>Confirmar (Enter)</value></data>
+  <data name="Editor.CancelCropToolTip" xml:space="preserve"><value>Cancelar (Esc)</value></data>
+  <data name="Editor.TextFormatting" xml:space="preserve"><value>Formato del texto</value></data>
+  <data name="Editor.TextBold" xml:space="preserve"><value>Negrita</value></data>
+  <data name="Editor.TextItalic" xml:space="preserve"><value>Cursiva</value></data>
+  <data name="Editor.TextUnderline" xml:space="preserve"><value>Subrayado</value></data>
+  <data name="Editor.TextStrikeout" xml:space="preserve"><value>Tachado</value></data>
+  <data name="Editor.Filled" xml:space="preserve"><value>Rellenar</value></data>
+  <data name="Editor.Pixelated" xml:space="preserve"><value>Pixelar</value></data>
+  <data name="Editor.PixelatedSize" xml:space="preserve"><value>Tamaño del píxel</value></data>
+  <data name="Editor.Undo" xml:space="preserve"><value>Deshacer</value></data>
+  <data name="Editor.Redo" xml:space="preserve"><value>Rehacer</value></data>
+  <data name="Editor.Copy" xml:space="preserve"><value>Copiar</value></data>
+  <data name="Editor.NewCapture" xml:space="preserve"><value>Nueva captura</value></data>
+  <data name="Editor.SaveAs" xml:space="preserve"><value>Guardar</value></data>
+  <data name="Editor.DrawSection" xml:space="preserve"><value>Dibujar:</value></data>
+  <data name="Editor.MaskSection" xml:space="preserve"><value>Máscara:</value></data>
+  <data name="Editor.SaveFilter" xml:space="preserve"><value>Imagen PNG|*.png|Imagen JPEG|*.jpg|Imagen de mapa de bits|*.bmp</value></data>
+  <data name="Editor.AutomaticMask" xml:space="preserve"><value>Máscara automática</value></data>
+  <data name="Editor.AutomaticMaskScanning" xml:space="preserve"><value>Detectando texto para ocultar...</value></data>
+  <data name="Editor.AutomaticMaskReviewHint" xml:space="preserve"><value>Mantén pulsada la barra espaciadora para revelar el texto y haz clic en las líneas que quieras mantener visibles. Arrastra para añadir áreas; pulsa Enter para aplicar.</value></data>
+  <data name="Editor.AutomaticMaskRevealActive" xml:space="preserve"><value>Barra espaciadora pulsada: haz clic en el texto que quieras mantener visible; suéltala para revisar.</value></data>
+  <data name="Editor.AutomaticMaskNoRegions" xml:space="preserve"><value>No se detectó texto. Revisa la imagen antes de compartirla.</value></data>
+  <data name="Editor.AutomaticMaskUnavailable" xml:space="preserve"><value>El OCR no está disponible. No se ocultó ningún texto.</value></data>
+  <data name="Editor.ApplyAutomaticMask" xml:space="preserve"><value>Aplicar máscaras</value></data>
+  <data name="Editor.CancelAutomaticMask" xml:space="preserve"><value>Cancelar máscaras</value></data>
+  <data name="Editor.ApplyAutomaticMaskToolTip" xml:space="preserve"><value>Aplicar máscaras (Enter)</value></data>
+  <data name="Editor.CancelAutomaticMaskToolTip" xml:space="preserve"><value>Cancelar máscaras (Esc)</value></data>
+  <data name="Editor.AutomaticMaskApplied" xml:space="preserve"><value>Máscaras aplicadas a la imagen.</value></data>
+  <data name="Editor.AutomaticMaskNoSelection" xml:space="preserve"><value>No se seleccionaron áreas para ocultar.</value></data>
+  <data name="Settings.RememberLastTool" xml:space="preserve"><value>Recordar la última herramienta utilizada en el editor</value></data>
+  <data name="Settings.DefaultEditorTool" xml:space="preserve"><value>Herramienta predeterminada del editor:</value></data>
+  <data name="Settings.EditorStartDefault" xml:space="preserve"><value>Ventana predeterminada</value></data>
+  <data name="Settings.EditorStartMaximized" xml:space="preserve"><value>Ventana maximizada</value></data>
+  <data name="Settings.EditorStartMinimized" xml:space="preserve"><value>Ventana minimizada</value></data>
+  <data name="Settings.CopyAndSave" xml:space="preserve"><value>Copiar y guardar en el disco</value></data>
+</root>

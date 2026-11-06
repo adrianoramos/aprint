@@ -16,6 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Aprint.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Resources\AppIcon.ico" />
   </ItemGroup>
 
