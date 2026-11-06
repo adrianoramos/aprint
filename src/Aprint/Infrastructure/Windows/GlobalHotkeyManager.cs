@@ -12,6 +12,7 @@ public sealed class GlobalHotkeyManager : IDisposable
     private const int WmKeyUp = 0x0101;
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
+    private const uint WmQuit = 0x0012;
 
     [Flags]
     private enum Modifiers : uint
@@ -45,18 +46,45 @@ public sealed class GlobalHotkeyManager : IDisposable
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string? moduleName);
 
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostThreadMessage(uint threadId, uint message, UIntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern int GetMessage(out NativeMessage message, IntPtr window, uint minimum, uint maximum);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PeekMessage(out NativeMessage message, IntPtr window, uint minimum, uint maximum, uint remove);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool TranslateMessage(in NativeMessage message);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DispatchMessage(in NativeMessage message);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeMessage
+    {
+        public IntPtr Window;
+        public uint Message;
+        public UIntPtr WParam;
+        public IntPtr LParam;
+        public uint Time;
+        public int PointX;
+        public int PointY;
+        public uint Private;
+    }
+
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     private readonly HotkeyWindow _window = new();
-    private readonly LowLevelKeyboardProc _keyboardHookCallback;
-    private IntPtr _keyboardHook;
+    private KeyboardHookThread? _keyboardHookThread;
     private bool _isRegistered;
-    private bool _isPrintScreenDown;
-
-    public GlobalHotkeyManager()
-    {
-        _keyboardHookCallback = HandleLowLevelKeyboard;
-    }
 
     public event Action? HotkeyPressed
     {
@@ -70,8 +98,15 @@ public sealed class GlobalHotkeyManager : IDisposable
 
         if (key == Keys.PrintScreen && !ctrl && !shift && !alt && !win)
         {
-            _keyboardHook = SetWindowsHookEx(WhKeyboardLl, _keyboardHookCallback, GetModuleHandle(null), 0);
-            return _keyboardHook != IntPtr.Zero;
+            var hookThread = new KeyboardHookThread(_window.Handle);
+            if (!hookThread.Start())
+            {
+                hookThread.Dispose();
+                return false;
+            }
+
+            _keyboardHookThread = hookThread;
+            return true;
         }
 
         var modifiers = Modifiers.NoRepeat;
@@ -86,13 +121,8 @@ public sealed class GlobalHotkeyManager : IDisposable
 
     public void Unregister()
     {
-        if (_keyboardHook != IntPtr.Zero)
-        {
-            UnhookWindowsHookEx(_keyboardHook);
-            _keyboardHook = IntPtr.Zero;
-        }
-
-        _isPrintScreenDown = false;
+        _keyboardHookThread?.Dispose();
+        _keyboardHookThread = null;
 
         if (_isRegistered)
         {
@@ -107,30 +137,105 @@ public sealed class GlobalHotkeyManager : IDisposable
         _window.Dispose();
     }
 
-    private IntPtr HandleLowLevelKeyboard(int nCode, IntPtr wParam, IntPtr lParam)
+    private sealed class KeyboardHookThread : IDisposable
     {
-        if (nCode >= 0 && Marshal.ReadInt32(lParam) == (int)Keys.PrintScreen)
+        private readonly IntPtr _targetWindow;
+        private readonly LowLevelKeyboardProc _callback;
+        private readonly Thread _thread;
+        private readonly ManualResetEventSlim _started = new();
+        private uint _threadId;
+        private IntPtr _hook;
+        private bool _isPrintScreenDown;
+
+        public KeyboardHookThread(IntPtr targetWindow)
         {
-            var message = wParam.ToInt32();
-            if (message is WmKeyDown or WmSysKeyDown)
+            _targetWindow = targetWindow;
+            _callback = HandleLowLevelKeyboard;
+            _thread = new Thread(Run)
             {
-                if (!_isPrintScreenDown)
+                IsBackground = true,
+                Name = "Aprint.PrintScreenHook",
+            };
+        }
+
+        public bool Start()
+        {
+            _thread.Start();
+            _started.Wait();
+            return _hook != IntPtr.Zero;
+        }
+
+        private void Run()
+        {
+            try
+            {
+                _threadId = GetCurrentThreadId();
+                PeekMessage(out _, IntPtr.Zero, 0, 0, 0);
+                _hook = SetWindowsHookEx(WhKeyboardLl, _callback, GetModuleHandle(null), 0);
+                _started.Set();
+                if (_hook == IntPtr.Zero)
                 {
-                    _isPrintScreenDown = true;
-                    PostMessage(_window.Handle, WmHotkey, (IntPtr)HotkeyId, IntPtr.Zero);
+                    return;
                 }
 
-                return (IntPtr)1;
+                while (GetMessage(out var message, IntPtr.Zero, 0, 0) > 0)
+                {
+                    TranslateMessage(in message);
+                    DispatchMessage(in message);
+                }
             }
-
-            if (message is WmKeyUp or WmSysKeyUp)
+            finally
             {
-                _isPrintScreenDown = false;
-                return (IntPtr)1;
+                if (_hook != IntPtr.Zero)
+                {
+                    UnhookWindowsHookEx(_hook);
+                    _hook = IntPtr.Zero;
+                }
+
+                _started.Set();
             }
         }
 
-        return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
+        private IntPtr HandleLowLevelKeyboard(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 && Marshal.ReadInt32(lParam) == (int)Keys.PrintScreen)
+            {
+                var message = wParam.ToInt32();
+                if (message is WmKeyDown or WmSysKeyDown)
+                {
+                    if (!_isPrintScreenDown)
+                    {
+                        _isPrintScreenDown = true;
+                        PostMessage(_targetWindow, WmHotkey, (IntPtr)HotkeyId, IntPtr.Zero);
+                    }
+
+                    return (IntPtr)1;
+                }
+
+                if (message is WmKeyUp or WmSysKeyUp)
+                {
+                    _isPrintScreenDown = false;
+                    return (IntPtr)1;
+                }
+            }
+
+            return CallNextHookEx(_hook, nCode, wParam, lParam);
+        }
+
+        public void Dispose()
+        {
+            if (_thread.IsAlive)
+            {
+                if (!PostThreadMessage(_threadId, WmQuit, UIntPtr.Zero, IntPtr.Zero) && _thread.IsAlive)
+                {
+                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                }
+
+                _thread.Join();
+            }
+
+            _started.Dispose();
+        }
     }
 
     private sealed class HotkeyWindow : NativeWindow, IDisposable

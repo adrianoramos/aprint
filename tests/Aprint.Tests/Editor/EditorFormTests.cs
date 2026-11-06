@@ -7,6 +7,298 @@ namespace Aprint.Tests.Editor;
 public sealed class EditorFormTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreparedSaveWritesSelectedMasksAndMetadata(bool includeMask)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "Aprint.Tests", Guid.NewGuid().ToString("N"));
+        var destination = Path.Combine(folder, "capture.png");
+        using var source = new Bitmap(8, 8);
+        using (var graphics = Graphics.FromImage(source))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var saveCopy = (Bitmap)source.Clone();
+        var save = typeof(EditorForm).GetMethod("SavePreparedImageAsync", BindingFlags.Static | BindingFlags.NonPublic)!;
+        Rectangle[] regions = includeMask ? [new Rectangle(2, 2, 4, 4)] : [];
+        try
+        {
+            await (Task)save.Invoke(null,
+                [saveCopy, regions, MaskMode.Solid, Color.Black, 4, destination, System.Drawing.Imaging.ImageFormat.Png])!;
+
+            using var savedImage = new Bitmap(destination);
+            Assert.Equal(Color.White.ToArgb(), savedImage.GetPixel(0, 0).ToArgb());
+            Assert.Equal((includeMask ? Color.Black : Color.White).ToArgb(), savedImage.GetPixel(3, 3).ToArgb());
+            Assert.Equal(Color.White.ToArgb(), source.GetPixel(3, 3).ToArgb());
+            var encoded = File.ReadAllBytes(destination);
+            Assert.True(encoded.AsSpan().IndexOf("Software\0Aprint"u8) >= 0);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PreparedSavePropagatesIoFailureWithoutDisposingCallerCopy()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "Aprint.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var blockedDirectory = Path.Combine(folder, "blocked");
+        File.WriteAllText(blockedDirectory, "This path is a file.");
+        using var saveCopy = new Bitmap(8, 8);
+        var save = typeof(EditorForm).GetMethod("SavePreparedImageAsync", BindingFlags.Static | BindingFlags.NonPublic)!;
+        try
+        {
+            await Assert.ThrowsAnyAsync<IOException>(() => (Task)save.Invoke(null,
+                [saveCopy, Array.Empty<Rectangle>(), MaskMode.Solid, Color.Black, 4,
+                    Path.Combine(blockedDirectory, "capture.png"), System.Drawing.Imaging.ImageFormat.Png])!);
+
+            Assert.Equal(new Size(8, 8), saveCopy.Size);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AutomaticMaskPaintReusesPreparedPixelatedPreview()
+    {
+        using var bitmap = new Bitmap(16, 16);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Pixelate);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var bounds = new Rectangle(2, 2, 12, 12);
+        SetMaskRegions(editor, bitmap.Size, bounds);
+        var regions = (System.Collections.IList)typeof(EditorForm).GetField("_maskRegions", flags)!.GetValue(editor)!;
+        var region = regions[0]!;
+        var previewProperty = region.GetType().GetProperty("Preview")!;
+        var cachedPreview = (Bitmap)previewProperty.GetValue(region)!;
+        var workingBitmap = (Bitmap)typeof(EditorForm).GetField("_workingBitmap", flags)!.GetValue(editor)!;
+        using (var graphics = Graphics.FromImage(workingBitmap))
+        {
+            graphics.Clear(Color.Blue);
+        }
+
+        using var rendered = new Bitmap(16, 16);
+        using var renderGraphics = Graphics.FromImage(rendered);
+        var paint = typeof(EditorForm).GetMethod("DrawAutomaticMaskPreview", flags)!;
+        for (var iteration = 0; iteration < 3; iteration++)
+        {
+            paint.Invoke(editor, [renderGraphics, new Rectangle(Point.Empty, rendered.Size)]);
+            Assert.Same(cachedPreview, previewProperty.GetValue(region));
+            Assert.Equal(Color.White.ToArgb(), rendered.GetPixel(2, 2).ToArgb());
+        }
+    }
+
+    [Fact]
+    public void PixelSizeChangeRebuildsAndDisposesCachedPreview()
+    {
+        using var bitmap = new Bitmap(16, 16);
+        for (var column = 0; column < bitmap.Width; column++)
+        {
+            for (var row = 0; row < bitmap.Height; row++)
+            {
+                bitmap.SetPixel(column, row, Color.FromArgb(column * 15, column * 15, column * 15));
+            }
+        }
+
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Pixelate, maskPixelSize: 4);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        SetMaskRegions(editor, bitmap.Size, new Rectangle(0, 0, 16, 16));
+        var regions = (System.Collections.IList)typeof(EditorForm).GetField("_maskRegions", flags)!.GetValue(editor)!;
+        var region = regions[0]!;
+        var previewProperty = region.GetType().GetProperty("Preview")!;
+        var previousPreview = (Bitmap)previewProperty.GetValue(region)!;
+        var previousColor = previousPreview.GetPixel(0, 0).ToArgb();
+
+        typeof(EditorForm).GetMethod("SetMaskPixelSize", flags)!.Invoke(editor, [8]);
+
+        var refreshedPreview = (Bitmap)previewProperty.GetValue(region)!;
+        Assert.NotSame(previousPreview, refreshedPreview);
+        Assert.NotEqual(previousColor, refreshedPreview.GetPixel(0, 0).ToArgb());
+        Assert.Throws<ArgumentException>(() => previousPreview.GetPixel(0, 0));
+    }
+
+    [Fact]
+    public void UndoAndRedoRebuildCachedPreviewWhenPixelsChange()
+    {
+        using var bitmap = new Bitmap(16, 16);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Pixelate);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var bounds = new Rectangle(2, 2, 8, 8);
+        SetMaskRegions(editor, bitmap.Size, bounds);
+        var regions = (System.Collections.IList)typeof(EditorForm).GetField("_maskRegions", flags)!.GetValue(editor)!;
+        var region = regions[0]!;
+        var previewProperty = region.GetType().GetProperty("Preview")!;
+        var originalPreview = (Bitmap)previewProperty.GetValue(region)!;
+        var workingBitmap = (Bitmap)typeof(EditorForm).GetField("_workingBitmap", flags)!.GetValue(editor)!;
+        typeof(EditorForm).GetMethod("SaveUndoRegion", flags)!.Invoke(editor, [bounds]);
+        using (var graphics = Graphics.FromImage(workingBitmap))
+        {
+            graphics.FillRectangle(Brushes.Blue, bounds);
+        }
+
+        typeof(EditorForm).GetMethod("UndoLastEdit", flags)!.Invoke(editor, null);
+        var undonePreview = (Bitmap)previewProperty.GetValue(region)!;
+        Assert.Equal(Color.White.ToArgb(), undonePreview.GetPixel(0, 0).ToArgb());
+        Assert.NotSame(originalPreview, undonePreview);
+        Assert.Throws<ArgumentException>(() => originalPreview.GetPixel(0, 0));
+
+        typeof(EditorForm).GetMethod("RedoLastEdit", flags)!.Invoke(editor, null);
+        var redonePreview = (Bitmap)previewProperty.GetValue(region)!;
+        Assert.Equal(Color.Blue.ToArgb(), redonePreview.GetPixel(0, 0).ToArgb());
+        Assert.NotSame(undonePreview, redonePreview);
+        Assert.Throws<ArgumentException>(() => undonePreview.GetPixel(0, 0));
+    }
+
+    [Fact]
+    public void SolidMaskPaintDoesNotNeedBitmapPreviewAndModeChangesReleaseCache()
+    {
+        using var bitmap = new Bitmap(16, 16);
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Solid, maskColorArgb: Color.Black.ToArgb());
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        SetMaskRegions(editor, bitmap.Size, new Rectangle(2, 2, 8, 8));
+        var regions = (System.Collections.IList)typeof(EditorForm).GetField("_maskRegions", flags)!.GetValue(editor)!;
+        var region = regions[0]!;
+        var previewProperty = region.GetType().GetProperty("Preview")!;
+        Assert.Null(previewProperty.GetValue(region));
+        using var rendered = new Bitmap(16, 16);
+        using (var graphics = Graphics.FromImage(rendered))
+        {
+            graphics.Clear(Color.White);
+            typeof(EditorForm).GetMethod("DrawAutomaticMaskPreview", flags)!
+                .Invoke(editor, [graphics, new Rectangle(Point.Empty, rendered.Size)]);
+        }
+
+        Assert.Equal(Color.Black.ToArgb(), rendered.GetPixel(2, 2).ToArgb());
+        Assert.Equal(Color.White.ToArgb(), rendered.GetPixel(0, 0).ToArgb());
+
+        typeof(EditorForm).GetMethod("SetActiveTool", flags)!.Invoke(editor, [EditTool.Pixelated]);
+        var pixelatedPreview = (Bitmap)previewProperty.GetValue(region)!;
+        Assert.NotNull(pixelatedPreview);
+
+        typeof(EditorForm).GetMethod("SetActiveTool", flags)!.Invoke(editor, [EditTool.Blur]);
+        Assert.Null(previewProperty.GetValue(region));
+        Assert.Throws<ArgumentException>(() => pixelatedPreview.GetPixel(0, 0));
+    }
+
+    [Theory]
+    [InlineData("CancelAutomaticMask")]
+    [InlineData("ApplyAutomaticMask")]
+    [InlineData("ResetTextRegionDetection")]
+    [InlineData("Dispose")]
+    public void EndingMaskSelectionDisposesCachedPreviews(string action)
+    {
+        using var bitmap = new Bitmap(16, 16);
+        using var editor = new EditorForm(bitmap, string.Empty, maskMode: MaskMode.Pixelate);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        SetMaskRegions(editor, bitmap.Size, new Rectangle(2, 2, 8, 8));
+        typeof(EditorForm).GetMethod("SetAutomaticMaskSelectionActive", flags)!.Invoke(editor, [true]);
+        var regions = (System.Collections.IList)typeof(EditorForm).GetField("_maskRegions", flags)!.GetValue(editor)!;
+        var region = regions[0]!;
+        var previewProperty = region.GetType().GetProperty("Preview")!;
+        var preview = (Bitmap)previewProperty.GetValue(region)!;
+
+        if (action == "Dispose")
+        {
+            editor.Dispose();
+        }
+        else
+        {
+            typeof(EditorForm).GetMethod(action, flags)!.Invoke(editor, null);
+        }
+
+        Assert.Empty(regions);
+        Assert.Null(previewProperty.GetValue(region));
+        Assert.Throws<ArgumentException>(() => preview.GetPixel(0, 0));
+    }
+
+    [Theory]
+    [InlineData(70, 10, false)]
+    [InlineData(10, 70, false)]
+    [InlineData(70, 60, false)]
+    [InlineData(70, 10, true)]
+    [InlineData(10, 70, true)]
+    [InlineData(70, 60, true)]
+    public void FreehandUndoIncludesMouseUpBeyondLastMouseMove(int endX, int endY, bool includeMouseMove)
+    {
+        using var bitmap = new Bitmap(80, 80);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var pictureBox = (PictureBox)typeof(EditorForm).GetField("_pictureBox", flags)!.GetValue(editor)!;
+        var bitmapField = typeof(EditorForm).GetField("_workingBitmap", flags)!;
+        typeof(EditorForm).GetMethod("PictureBox_MouseDown", flags)!
+            .Invoke(editor, [pictureBox, new MouseEventArgs(MouseButtons.Left, 1, 10, 10, 0)]);
+        if (includeMouseMove)
+        {
+            typeof(EditorForm).GetMethod("PictureBox_MouseMove", flags)!
+                .Invoke(editor, [pictureBox, new MouseEventArgs(MouseButtons.Left, 0, 12, 12, 0)]);
+        }
+
+        typeof(EditorForm).GetMethod("PictureBox_MouseUp", flags)!
+            .Invoke(editor, [pictureBox, new MouseEventArgs(MouseButtons.Left, 1, endX, endY, 0)]);
+        var drawnBitmap = (Bitmap)bitmapField.GetValue(editor)!;
+        var endpointColor = drawnBitmap.GetPixel(endX, endY).ToArgb();
+        Assert.NotEqual(Color.White.ToArgb(), endpointColor);
+
+        typeof(EditorForm).GetMethod("UndoLastEdit", flags)!.Invoke(editor, null);
+        var undoneBitmap = (Bitmap)bitmapField.GetValue(editor)!;
+        for (var row = 0; row < undoneBitmap.Height; row++)
+        {
+            for (var column = 0; column < undoneBitmap.Width; column++)
+            {
+                Assert.Equal(Color.White.ToArgb(), undoneBitmap.GetPixel(column, row).ToArgb());
+            }
+        }
+
+        typeof(EditorForm).GetMethod("RedoLastEdit", flags)!.Invoke(editor, null);
+        var redoneBitmap = (Bitmap)bitmapField.GetValue(editor)!;
+        Assert.Equal(endpointColor, redoneBitmap.GetPixel(endX, endY).ToArgb());
+    }
+
+    [Fact]
+    public void ProtectedCopyIsDisposedWhenMaskingFails()
+    {
+        using var source = new Bitmap(4, 4);
+        source.SetPixel(0, 0, Color.White);
+        Bitmap? copy = null;
+        var failure = new InvalidOperationException("Masking failed.");
+        Action<Bitmap> applyMasks = bitmap =>
+        {
+            copy = bitmap;
+            throw failure;
+        };
+        var factory = typeof(EditorForm).GetMethod("CreateProtectedCopy", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var exception = Assert.Throws<TargetInvocationException>(() => factory.Invoke(null, [source, applyMasks]));
+
+        Assert.Same(failure, exception.InnerException);
+        Assert.NotNull(copy);
+        Assert.Throws<ArgumentException>(() => copy.GetPixel(0, 0));
+        Assert.Equal(Color.White.ToArgb(), source.GetPixel(0, 0).ToArgb());
+    }
+
+    [Theory]
     [InlineData(1200, 900)]
     [InlineData(1200, 120)]
     [InlineData(120, 900)]
@@ -1047,18 +1339,13 @@ public sealed class EditorFormTests
 
     private static void SetMaskRegions(EditorForm editor, Size imageSize, params Rectangle[] bounds)
     {
-        var regionType = typeof(EditorForm).GetNestedType("MaskRegion", BindingFlags.NonPublic)!;
         var regionsField = typeof(EditorForm).GetField("_maskRegions", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var regions = regionsField.GetValue(editor)!;
         var addRegion = regionsField.FieldType.GetMethod("Add")!;
+        var createRegion = typeof(EditorForm).GetMethod("CreateMaskRegion", BindingFlags.Instance | BindingFlags.NonPublic)!;
         foreach (var rectangle in bounds)
         {
-            var region = Activator.CreateInstance(
-                regionType,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                [rectangle],
-                null)!;
+            var region = createRegion.Invoke(editor, [rectangle])!;
             addRegion.Invoke(regions, [region]);
         }
 

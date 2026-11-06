@@ -187,11 +187,19 @@ public sealed class EditorForm : Form
     [Flags]
     private enum CropEdge { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
 
-    private sealed class MaskRegion(Rectangle bounds)
+    private sealed class MaskRegion(Rectangle bounds) : IDisposable
     {
         public Rectangle Bounds { get; } = bounds;
 
         public bool ShouldMask { get; set; } = true;
+
+        public Bitmap? Preview { get; set; }
+
+        public void Dispose()
+        {
+            Preview?.Dispose();
+            Preview = null;
+        }
     }
 
     private Bitmap _workingBitmap;
@@ -1408,6 +1416,7 @@ public sealed class EditorForm : Form
             if (_maskMode != mode)
             {
                 _maskMode = mode;
+                RefreshAutomaticMaskPreviews();
                 MaskModeChanged?.Invoke(mode);
                 _pictureBox.Invalidate();
             }
@@ -1609,6 +1618,10 @@ public sealed class EditorForm : Form
         {
             ResetTextRegionDetection();
         }
+        else
+        {
+            RefreshAutomaticMaskPreviews();
+        }
     }
 
     private void RedoLastEdit()
@@ -1639,6 +1652,10 @@ public sealed class EditorForm : Form
         if (dimensionsChanged)
         {
             ResetTextRegionDetection();
+        }
+        else
+        {
+            RefreshAutomaticMaskPreviews();
         }
     }
 
@@ -1835,7 +1852,7 @@ public sealed class EditorForm : Form
             var bounds = ImageEditingService.CreateSelectionRectangle(_manualMaskStart, _manualMaskEnd);
             if (bounds.Width > 1 && bounds.Height > 1)
             {
-                _maskRegions.Add(new MaskRegion(bounds));
+                _maskRegions.Add(CreateMaskRegion(bounds));
             }
 
             _pictureBox.Invalidate();
@@ -1866,6 +1883,7 @@ public sealed class EditorForm : Form
             ImageEditingService.ApplyHighlighter(_workingBitmap, _highlighterPoints, _selectedHighlightColor, _highlightWidth);
             _highlighterPoints.Clear();
             _pictureBox.Image = _workingBitmap;
+            RefreshAutomaticMaskPreviews();
             _pictureBox.Invalidate();
         }
         else if (_currentTool == EditTool.Text)
@@ -1893,6 +1911,11 @@ public sealed class EditorForm : Form
             var end = shiftPressed
                 ? ImageEditingService.ConstrainDrawingEndpoint(_dragStart, e.Location, EditTool.Freehand)
                 : e.Location;
+            if (!shiftPressed && (_freehandPoints.Count == 0 || _freehandPoints[^1] != end))
+            {
+                _freehandPoints.Add(end);
+            }
+
             var finalDirtyRect = shiftPressed
                 ? CreateLineDirtyRectangle(_dragStart, end, _lineWidth + 2)
                 : CreateLineDirtyRectangle(_freehandPoints, _lineWidth + 2);
@@ -1904,11 +1927,6 @@ public sealed class EditorForm : Form
             }
             else
             {
-                if (_freehandPoints.Count == 0 || _freehandPoints[^1] != e.Location)
-                {
-                    _freehandPoints.Add(e.Location);
-                }
-
                 using var graphics = Graphics.FromImage(_workingBitmap);
                 ImageEditingService.DrawFreehandStroke(graphics, _freehandPoints, _selectedColor, _lineWidth);
             }
@@ -1920,6 +1938,7 @@ public sealed class EditorForm : Form
             _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
             _pictureBox.Image = _workingBitmap;
+            RefreshAutomaticMaskPreviews();
             InvalidatePictureBoxRegion(repaintRegion);
         }
         else if (_currentTool is EditTool.Blur or EditTool.Pixelated)
@@ -1949,6 +1968,7 @@ public sealed class EditorForm : Form
             _pictureBox.Image = _workingBitmap;
             _shapePreviewVisible = false;
             _lastPreviewDirtyRect = Rectangle.Empty;
+            RefreshAutomaticMaskPreviews();
             InvalidatePictureBoxRegion(repaintRegion);
         }
     }
@@ -2149,6 +2169,7 @@ public sealed class EditorForm : Form
         SaveUndoRegion(area);
         ImageEditingService.ApplyMask(_workingBitmap, area, _maskMode, _selectedMaskColor, _maskPixelSize);
         _pictureBox.Image = _workingBitmap;
+        RefreshAutomaticMaskPreviews();
         InvalidatePictureBoxRegion(InflateRectangle(area, 2));
     }
 
@@ -2450,6 +2471,7 @@ public sealed class EditorForm : Form
     private void SetMaskPixelSize(int size)
     {
         _maskPixelSize = Math.Clamp(size, 4, 32);
+        RefreshAutomaticMaskPreviews();
         UpdatePixelSizeMenu();
         MaskPixelSizeChanged?.Invoke(_maskPixelSize);
     }
@@ -2607,6 +2629,7 @@ public sealed class EditorForm : Form
         _textBuffer = string.Empty;
         _textCaretVisible = false;
         _pictureBox.Image = _workingBitmap;
+        RefreshAutomaticMaskPreviews();
         _pictureBox.Invalidate(InflateRectangle(_textBounds, 2));
     }
 
@@ -2638,6 +2661,7 @@ public sealed class EditorForm : Form
 
         _nextCounterValue++;
         _pictureBox.Image = _workingBitmap;
+        RefreshAutomaticMaskPreviews();
         InvalidatePictureBoxRegion(InflateRectangle(marker.Bounds, 2));
     }
 
@@ -2764,13 +2788,18 @@ public sealed class EditorForm : Form
                 destinationPath = dialog.FileName;
             }
 
-            using var saveCopy = CreateProtectedImage();
-            if (saveCopy is null)
+            if (_textRegionDetectionInProgress || IsDisposed)
             {
                 return;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            var regions = _textRegionDetectionReady
+                ? _maskRegions.Where(region => region.ShouldMask).Select(region => region.Bounds).ToArray()
+                : Array.Empty<Rectangle>();
+            var maskMode = _maskMode;
+            var maskColor = _selectedMaskColor;
+            var pixelSize = _maskPixelSize;
+            using var saveCopy = (Bitmap)_workingBitmap.Clone();
             var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
             {
                 ".jpg" or ".jpeg" => ImageFormat.Jpeg,
@@ -2778,14 +2807,10 @@ public sealed class EditorForm : Form
                 _ => ImageFormat.Png,
             };
 
-            await Task.Run(() =>
-            {
-                using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
-                ImageMetadataWriter.SaveWithSoftwareMetadata(saveCopy, output, format);
-            });
+            await SavePreparedImageAsync(saveCopy, regions, maskMode, maskColor, pixelSize, destinationPath, format);
 
             var savedDirectory = Path.GetDirectoryName(destinationPath);
-            if (!string.IsNullOrWhiteSpace(savedDirectory) && Directory.Exists(savedDirectory))
+            if (!string.IsNullOrWhiteSpace(savedDirectory))
             {
                 _initialFolder = savedDirectory;
             }
@@ -2811,6 +2836,25 @@ public sealed class EditorForm : Form
             Volatile.Write(ref _isSaving, 0);
         }
     }
+
+    private static Task SavePreparedImageAsync(
+        Bitmap saveCopy,
+        Rectangle[] regions,
+        MaskMode maskMode,
+        Color maskColor,
+        int pixelSize,
+        string destinationPath,
+        ImageFormat format) => Task.Run(() =>
+        {
+            foreach (var bounds in regions)
+            {
+                ImageEditingService.ApplyMask(saveCopy, bounds, maskMode, maskColor, pixelSize);
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
+            ImageMetadataWriter.SaveWithSoftwareMetadata(saveCopy, output, format);
+        });
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -3045,7 +3089,7 @@ public sealed class EditorForm : Form
         _textRegionDetectionReady = false;
         _textRegionDetectionInProgress = true;
         _isAutomaticMaskRevealActive = false;
-        _maskRegions.Clear();
+        ClearMaskRegions();
         SetAutomaticMaskSelectionActive(true);
         _btnConfirmCrop.Enabled = false;
         _btnCancelCrop.Enabled = false;
@@ -3054,8 +3098,9 @@ public sealed class EditorForm : Form
 
         try
         {
-            using var source = (Bitmap)_workingBitmap.Clone();
-            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(source, cancellation.Token);
+            var sourceSize = _workingBitmap.Size;
+            var detectedRegions = await WindowsTextRegionDetector.DetectRegionsAsync(
+                () => (Bitmap)_workingBitmap.Clone(), cancellation.Token);
             if (IsDisposed || generation != _textRegionDetectionGeneration)
             {
                 return;
@@ -3067,9 +3112,12 @@ public sealed class EditorForm : Form
                 return;
             }
 
-            _maskRegions.Clear();
-            _maskRegions.AddRange(detectedRegions.Select(region => new MaskRegion(region)));
-            _maskDetectionImageSize = source.Size;
+            ClearMaskRegions();
+            foreach (var bounds in detectedRegions)
+            {
+                _maskRegions.Add(CreateMaskRegion(bounds));
+            }
+            _maskDetectionImageSize = sourceSize;
             _textRegionDetectionInProgress = false;
             _textRegionDetectionReady = true;
             _automaticMaskMenuItem.ToolTipText = AppLocalization.Translate(_maskRegions.Count == 0
@@ -3103,7 +3151,7 @@ public sealed class EditorForm : Form
     private void ResetTextRegionDetection()
     {
         CancelTextRegionDetection();
-        _maskRegions.Clear();
+        ClearMaskRegions();
         _textRegionDetectionReady = false;
         _textRegionDetectionInProgress = false;
         _isAutomaticMaskRevealActive = false;
@@ -3138,6 +3186,11 @@ public sealed class EditorForm : Form
 
     private void SetAutomaticMaskSelectionActive(bool active)
     {
+        if (active && _textRegionDetectionReady)
+        {
+            EnsureAutomaticMaskPreviews();
+        }
+
         _isAutomaticMaskSelectionActive = active;
         _automaticMaskToolTip.SetToolTip(
             _pictureBox,
@@ -3255,7 +3308,7 @@ public sealed class EditorForm : Form
             _pictureBox.Image = _workingBitmap;
         }
 
-        _maskRegions.Clear();
+        ClearMaskRegions();
         _maskDetectionImageSize = Size.Empty;
         _textRegionDetectionReady = false;
         _isAutomaticMaskRevealActive = false;
@@ -3274,7 +3327,7 @@ public sealed class EditorForm : Form
         }
 
         CancelTextRegionDetection();
-        _maskRegions.Clear();
+        ClearMaskRegions();
         _maskDetectionImageSize = Size.Empty;
         _textRegionDetectionReady = false;
         _textRegionDetectionInProgress = false;
@@ -3295,6 +3348,71 @@ public sealed class EditorForm : Form
         CancelAutomaticMask();
     }
 
+    private MaskRegion CreateMaskRegion(Rectangle bounds)
+    {
+        var region = new MaskRegion(bounds);
+        PrepareMaskPreview(region);
+        return region;
+    }
+
+    private void PrepareMaskPreview(MaskRegion region)
+    {
+        if (_maskMode == MaskMode.Solid || region.Preview is not null)
+        {
+            return;
+        }
+
+        var bounds = Rectangle.Intersect(region.Bounds, new Rectangle(Point.Empty, _workingBitmap.Size));
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
+
+        var preview = _workingBitmap.Clone(bounds, PixelFormat.Format32bppArgb);
+        try
+        {
+            ImageEditingService.ApplyMask(preview, new Rectangle(Point.Empty, preview.Size), _maskMode, _selectedMaskColor, _maskPixelSize);
+            region.Preview = preview;
+        }
+        catch
+        {
+            preview.Dispose();
+            throw;
+        }
+    }
+
+    private void EnsureAutomaticMaskPreviews()
+    {
+        foreach (var region in _maskRegions)
+        {
+            PrepareMaskPreview(region);
+        }
+    }
+
+    private void RefreshAutomaticMaskPreviews()
+    {
+        foreach (var region in _maskRegions)
+        {
+            region.Dispose();
+        }
+
+        if (_textRegionDetectionReady)
+        {
+            EnsureAutomaticMaskPreviews();
+            _pictureBox.Invalidate();
+        }
+    }
+
+    private void ClearMaskRegions()
+    {
+        foreach (var region in _maskRegions)
+        {
+            region.Dispose();
+        }
+
+        _maskRegions.Clear();
+    }
+
     private void DrawAutomaticMaskPreview(Graphics graphics, Rectangle clipBounds)
     {
         if (!_textRegionDetectionReady)
@@ -3308,6 +3426,7 @@ public sealed class EditorForm : Form
             return;
         }
 
+        using var maskBrush = _maskMode == MaskMode.Solid ? new SolidBrush(_selectedMaskColor) : null;
         var imageBounds = new Rectangle(Point.Empty, _workingBitmap.Size);
         foreach (var region in _maskRegions)
         {
@@ -3332,14 +3451,14 @@ public sealed class EditorForm : Form
                 continue;
             }
 
-            using var maskedRegion = _workingBitmap.Clone(bounds, PixelFormat.Format32bppArgb);
-            ImageEditingService.ApplyMask(
-                maskedRegion,
-                new Rectangle(Point.Empty, maskedRegion.Size),
-                _maskMode,
-                _selectedMaskColor,
-                _maskPixelSize);
-            graphics.DrawImageUnscaled(maskedRegion, bounds.Location);
+            if (maskBrush is not null)
+            {
+                graphics.FillRectangle(maskBrush, bounds);
+            }
+            else if (region.Preview is { } preview)
+            {
+                graphics.DrawImageUnscaled(preview, bounds.Location);
+            }
         }
     }
 
@@ -3350,23 +3469,38 @@ public sealed class EditorForm : Form
             return null;
         }
 
-        var protectedImage = (Bitmap)_workingBitmap.Clone();
-        if (!_textRegionDetectionReady)
+        return CreateProtectedCopy(_workingBitmap, protectedImage =>
         {
+            if (!_textRegionDetectionReady)
+            {
+                return;
+            }
+
+            foreach (var region in _maskRegions.Where(region => region.ShouldMask))
+            {
+                ImageEditingService.ApplyMask(
+                    protectedImage,
+                    region.Bounds,
+                    _maskMode,
+                    _selectedMaskColor,
+                    _maskPixelSize);
+            }
+        });
+    }
+
+    private static Bitmap CreateProtectedCopy(Bitmap source, Action<Bitmap> applyMasks)
+    {
+        var protectedImage = (Bitmap)source.Clone();
+        try
+        {
+            applyMasks(protectedImage);
             return protectedImage;
         }
-
-        foreach (var region in _maskRegions.Where(region => region.ShouldMask))
+        catch
         {
-            ImageEditingService.ApplyMask(
-                protectedImage,
-                region.Bounds,
-                _maskMode,
-                _selectedMaskColor,
-                _maskPixelSize);
+            protectedImage.Dispose();
+            throw;
         }
-
-        return protectedImage;
     }
 
     protected override void Dispose(bool disposing)
@@ -3374,6 +3508,7 @@ public sealed class EditorForm : Form
         if (disposing)
         {
             CancelTextRegionDetection();
+            ClearMaskRegions();
             _inactivityTimer?.Stop();
             _inactivityTimer?.Dispose();
             _textCaretTimer.Stop();
