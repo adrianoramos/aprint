@@ -6,6 +6,66 @@ namespace Aprint.Tests.Editor;
 
 public sealed class EditorFormTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreparedSaveWritesSelectedMasksAndMetadata(bool includeMask)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "Aprint.Tests", Guid.NewGuid().ToString("N"));
+        var destination = Path.Combine(folder, "capture.png");
+        using var source = new Bitmap(8, 8);
+        using (var graphics = Graphics.FromImage(source))
+        {
+            graphics.Clear(Color.White);
+        }
+
+        using var saveCopy = (Bitmap)source.Clone();
+        var save = typeof(EditorForm).GetMethod("SavePreparedImageAsync", BindingFlags.Static | BindingFlags.NonPublic)!;
+        Rectangle[] regions = includeMask ? [new Rectangle(2, 2, 4, 4)] : [];
+        try
+        {
+            await (Task)save.Invoke(null,
+                [saveCopy, regions, MaskMode.Solid, Color.Black, 4, destination, System.Drawing.Imaging.ImageFormat.Png])!;
+
+            using var savedImage = new Bitmap(destination);
+            Assert.Equal(Color.White.ToArgb(), savedImage.GetPixel(0, 0).ToArgb());
+            Assert.Equal((includeMask ? Color.Black : Color.White).ToArgb(), savedImage.GetPixel(3, 3).ToArgb());
+            Assert.Equal(Color.White.ToArgb(), source.GetPixel(3, 3).ToArgb());
+            var encoded = File.ReadAllBytes(destination);
+            Assert.True(encoded.AsSpan().IndexOf("Software\0Aprint"u8) >= 0);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PreparedSavePropagatesIoFailureWithoutDisposingCallerCopy()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "Aprint.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var blockedDirectory = Path.Combine(folder, "blocked");
+        File.WriteAllText(blockedDirectory, "This path is a file.");
+        using var saveCopy = new Bitmap(8, 8);
+        var save = typeof(EditorForm).GetMethod("SavePreparedImageAsync", BindingFlags.Static | BindingFlags.NonPublic)!;
+        try
+        {
+            await Assert.ThrowsAnyAsync<IOException>(() => (Task)save.Invoke(null,
+                [saveCopy, Array.Empty<Rectangle>(), MaskMode.Solid, Color.Black, 4,
+                    Path.Combine(blockedDirectory, "capture.png"), System.Drawing.Imaging.ImageFormat.Png])!);
+
+            Assert.Equal(new Size(8, 8), saveCopy.Size);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
     [Fact]
     public void AutomaticMaskPaintReusesPreparedPixelatedPreview()
     {

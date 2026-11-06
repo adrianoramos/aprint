@@ -2788,13 +2788,18 @@ public sealed class EditorForm : Form
                 destinationPath = dialog.FileName;
             }
 
-            using var saveCopy = CreateProtectedImage();
-            if (saveCopy is null)
+            if (_textRegionDetectionInProgress || IsDisposed)
             {
                 return;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            var regions = _textRegionDetectionReady
+                ? _maskRegions.Where(region => region.ShouldMask).Select(region => region.Bounds).ToArray()
+                : Array.Empty<Rectangle>();
+            var maskMode = _maskMode;
+            var maskColor = _selectedMaskColor;
+            var pixelSize = _maskPixelSize;
+            using var saveCopy = (Bitmap)_workingBitmap.Clone();
             var format = Path.GetExtension(destinationPath).ToLowerInvariant() switch
             {
                 ".jpg" or ".jpeg" => ImageFormat.Jpeg,
@@ -2802,14 +2807,10 @@ public sealed class EditorForm : Form
                 _ => ImageFormat.Png,
             };
 
-            await Task.Run(() =>
-            {
-                using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
-                ImageMetadataWriter.SaveWithSoftwareMetadata(saveCopy, output, format);
-            });
+            await SavePreparedImageAsync(saveCopy, regions, maskMode, maskColor, pixelSize, destinationPath, format);
 
             var savedDirectory = Path.GetDirectoryName(destinationPath);
-            if (!string.IsNullOrWhiteSpace(savedDirectory) && Directory.Exists(savedDirectory))
+            if (!string.IsNullOrWhiteSpace(savedDirectory))
             {
                 _initialFolder = savedDirectory;
             }
@@ -2835,6 +2836,25 @@ public sealed class EditorForm : Form
             Volatile.Write(ref _isSaving, 0);
         }
     }
+
+    private static Task SavePreparedImageAsync(
+        Bitmap saveCopy,
+        Rectangle[] regions,
+        MaskMode maskMode,
+        Color maskColor,
+        int pixelSize,
+        string destinationPath,
+        ImageFormat format) => Task.Run(() =>
+        {
+            foreach (var bounds in regions)
+            {
+                ImageEditingService.ApplyMask(saveCopy, bounds, maskMode, maskColor, pixelSize);
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
+            ImageMetadataWriter.SaveWithSoftwareMetadata(saveCopy, output, format);
+        });
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
