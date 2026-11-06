@@ -8,9 +8,11 @@ public static class AppLocalization
     public const string SystemLanguageCode = "system";
     public const string PortugueseBrazilCode = "pt-BR";
     public const string EnglishUsCode = "en-US";
+    public const string SpanishCode = "es";
 
     private static readonly CultureInfo PortugueseBrazil = CultureInfo.GetCultureInfo(PortugueseBrazilCode);
     private static readonly CultureInfo EnglishUs = CultureInfo.GetCultureInfo(EnglishUsCode);
+    private static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo(SpanishCode);
     private static readonly ResourceManager ResourceManager = new("Aprint.Resources.Localization", typeof(AppLocalization).Assembly);
 
     public static void ApplyCulture(string? languageCode)
@@ -23,6 +25,9 @@ public static class AppLocalization
     }
 
     public static CultureInfo ResolveCulture(string? languageCode)
+        => ResolveCulture(languageCode, CultureInfo.InstalledUICulture);
+
+    internal static CultureInfo ResolveCulture(string? languageCode, CultureInfo systemCulture)
     {
         if (string.Equals(languageCode, PortugueseBrazilCode, StringComparison.OrdinalIgnoreCase))
         {
@@ -34,7 +39,12 @@ public static class AppLocalization
             return EnglishUs;
         }
 
-        return ResolveSystemCulture();
+        if (string.Equals(languageCode, SpanishCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return Spanish;
+        }
+
+        return ResolveSystemCulture(systemCulture);
     }
 
     public static string Translate(string key) =>
@@ -48,15 +58,19 @@ public static class AppLocalization
         (SystemLanguageCode, Translate("Settings.LanguageSystem")),
         (PortugueseBrazilCode, Translate("Settings.LanguagePortugueseBrazil")),
         (EnglishUsCode, Translate("Settings.LanguageEnglishUs")),
+        (SpanishCode, Translate("Settings.LanguageSpanish")),
     ];
 
-    private static CultureInfo ResolveSystemCulture()
+    private static CultureInfo ResolveSystemCulture(CultureInfo systemCulture)
     {
-        var systemCulture = CultureInfo.InstalledUICulture;
-
         if (string.Equals(systemCulture.Name, PortugueseBrazilCode, StringComparison.OrdinalIgnoreCase))
         {
             return PortugueseBrazil;
+        }
+
+        if (systemCulture.TwoLetterISOLanguageName.Equals("es", StringComparison.OrdinalIgnoreCase))
+        {
+            return Spanish;
         }
 
         if (systemCulture.TwoLetterISOLanguageName.Equals("en", StringComparison.OrdinalIgnoreCase))

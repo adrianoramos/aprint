@@ -375,6 +375,9 @@
   <data name="Settings.LanguageEnglishUs" xml:space="preserve">
     <value>English (United States)</value>
   </data>
+  <data name="Settings.LanguageSpanish" xml:space="preserve">
+    <value>Spanish</value>
+  </data>
   <data name="Settings.Save" xml:space="preserve">
     <value>&amp;Save</value>
   </data>

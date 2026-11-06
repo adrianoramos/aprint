@@ -109,7 +109,7 @@ partial class SettingsForm
         tabSettings.Location = new Point(12, 12);
         tabSettings.Name = "tabSettings";
         tabSettings.SelectedIndex = 0;
-        tabSettings.Size = new Size(436, 256);
+        tabSettings.Size = new Size(436, 300);
         tabSettings.TabIndex = 0;
         // 
         // tabGeneral
@@ -125,7 +125,7 @@ partial class SettingsForm
         tabGeneral.Location = new Point(4, 24);
         tabGeneral.Name = "tabGeneral";
         tabGeneral.Padding = new Padding(3);
-        tabGeneral.Size = new Size(428, 228);
+        tabGeneral.Size = new Size(428, 272);
         tabGeneral.TabIndex = 0;
         tabGeneral.Text = "Geral";
         tabGeneral.UseVisualStyleBackColor = true;
@@ -204,7 +204,7 @@ partial class SettingsForm
         tabHotkey.Location = new Point(4, 24);
         tabHotkey.Name = "tabHotkey";
         tabHotkey.Padding = new Padding(3);
-        tabHotkey.Size = new Size(428, 228);
+        tabHotkey.Size = new Size(428, 272);
         tabHotkey.TabIndex = 1;
         tabHotkey.Text = "Atalho";
         tabHotkey.UseVisualStyleBackColor = true;
@@ -277,7 +277,7 @@ partial class SettingsForm
         tabCapture.Location = new Point(4, 24);
         tabCapture.Name = "tabCapture";
         tabCapture.Padding = new Padding(3);
-        tabCapture.Size = new Size(428, 228);
+        tabCapture.Size = new Size(428, 272);
         tabCapture.TabIndex = 2;
         tabCapture.Text = "Captura";
         tabCapture.UseVisualStyleBackColor = true;
@@ -375,7 +375,7 @@ partial class SettingsForm
         tabEditor.Location = new Point(4, 24);
         tabEditor.Name = "tabEditor";
         tabEditor.Padding = new Padding(3);
-        tabEditor.Size = new Size(428, 228);
+        tabEditor.Size = new Size(428, 272);
         tabEditor.TabIndex = 3;
         tabEditor.Text = "Editor";
         tabEditor.UseVisualStyleBackColor = true;
@@ -383,7 +383,7 @@ partial class SettingsForm
         // chkOpenEditor
         // 
         chkOpenEditor.AutoSize = true;
-        chkOpenEditor.Location = new Point(15, 18);
+        chkOpenEditor.Location = new Point(15, 16);
         chkOpenEditor.Name = "chkOpenEditor";
         chkOpenEditor.Size = new Size(166, 19);
         chkOpenEditor.TabIndex = 0;
@@ -393,7 +393,7 @@ partial class SettingsForm
         // chkCloseEditorOnCopyOrSave
         // 
         chkCloseEditorOnCopyOrSave.AutoSize = true;
-        chkCloseEditorOnCopyOrSave.Location = new Point(15, 46);
+        chkCloseEditorOnCopyOrSave.Location = new Point(15, 74);
         chkCloseEditorOnCopyOrSave.Name = "chkCloseEditorOnCopyOrSave";
         chkCloseEditorOnCopyOrSave.Size = new Size(248, 19);
         chkCloseEditorOnCopyOrSave.TabIndex = 2;
@@ -402,7 +402,7 @@ partial class SettingsForm
         // chkSaveEditorImageWithoutPrompt
         // 
         chkSaveEditorImageWithoutPrompt.AutoSize = true;
-        chkSaveEditorImageWithoutPrompt.Location = new Point(15, 74);
+        chkSaveEditorImageWithoutPrompt.Location = new Point(15, 102);
         chkSaveEditorImageWithoutPrompt.Name = "chkSaveEditorImageWithoutPrompt";
         chkSaveEditorImageWithoutPrompt.Size = new Size(137, 19);
         chkSaveEditorImageWithoutPrompt.TabIndex = 3;
@@ -411,7 +411,7 @@ partial class SettingsForm
         // chkAutoCloseEditorWhenInactive
         // 
         chkAutoCloseEditorWhenInactive.AutoSize = true;
-        chkAutoCloseEditorWhenInactive.Location = new Point(15, 102);
+        chkAutoCloseEditorWhenInactive.Location = new Point(15, 130);
         chkAutoCloseEditorWhenInactive.Name = "chkAutoCloseEditorWhenInactive";
         chkAutoCloseEditorWhenInactive.Size = new Size(211, 19);
         chkAutoCloseEditorWhenInactive.TabIndex = 4;
@@ -421,23 +421,23 @@ partial class SettingsForm
         // cmbEditorInactivityTimeout
         // 
         cmbEditorInactivityTimeout.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbEditorInactivityTimeout.Location = new Point(250, 100);
+        cmbEditorInactivityTimeout.Location = new Point(15, 153);
         cmbEditorInactivityTimeout.Name = "cmbEditorInactivityTimeout";
-        cmbEditorInactivityTimeout.Size = new Size(163, 23);
+        cmbEditorInactivityTimeout.Size = new Size(398, 23);
         cmbEditorInactivityTimeout.TabIndex = 5;
         // 
         // cmbEditorStartState
         // 
         cmbEditorStartState.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbEditorStartState.Location = new Point(205, 16);
+        cmbEditorStartState.Location = new Point(15, 39);
         cmbEditorStartState.Name = "cmbEditorStartState";
-        cmbEditorStartState.Size = new Size(208, 23);
+        cmbEditorStartState.Size = new Size(398, 23);
         cmbEditorStartState.TabIndex = 1;
         // 
         // chkRememberLastTool
         // 
         chkRememberLastTool.AutoSize = true;
-        chkRememberLastTool.Location = new Point(15, 130);
+        chkRememberLastTool.Location = new Point(15, 188);
         chkRememberLastTool.Name = "chkRememberLastTool";
         chkRememberLastTool.Size = new Size(219, 19);
         chkRememberLastTool.TabIndex = 6;
@@ -456,7 +456,7 @@ partial class SettingsForm
         // lblDefaultEditorTool
         // 
         lblDefaultEditorTool.AutoSize = true;
-        lblDefaultEditorTool.Location = new Point(15, 162);
+        lblDefaultEditorTool.Location = new Point(15, 219);
         lblDefaultEditorTool.Name = "lblDefaultEditorTool";
         lblDefaultEditorTool.Size = new Size(161, 15);
         lblDefaultEditorTool.TabIndex = 19;
@@ -465,15 +465,15 @@ partial class SettingsForm
         // cmbDefaultEditorTool
         // 
         cmbDefaultEditorTool.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbDefaultEditorTool.Location = new Point(205, 158);
+        cmbDefaultEditorTool.Location = new Point(15, 238);
         cmbDefaultEditorTool.Name = "cmbDefaultEditorTool";
-        cmbDefaultEditorTool.Size = new Size(208, 23);
+        cmbDefaultEditorTool.Size = new Size(398, 23);
         cmbDefaultEditorTool.TabIndex = 7;
         // 
         // btnSave
         // 
         btnSave.DialogResult = DialogResult.OK;
-        btnSave.Location = new Point(280, 280);
+        btnSave.Location = new Point(280, 324);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);
         btnSave.TabIndex = 23;
@@ -483,7 +483,7 @@ partial class SettingsForm
         // btnCancel
         // 
         btnCancel.DialogResult = DialogResult.Cancel;
-        btnCancel.Location = new Point(368, 280);
+        btnCancel.Location = new Point(368, 324);
         btnCancel.Name = "btnCancel";
         btnCancel.Size = new Size(80, 28);
         btnCancel.TabIndex = 24;
@@ -496,7 +496,7 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(460, 320);
+        ClientSize = new Size(460, 364);
         Controls.Add(tabSettings);
         Controls.Add(btnSave);
         Controls.Add(btnCancel);
