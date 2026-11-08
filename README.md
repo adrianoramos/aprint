@@ -1,64 +1,57 @@
 # Aprint
 
-O Aprint é um aplicativo Windows para capturar, anotar e compartilhar screenshots. Ele fica na bandeja do sistema e permite capturar todos os monitores, o monitor sob o cursor ou uma região escolhida. Antes de finalizar uma captura de região, você pode anotar a imagem na barra flutuante, enviá-la ao editor, copiá-la ou salvá-la.
+Aprint é um aplicativo Windows para capturar, anotar, ocultar informações e compartilhar screenshots. Ele permanece na bandeja do sistema e foi pensado para quem repete esse fluxo em documentação, suporte, treinamento e desenvolvimento: capture, marque o que importa, revise e copie ou salve sem precisar abrir um editor separado para cada imagem.
 
-## Guia de uso
+## Recursos
 
-### 1. Iniciar uma captura
+- Captura de todos os monitores, do monitor sob o cursor ou de uma região retangular selecionada.
+- Anotações durante a seleção da região ou depois, em uma janela de edição dedicada.
+- Desenho livre, linhas, setas, retângulos, círculos, realce semitransparente, texto formatado e marcadores numerados.
+- Máscaras sólidas ou pixeladas, aplicadas manualmente ou em regiões de texto sugeridas pelo OCR do Windows.
+- Recorte, desfazer/refazer e preferências de ferramentas lembradas entre capturas.
+- Fluxos configuráveis para copiar, salvar, abrir no editor ou copiar e salvar; atalhos globais, notificações e inicialização com o Windows.
 
-Use o atalho global `Ctrl+Shift+P` (padrão), pressione `Print Screen` se essa opção estiver ativada, ou abra o menu do ícone do Aprint na bandeja e escolha **Capturar**. Um clique duplo no ícone também inicia a captura. O atalho e o modo de captura podem ser alterados em **Configurações**.
+## Começar
 
-Em **Configurações > Captura**, escolha o que será capturado:
+Depois de iniciar o Aprint, procure o ícone na bandeja do sistema. O aplicativo não precisa manter uma janela principal aberta.
 
-- **Todas as telas**: cria uma imagem da área combinada dos monitores.
-- **Tela do cursor**: captura o monitor onde o ponteiro está.
-- **Selecionar região**: permite arrastar uma área da tela. Em uma configuração com vários monitores, use a barra no alto para escolher a tela.
+Para iniciar uma captura, use `Ctrl+Shift+P` (atalho padrão), dê um clique duplo no ícone ou escolha **Capturar** no menu da bandeja. Também é possível configurar `Print Screen` como atalho. O menu da bandeja permite alternar entre a captura configurada e a seleção de região. Por padrão, o Aprint inicia no modo de região e copia a captura concluída para a área de transferência.
 
-Ao selecionar uma região, arraste para delimitá-la. O comportamento de um clique fora da seleção (iniciar outra seleção, sair do modo de captura ou não fazer nada) também pode ser definido nas configurações.
+Em **Configurações > Captura**, escolha o modo:
 
-### 2. Anotar antes de finalizar a seleção
+- **Todas as telas** captura a área virtual combinada dos monitores.
+- **Tela do cursor** captura o monitor onde o ponteiro está.
+- **Selecionar região** permite arrastar um retângulo sobre a área virtual. Em uma configuração com vários monitores, a barra no alto também permite capturar todos os monitores, o monitor sob o cursor ou uma tela específica.
 
-Na captura por região, use a barra flutuante para desenhar ou destacar diretamente sobre a área selecionada. Abra o menu de ferramentas para escolher desenho livre, linha, seta, retângulo, círculo, contador, texto ou máscara. Os menus de opções permitem ajustar cores, preenchimento, espessura, tamanho e formatação de texto; as preferências de ferramentas são reaproveitadas no editor.
+Na seleção de região, arraste para definir o retângulo. As opções para um clique fora da seleção são iniciar outra seleção, sair do modo de captura ou ignorar o clique. Pressione `Esc` para cancelar.
 
-Quando terminar, escolha uma ação na barra ou no menu ao lado do botão principal:
+## Anotar durante a captura
 
-- **Capturar** ou `Enter`: concluir a captura.
-- **Enviar para o editor** ou `Ctrl+Enter`: continuar a edição na janela do editor.
-- **Copiar** ou `Ctrl+C`: enviar a imagem para a área de transferência.
-- **Salvar** ou `Ctrl+S`: gravar a imagem na pasta configurada.
+Com uma região selecionada, a barra flutuante permite marcar a imagem antes de concluí-la. Selecione uma ferramenta e arraste sobre a região; abra a seta/menu da ferramenta para ajustar suas opções. Desenho livre, linha, seta, retângulo, círculo, contador, texto, realce e máscaras estão disponíveis nesse fluxo. Retângulos e círculos podem ser preenchidos. As configurações de cor, espessura, tamanho e texto são reutilizadas no editor.
 
-### 3. Editar e revisar
+Escolha a ação na barra flutuante ou use:
 
-Ative uma ferramenta na barra do editor e desenhe sobre a imagem. Arraste para criar linhas, setas, formas, destaques e máscaras; use a ferramenta de texto para inserir uma anotação e a de contador para numerar etapas. Retângulos podem ter preenchimento. Use **Desfazer** e **Refazer**, ou `Ctrl+Z` e `Ctrl+Y`, para revisar as alterações.
+| Atalho | Ação |
+| --- | --- |
+| `Enter` | Concluir a captura conforme as configurações |
+| `Ctrl+Enter` | Enviar a imagem para o editor |
+| `Ctrl+C` | Copiar a imagem para a área de transferência |
+| `Ctrl+S` | Salvar a imagem |
+| `Esc` | Cancelar a seleção |
 
-As opções da ferramenta ativa ficam no menu correspondente. Por exemplo, escolha a cor e a espessura do traço, a cor e o tamanho do destaque, as cores do texto e do círculo do contador, ou uma cor de preenchimento. Essas preferências são lembradas entre capturas. Para ocultar dados sensíveis, escolha máscara sólida ou pixelada e ajuste a cor ou o tamanho dos blocos; `F8` alterna o modo de máscara.
+## Editar a captura
 
-Para cortar a imagem, pressione `,` ou `F11`, arraste as alças para enquadrar o conteúdo e confirme com `Enter`. Use `Esc` para sair do corte sem aplicá-lo.
+Use **Enviar para o editor** na barra flutuante ou ative **Abrir editor após a captura** nas configurações. Na janela do editor, selecione uma ferramenta na barra e arraste sobre a imagem. O botão de nova captura inicia outra captura sem exigir que você volte ao menu da bandeja.
 
-### 4. Aplicar máscara automática
+- **Desenho e formas:** desenho livre, linha e seta; retângulos e círculos com ou sem preenchimento. Ajuste cor e espessura do traço.
+- **Realce:** marca áreas com um traço semitransparente; ajuste cor e largura.
+- **Texto:** insira texto e escolha fonte, tamanho, cor e estilos como negrito, itálico, sublinhado e tachado.
+- **Contador:** coloque marcadores numerados para indicar etapas; ajuste tamanho e cores do número e do círculo.
+- **Máscaras:** cubra uma área com uma cor sólida ou pixelize-a. É possível escolher cor e tamanho dos blocos. `F8` alterna entre os modos de máscara.
+- **Recorte:** ative a ferramenta, arraste as alças para ajustar o enquadramento e confirme com `Enter`; `Esc` cancela o recorte.
+- **Revisão:** use desfazer/refazer para percorrer alterações recentes.
 
-No editor, escolha **Máscara automática** ou pressione `Ctrl+F8`. Aguarde a detecção de texto, clique nas regiões para incluir ou excluir cada uma e, se necessário, arraste para adicionar uma região manual. Mantenha `Espaço` pressionado para revelar temporariamente o conteúdo coberto e solte para voltar a ocultá-lo. Pressione `Enter` ou **Aplicar máscaras** para confirmar; use `Esc` para cancelar.
-
-A máscara automática também está disponível na barra flutuante durante a seleção de região. A detecção usa o OCR do Windows e é executada localmente. O idioma de OCR correspondente precisa estar instalado; se o recurso não estiver disponível, o Aprint exibirá um aviso e você poderá aplicar máscaras manualmente.
-
-### 5. Copiar, salvar e abrir o resultado
-
-No editor, use `Ctrl+C` para copiar ou `Ctrl+S` para salvar. Também é possível usar os botões correspondentes na barra. Em **Configurações > Captura**, defina se uma captura deve ir para a área de transferência, ser salva em disco ou fazer as duas coisas, e escolha a pasta de destino. Ao salvar pelo Aprint, os arquivos PNG e JPEG recebem metadados que identificam o software.
-
-As notificações podem ser ativadas ou desativadas. Configure o clique na notificação para não fazer nada, abrir a pasta, abrir o arquivo ou abrir a captura no editor. Também é possível ativar o som após a captura.
-
-### 6. Personalizar o fluxo
-
-Abra **Configurações** pelo menu do Aprint na bandeja para ajustar:
-
-- Atalho global ou uso da tecla `Print Screen`.
-- Modo e destino padrão das capturas, pasta de salvamento e ação ao clicar fora da seleção.
-- Abertura automática do editor, tamanho inicial da janela e exibição de rótulos nas ferramentas.
-- Ferramenta inicial do editor ou opção para lembrar a última ferramenta usada.
-- Salvamento sem confirmação, fechamento do editor após copiar/salvar e fechamento automático após um período sem atividade.
-- Notificações, ação ao clicar nelas, som, idioma e inicialização com o Windows.
-
-O Aprint é destinado a fluxos que exigem capturas frequentes, como documentação, suporte técnico e desenvolvimento de software. Capturas e detecção de texto são processadas localmente, sem enviar imagens ou texto a serviços externos.
+As opções visuais das ferramentas são persistidas e reaproveitadas em novas capturas. Para copiar ou salvar, use os botões da barra ou `Ctrl+C` e `Ctrl+S`. O salvamento automático usa a pasta configurada; a opção **Salvar sem confirmação** controla se o editor abre o diálogo de gravação. Pelo diálogo, o Aprint salva PNG, JPEG ou BMP. PNG e JPEG recebem metadados que identificam o Aprint.
 
 ### Atalhos do editor
 
@@ -67,13 +60,50 @@ O Aprint é destinado a fluxos que exigem capturas frequentes, como documentaç�
 | `F2` | Desenho livre |
 | `F3` / `F4` | Linha / seta |
 | `F5` / `F6` | Retângulo / círculo |
-| `F7` / `F8` | Destaque / alternar modo de máscara |
+| `F7` / `F8` | Realce / máscara |
 | `F9` / `F10` | Contador / texto |
-| `,` / `F11` | Ativar corte |
+| `,` / `F11` | Ativar recorte |
 | `Ctrl+F8` | Iniciar máscara automática |
 | `Ctrl+Z` / `Ctrl+Y` | Desfazer / refazer |
 | `Ctrl+C` / `Ctrl+S` | Copiar / salvar |
 | `Ctrl+N` | Fazer nova captura |
+
+## Máscara automática
+
+No editor, escolha **Máscara automática** no menu da ferramenta de máscara ou pressione `Ctrl+F8`. Na captura por região, a mesma opção fica no menu de máscaras da barra flutuante.
+
+O Aprint usa o OCR local do Windows para sugerir retângulos em torno de linhas de texto. Aguarde a detecção, clique em cada região para incluir ou excluir a máscara e arraste para adicionar áreas manualmente. Mantenha `Espaço` pressionado para revelar temporariamente a imagem original e solte para ocultá-la novamente. Confirme com `Enter` ou **Aplicar máscaras**; `Esc` cancela.
+
+Esse recurso aplica máscaras visuais; não extrai nem valida o texto detectado, e a detecção pode não encontrar todos os dados sensíveis. Revise as sugestões e acrescente máscaras manuais antes de compartilhar. O reconhecimento ocorre localmente e depende dos idiomas de OCR instalados no Windows. Se o mecanismo ou idioma necessário não estiver disponível, use as máscaras manuais.
+
+## Configurações
+
+Abra **Configurações** pelo menu da bandeja. As opções incluem:
+
+- **Atalho:** escolha uma combinação global de modificadores e tecla, ou use `Print Screen`.
+- **Captura:** modo padrão, ação ao concluir (área de transferência, disco ou ambos), pasta de destino e comportamento ao clicar fora da região.
+- **Editor:** abertura automática, estado inicial da janela, ferramenta padrão ou última ferramenta usada, rótulos nas ferramentas, salvamento sem diálogo, fechamento após copiar/salvar e fechamento por inatividade (30 segundos, 1, 3 ou 5 minutos).
+- **Geral:** notificações e ação ao clicar nelas (não fazer nada, abrir a pasta, abrir o arquivo ou abrir a captura no editor), som após a captura, idioma e inicialização com o Windows.
+
+O idioma pode seguir o Windows ou ser definido como português do Brasil, inglês dos Estados Unidos ou espanhol. As alterações da janela de configurações só são aplicadas ao salvar.
+
+## Aprint e a Snipping Tool do Windows
+
+As ferramentas se sobrepõem na captura de screenshots, mas atendem a fluxos diferentes. Os recursos da Snipping Tool variam conforme a versão do Windows e, em alguns casos, o hardware. A página oficial da Microsoft documenta os recursos e essa disponibilidade: [Usar a Snipping Tool para capturar screenshots](https://support.microsoft.com/en-us/windows/open-snipping-tool-and-take-a-screenshot-00246869-1843-655f-f220-97299b865f6b).
+
+| Necessidade | Aprint | Snipping Tool do Windows |
+| --- | --- | --- |
+| Tipos de captura | Todos os monitores, monitor sob o cursor ou região retangular | Região retangular, janela, tela inteira e, nas versões atuais, captura de vídeo |
+| Anotar | Ferramentas de desenho, formas, realce, texto formatado, contador numerado e máscaras | Caneta, realce, formas, borracha, recorte e desfazer/refazer |
+| Ocultar informação | Máscara sólida ou pixelada, manual ou sugerida sobre regiões de texto pelo OCR local | Ações de texto para copiar conteúdo e censura rápida de e-mails e telefones reconhecidos |
+| Fluxo recorrente | Aplicativo na bandeja, atalho configurável, editor dedicado, preferências lembradas e destino de captura configurável | Integração nativa do Windows, atalho do sistema e fluxo de captura/salvamento da própria ferramenta |
+| Outros recursos | Contador numerado, anotação antes de concluir a seleção e preferências de ferramentas persistentes | Recorte livre, captura de janela, gravação de tela e recursos adicionais que dependem do Windows e do dispositivo |
+
+O Aprint é especialmente útil quando você captura imagens com frequência e precisa anotá-las, numerar etapas, ocultar áreas e encaminhar cada resultado sempre do mesmo modo. A Snipping Tool é a opção adequada quando você precisa gravar vídeo, capturar uma janela ou forma livre, extrair texto ou usar recursos exclusivos da versão do Windows. O Aprint não grava vídeo, não captura janelas individuais nem oferece seleção de forma livre ou extração de texto.
+
+## Privacidade e processamento
+
+Capturas, edição e detecção de texto são feitas localmente no computador; o Aprint não envia imagens ou texto reconhecido a serviços externos. Conforme as ações escolhidas, a imagem pode ser copiada para a área de transferência ou salva em disco. A máscara automática é uma assistência: ela não substitui a revisão manual, e a revelação temporária com `Espaço` mostra o conteúdo original na tela.
 
 ## Requisitos
 
@@ -131,6 +161,4 @@ O script usa a versão informada no comando para a aplicação e para o instalad
 
 O instalador é framework-dependent e requer o .NET 8 Desktop Runtime no computador de destino. As saídas de `artifacts/`, `bin/` e `obj/` são geradas localmente e não devem ser versionadas.
 
-## Configurações
-
-As configurações do usuário são carregadas e salvas pelo `SettingsStore`. A aplicação é Windows-only e utiliza APIs do Windows para a bandeja, hotkeys globais, clipboard e captura de tela.
+As configurações do usuário são carregadas e salvas pelo `SettingsStore`. O aplicativo é exclusivo para Windows e usa APIs do Windows para a bandeja, atalhos globais, área de transferência, captura de tela e OCR.
