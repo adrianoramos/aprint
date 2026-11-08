@@ -87,19 +87,13 @@ Abra **Configurações** pelo menu da bandeja. As opções incluem:
 
 O idioma pode seguir o Windows ou ser definido como português do Brasil, inglês dos Estados Unidos ou espanhol. As alterações da janela de configurações só são aplicadas ao salvar.
 
-## Aprint e a Snipping Tool do Windows
+## Diferenciais do Aprint
 
-As ferramentas se sobrepõem na captura de screenshots, mas atendem a fluxos diferentes. Os recursos da Snipping Tool variam conforme a versão do Windows e, em alguns casos, o hardware. A página oficial da Microsoft documenta os recursos e essa disponibilidade: [Usar a Snipping Tool para capturar screenshots](https://support.microsoft.com/en-us/windows/open-snipping-tool-and-take-a-screenshot-00246869-1843-655f-f220-97299b865f6b).
+O Aprint reúne captura, anotação e destino da imagem em um fluxo contínuo. A seleção de região pode ser anotada antes de concluir a captura ou enviada ao editor para revisão, recorte e ajustes; em seguida, a imagem pode ser copiada, salva ou encaminhada conforme as preferências configuradas.
 
-| Necessidade | Aprint | Snipping Tool do Windows |
-| --- | --- | --- |
-| Tipos de captura | Todos os monitores, monitor sob o cursor ou região retangular | Região retangular, janela, tela inteira e, nas versões atuais, captura de vídeo |
-| Anotar | Ferramentas de desenho, formas, realce, texto formatado, contador numerado e máscaras | Caneta, realce, formas, borracha, recorte e desfazer/refazer |
-| Ocultar informação | Máscara sólida ou pixelada, manual ou sugerida sobre regiões de texto pelo OCR local | Ações de texto para copiar conteúdo e censura rápida de e-mails e telefones reconhecidos |
-| Fluxo recorrente | Aplicativo na bandeja, atalho configurável, editor dedicado, preferências lembradas e destino de captura configurável | Integração nativa do Windows, atalho do sistema e fluxo de captura/salvamento da própria ferramenta |
-| Outros recursos | Contador numerado, anotação antes de concluir a seleção e preferências de ferramentas persistentes | Recorte livre, captura de janela, gravação de tela e recursos adicionais que dependem do Windows e do dispositivo |
+O fluxo é personalizável para tarefas recorrentes: escolha um atalho global, modo e destino padrão, ferramentas iniciais e preferências visuais que são reaproveitadas entre capturas. Marcadores numerados ajudam a documentar etapas, enquanto máscaras sólidas, pixeladas e sugestões locais de OCR apoiam a ocultação de informações antes do compartilhamento.
 
-O Aprint é especialmente útil quando você captura imagens com frequência e precisa anotá-las, numerar etapas, ocultar áreas e encaminhar cada resultado sempre do mesmo modo. A Snipping Tool é a opção adequada quando você precisa gravar vídeo, capturar uma janela ou forma livre, extrair texto ou usar recursos exclusivos da versão do Windows. O Aprint não grava vídeo, não captura janelas individuais nem oferece seleção de forma livre ou extração de texto.
+Como aplicativo de bandeja, o Aprint fica disponível sem manter uma janela principal aberta. Captura, edição e reconhecimento de texto são processados localmente, sem enviar imagens ou texto reconhecido a serviços externos.
 
 ## Privacidade e processamento
 
