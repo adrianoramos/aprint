@@ -10,9 +10,14 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $projectPath = Join-Path $repositoryRoot 'src\Aprint\Aprint.csproj'
 $publishDirectory = Join-Path $repositoryRoot 'artifacts\publish'
+$licensePath = Join-Path $repositoryRoot 'LICENSE'
 $installerScript = Join-Path $PSScriptRoot 'Aprint.iss'
 $versionMatch = [regex]::Match($Version, '^(\d+)\.(\d+)\.(\d+)')
 $fileVersion = '{0}.{1}.{2}.0' -f $versionMatch.Groups[1].Value, $versionMatch.Groups[2].Value, $versionMatch.Groups[3].Value
+
+if (-not (Test-Path $licensePath -PathType Leaf)) {
+    throw "License file was not found: $licensePath"
+}
 
 if (Test-Path $publishDirectory) {
     Remove-Item $publishDirectory -Recurse -Force
@@ -39,7 +44,7 @@ if ([string]::IsNullOrWhiteSpace($isccPath)) {
 
 }
 
-& $isccPath "/DMyAppVersion=$Version" "/DMyFileVersion=$fileVersion" "/DMyPublishDir=$publishDirectory" $installerScript
+& $isccPath "/DMyAppVersion=$Version" "/DMyFileVersion=$fileVersion" "/DMyPublishDir=$publishDirectory" "/DMyLicenseFile=$licensePath" $installerScript
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
 }
