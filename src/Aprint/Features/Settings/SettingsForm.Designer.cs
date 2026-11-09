@@ -204,9 +204,9 @@ partial class SettingsForm
         // cmbNotificationClick
         // 
         cmbNotificationClick.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbNotificationClick.Location = new Point(205, 130);
+        cmbNotificationClick.Location = new Point(15, 153);
         cmbNotificationClick.Name = "cmbNotificationClick";
-        cmbNotificationClick.Size = new Size(208, 23);
+        cmbNotificationClick.Size = new Size(398, 23);
         cmbNotificationClick.TabIndex = 4;
         // 
         // chkPlaySound
@@ -230,7 +230,7 @@ partial class SettingsForm
         // lblLanguage
         // 
         lblLanguage.AutoSize = true;
-        lblLanguage.Location = new Point(15, 162);
+        lblLanguage.Location = new Point(15, 188);
         lblLanguage.Name = "lblLanguage";
         lblLanguage.Size = new Size(47, 15);
         lblLanguage.TabIndex = 21;
@@ -240,9 +240,9 @@ partial class SettingsForm
         // 
         cmbLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbLanguage.FormattingEnabled = true;
-        cmbLanguage.Location = new Point(205, 158);
+        cmbLanguage.Location = new Point(15, 207);
         cmbLanguage.Name = "cmbLanguage";
-        cmbLanguage.Size = new Size(208, 23);
+        cmbLanguage.Size = new Size(398, 23);
         cmbLanguage.TabIndex = 5;
         // 
         // tabHotkey
@@ -575,7 +575,7 @@ partial class SettingsForm
         // lblDocumentTemplatePath
         //
         lblDocumentTemplatePath.AutoSize = true;
-        lblDocumentTemplatePath.Location = new Point(15, 18);
+        lblDocumentTemplatePath.Location = new Point(15, 16);
         lblDocumentTemplatePath.Name = "lblDocumentTemplatePath";
         lblDocumentTemplatePath.Size = new Size(128, 15);
         lblDocumentTemplatePath.TabIndex = 0;
@@ -583,7 +583,7 @@ partial class SettingsForm
         //
         // txtDocumentTemplatePath
         //
-        txtDocumentTemplatePath.Location = new Point(15, 39);
+        txtDocumentTemplatePath.Location = new Point(15, 35);
         txtDocumentTemplatePath.Name = "txtDocumentTemplatePath";
         txtDocumentTemplatePath.ReadOnly = true;
         txtDocumentTemplatePath.Size = new Size(317, 23);
@@ -591,7 +591,7 @@ partial class SettingsForm
         //
         // btnBrowseDocumentTemplate
         //
-        btnBrowseDocumentTemplate.Location = new Point(340, 38);
+        btnBrowseDocumentTemplate.Location = new Point(340, 34);
         btnBrowseDocumentTemplate.Name = "btnBrowseDocumentTemplate";
         btnBrowseDocumentTemplate.Size = new Size(73, 25);
         btnBrowseDocumentTemplate.TabIndex = 2;
@@ -636,7 +636,7 @@ partial class SettingsForm
         //
         // txtDocumentOutputFolder
         //
-        txtDocumentOutputFolder.Location = new Point(15, 91);
+        txtDocumentOutputFolder.Location = new Point(15, 89);
         txtDocumentOutputFolder.Name = "txtDocumentOutputFolder";
         txtDocumentOutputFolder.ReadOnly = true;
         txtDocumentOutputFolder.Size = new Size(317, 23);
@@ -644,7 +644,7 @@ partial class SettingsForm
         //
         // btnBrowseDocumentOutputFolder
         //
-        btnBrowseDocumentOutputFolder.Location = new Point(340, 90);
+        btnBrowseDocumentOutputFolder.Location = new Point(340, 88);
         btnBrowseDocumentOutputFolder.Name = "btnBrowseDocumentOutputFolder";
         btnBrowseDocumentOutputFolder.Size = new Size(73, 25);
         btnBrowseDocumentOutputFolder.TabIndex = 7;
@@ -677,7 +677,7 @@ partial class SettingsForm
         chkSaveEditorImageWithoutPrompt.Name = "chkSaveEditorImageWithoutPrompt";
         chkSaveEditorImageWithoutPrompt.Size = new Size(137, 19);
         chkSaveEditorImageWithoutPrompt.TabIndex = 3;
-        chkSaveEditorImageWithoutPrompt.Text = "Salvar sem perguntar";
+        chkSaveEditorImageWithoutPrompt.Text = "Salvar o arquivo sem perguntar";
         // 
         // chkAutoCloseEditorWhenInactive
         // 
