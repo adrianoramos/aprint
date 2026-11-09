@@ -19,6 +19,9 @@
 #ifndef MyPublishDir
 	#define MyPublishDir "..\..\artifacts\publish"
 #endif
+#ifndef MyLicenseFile
+	#define MyLicenseFile "..\..\LICENSE"
+#endif
 #ifndef MyDotNetDesktopRuntimeUrl
   #define MyDotNetDesktopRuntimeUrl "https://dotnet.microsoft.com/en-us/download/dotnet/8.0/runtime"
 #endif
@@ -35,6 +38,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+LicenseFile={#MyLicenseFile}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
@@ -70,6 +74,7 @@ Name: "startup"; Description: "Run {#MyAppName} at system startup"; GroupDescrip
 
 [Files]
 Source: "{#MyPublishDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#MyLicenseFile}"; DestDir: "{app}"; DestName: "LICENSE"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
