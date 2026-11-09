@@ -677,7 +677,7 @@ partial class SettingsForm
         chkSaveEditorImageWithoutPrompt.Name = "chkSaveEditorImageWithoutPrompt";
         chkSaveEditorImageWithoutPrompt.Size = new Size(137, 19);
         chkSaveEditorImageWithoutPrompt.TabIndex = 3;
-        chkSaveEditorImageWithoutPrompt.Text = "Salvar sem perguntar";
+        chkSaveEditorImageWithoutPrompt.Text = "Salvar o arquivo sem perguntar";
         // 
         // chkAutoCloseEditorWhenInactive
         // 
