@@ -76,16 +76,22 @@ public sealed class SettingsFormTests
         using var form = new SettingsForm(new AppSettings());
         var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
 
-        Assert.Equal(4, tabControl.TabPages.Count);
+        Assert.Equal(5, tabControl.TabPages.Count);
         Assert.Equal(
             [
                 AppLocalization.Translate("Settings.GeneralGroup"),
                 AppLocalization.Translate("Settings.HotkeyGroup"),
                 AppLocalization.Translate("Settings.CaptureGroup"),
                 AppLocalization.Translate("Settings.EditorGroup"),
+                AppLocalization.Translate("Settings.SessionGroup"),
             ],
             tabControl.TabPages.Cast<TabPage>().Select(page => page.Text));
         Assert.Contains("chkForcePrintScreen", tabControl.TabPages[1].Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("lblCaptureHotkey", tabControl.TabPages[1].Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("chkStartSessionCtrl", tabControl.TabPages[1].Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("cmbStartSessionKey", tabControl.TabPages[1].Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("chkEndSessionCtrl", tabControl.TabPages[1].Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("cmbEndSessionKey", tabControl.TabPages[1].Controls.Cast<Control>().Select(control => control.Name));
         Assert.Contains("lblCaptureMode", tabControl.TabPages[2].Controls.Cast<Control>().Select(control => control.Name));
         var captureTab = tabControl.TabPages[2];
         var captureMode = captureTab.Controls["cmbCaptureMode"]!;
@@ -100,12 +106,20 @@ public sealed class SettingsFormTests
         var hotkeyTab = tabControl.TabPages[1];
         var editorTab = tabControl.TabPages[3];
         var generalTab = tabControl.TabPages[0];
+        var sessionTab = tabControl.TabPages[4];
         Assert.Equal(captureMode.Right, hotkeyTab.Controls["cmbKey"]!.Right);
+        Assert.Equal(captureMode.Right, hotkeyTab.Controls["cmbStartSessionKey"]!.Right);
+        Assert.Equal(captureMode.Right, hotkeyTab.Controls["cmbEndSessionKey"]!.Right);
         Assert.Equal(captureMode.Right, editorTab.Controls["cmbEditorStartState"]!.Right);
         Assert.Equal(captureMode.Right, editorTab.Controls["cmbDefaultEditorTool"]!.Right);
         Assert.Equal(captureMode.Right, editorTab.Controls["cmbEditorInactivityTimeout"]!.Right);
         Assert.Equal(captureMode.Right, generalTab.Controls["cmbNotificationClick"]!.Right);
         Assert.Equal(captureMode.Right, generalTab.Controls["cmbLanguage"]!.Right);
+        Assert.Contains("txtDocumentTemplatePath", sessionTab.Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("txtDocumentOutputFolder", sessionTab.Controls.Cast<Control>().Select(control => control.Name));
+        Assert.Contains("btnBrowseDocumentOutputFolder", sessionTab.Controls.Cast<Control>().Select(control => control.Name));
+        Assert.False(Assert.IsType<CheckBox>(sessionTab.Controls["chkSaveDocumentWithoutPrompt"]).Checked);
+        Assert.Contains("chkCloseAllEditorsOnSessionEnd", sessionTab.Controls.Cast<Control>().Select(control => control.Name));
         Assert.Empty(form.Controls.OfType<GroupBox>());
         Assert.Equal(396, form.ClientSize.Height);
     }

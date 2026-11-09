@@ -195,6 +195,22 @@
   <data name="Tray.IconText" xml:space="preserve">
     <value>Aprint - Captura de tela</value>
   </data>
+  <data name="Tray.SessionIconText" xml:space="preserve"><value>Aprint - Sessão ativa</value></data>
+  <data name="Tray.StartSession" xml:space="preserve"><value>Iniciar sessão para um documento</value></data>
+  <data name="Tray.EndSession" xml:space="preserve"><value>Encerrar sessão para um documento</value></data>
+  <data name="Tray.SessionStarted" xml:space="preserve"><value>Sessão iniciada</value></data>
+  <data name="Tray.SessionReady" xml:space="preserve"><value>As capturas principais serão enviadas ao documento.</value></data>
+  <data name="Tray.SessionStartError" xml:space="preserve"><value>Não foi possível iniciar a sessão</value></data>
+  <data name="Tray.SessionTemplateMissing" xml:space="preserve"><value>Configure um template .docx válido nas configurações.</value></data>
+  <data name="Tray.SessionUseBlankTemplatePrompt" xml:space="preserve"><value>Nenhum template Word válido foi encontrado. Deseja iniciar a sessão usando um documento Word em branco?</value></data>
+  <data name="Tray.SessionEnded" xml:space="preserve"><value>Sessão encerrada</value></data>
+  <data name="Tray.SessionEmpty" xml:space="preserve"><value>Nenhuma imagem foi adicionada; o documento não foi criado.</value></data>
+  <data name="Tray.DocumentSaved" xml:space="preserve"><value>Documento salvo</value></data>
+  <data name="Tray.SessionEndError" xml:space="preserve"><value>Não foi possível encerrar a sessão</value></data>
+  <data name="Tray.SessionNotActive" xml:space="preserve"><value>Não há uma sessão de documento ativa.</value></data>
+  <data name="Tray.DocumentOperationInProgress" xml:space="preserve"><value>Aguarde a conclusão da operação do documento.</value></data>
+  <data name="Tray.ImageAddedToDocument" xml:space="preserve"><value>Imagem enviada ao documento</value></data>
+  <data name="Tray.DocumentImageCount" xml:space="preserve"><value>Total de imagens: {0}</value></data>
   <data name="Tray.HotkeyRegisterError" xml:space="preserve">
     <value>Não foi possível registrar o atalho global. Ele pode já estar em uso por outro aplicativo.</value>
   </data>
@@ -229,7 +245,7 @@
     <value>Erro ao abrir</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>Uma ferramenta de captura de tela poderosa e altamente configurável, projetada para ambientes corporativos, que prioriza a privacidade e a segurança dos dados sem depender de bibliotecas de terceiros nem coletar ou transmitir quaisquer dados.</value>
+    <value>Uma ferramenta de captura de tela poderosa e altamente configurável, projetada para ambientes corporativos, que prioriza a privacidade e a segurança dos dados sem coletar ou transmitir imagens.</value>
   </data>
   <data name="Tray.AboutAuthor" xml:space="preserve">
     <value>Criado por Adriano Ramos da Silva</value>
@@ -255,6 +271,20 @@
   <data name="Settings.HotkeyGroup" xml:space="preserve">
     <value>Atalho</value>
   </data>
+  <data name="Settings.CaptureHotkeyLabel" xml:space="preserve"><value>Atalho para capturar imagem</value></data>
+  <data name="Settings.StartSessionHotkeyLabel" xml:space="preserve"><value>Iniciar sessão de capturas para um documento:</value></data>
+  <data name="Settings.EndSessionHotkeyLabel" xml:space="preserve"><value>Encerrar sessão de capturas para um documento:</value></data>
+  <data name="Settings.SessionGroup" xml:space="preserve"><value>Sessão</value></data>
+  <data name="Settings.DocumentTemplateLabel" xml:space="preserve"><value>Template do documento (.docx):</value></data>
+  <data name="Settings.DocumentOutputFolderLabel" xml:space="preserve"><value>Salvar documentos na pasta:</value></data>
+  <data name="Settings.DocumentTemplateFilter" xml:space="preserve"><value>Documentos do Word (*.docx)|*.docx</value></data>
+  <data name="Settings.CloseEditorAfterDocumentSend" xml:space="preserve"><value>Fechar editor ao enviar imagem ao documento</value></data>
+  <data name="Settings.CloseAllEditorsOnSessionEnd" xml:space="preserve"><value>Fechar todos os editores ao encerrar sessão</value></data>
+  <data name="Settings.SaveDocumentWithoutPrompt" xml:space="preserve"><value>Salvar documento sem perguntar</value></data>
+  <data name="Settings.DuplicateHotkeys" xml:space="preserve"><value>Os atalhos de captura, início e encerramento devem ser diferentes.</value></data>
+  <data name="Settings.InvalidDocumentTemplate" xml:space="preserve"><value>Selecione um arquivo .docx existente para usar como template.</value></data>
+  <data name="Capture.Region.SendToDocument" xml:space="preserve"><value>Enviar ao documento</value></data>
+  <data name="Editor.SendToDocument" xml:space="preserve"><value>Enviar ao documento</value></data>
   <data name="Settings.ForcePrintScreen" xml:space="preserve">
     <value>Usar a tecla Print Screen para capturar</value>
   </data>

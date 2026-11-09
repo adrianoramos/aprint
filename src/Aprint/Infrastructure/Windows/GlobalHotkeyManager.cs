@@ -6,7 +6,7 @@ namespace Aprint.Infrastructure.Windows;
 public sealed class GlobalHotkeyManager : IDisposable
 {
     private const int WmHotkey = 0x0312;
-    private const int HotkeyId = 0xA100;
+    private const int FirstHotkeyId = 0xA100;
     private const int WhKeyboardLl = 13;
     private const int WmKeyDown = 0x0100;
     private const int WmKeyUp = 0x0101;
@@ -83,40 +83,85 @@ public sealed class GlobalHotkeyManager : IDisposable
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     private readonly HotkeyWindow _window = new();
+    private readonly Dictionary<int, GlobalHotkeyCommand> _commandsById = [];
+    private readonly HashSet<int> _registeredHotkeyIds = [];
     private KeyboardHookThread? _keyboardHookThread;
-    private bool _isRegistered;
+    private int? _printScreenHotkeyId;
+    private int _nextHotkeyId;
 
-    public event Action? HotkeyPressed
-    {
-        add => _window.HotkeyPressed += value;
-        remove => _window.HotkeyPressed -= value;
-    }
+    public GlobalHotkeyManager() => _window.HotkeyPressed += DispatchHotkey;
+
+    public event Action? HotkeyPressed;
+
+    public event Action<GlobalHotkeyCommand>? CommandPressed;
 
     public bool Register(Keys key, bool ctrl, bool shift, bool alt, bool win)
     {
-        Unregister();
+        return RegisterMany([new GlobalHotkeyBinding(GlobalHotkeyCommand.Capture, key, ctrl, shift, alt, win)]).Count == 0;
+    }
 
-        if (key == Keys.PrintScreen && !ctrl && !shift && !alt && !win)
+    public IReadOnlyList<GlobalHotkeyCommand> RegisterMany(IEnumerable<GlobalHotkeyBinding> bindings)
+    {
+        ArgumentNullException.ThrowIfNull(bindings);
+        Unregister();
+        var failedCommands = new List<GlobalHotkeyCommand>();
+        foreach (var binding in bindings)
         {
-            var hookThread = new KeyboardHookThread(_window.Handle);
-            if (!hookThread.Start())
+            var id = FirstHotkeyId + _nextHotkeyId++;
+            if (binding.Key == Keys.PrintScreen)
             {
-                hookThread.Dispose();
-                return false;
+                if (binding.Ctrl || binding.Shift || binding.Alt || binding.Win || _keyboardHookThread is not null)
+                {
+                    failedCommands.Add(binding.Command);
+                    continue;
+                }
+
+                var hookThread = new KeyboardHookThread(_window.Handle, id);
+                if (!hookThread.Start())
+                {
+                    hookThread.Dispose();
+                    failedCommands.Add(binding.Command);
+                    continue;
+                }
+
+                _keyboardHookThread = hookThread;
+                _printScreenHotkeyId = id;
+                _commandsById[id] = binding.Command;
+                continue;
             }
 
-            _keyboardHookThread = hookThread;
-            return true;
+            var modifiers = Modifiers.NoRepeat;
+            if (binding.Ctrl) modifiers |= Modifiers.Control;
+            if (binding.Shift) modifiers |= Modifiers.Shift;
+            if (binding.Alt) modifiers |= Modifiers.Alt;
+            if (binding.Win) modifiers |= Modifiers.Win;
+
+            if (RegisterHotKey(_window.Handle, id, (uint)modifiers, (uint)binding.Key))
+            {
+                _registeredHotkeyIds.Add(id);
+                _commandsById[id] = binding.Command;
+            }
+            else
+            {
+                failedCommands.Add(binding.Command);
+            }
         }
 
-        var modifiers = Modifiers.NoRepeat;
-        if (ctrl) modifiers |= Modifiers.Control;
-        if (shift) modifiers |= Modifiers.Shift;
-        if (alt) modifiers |= Modifiers.Alt;
-        if (win) modifiers |= Modifiers.Win;
+        return failedCommands;
+    }
 
-        _isRegistered = RegisterHotKey(_window.Handle, HotkeyId, (uint)modifiers, (uint)key);
-        return _isRegistered;
+    private void DispatchHotkey(int id)
+    {
+        if (!_commandsById.TryGetValue(id, out var command))
+        {
+            return;
+        }
+
+        CommandPressed?.Invoke(command);
+        if (command == GlobalHotkeyCommand.Capture)
+        {
+            HotkeyPressed?.Invoke();
+        }
     }
 
     public void Unregister()
@@ -124,11 +169,15 @@ public sealed class GlobalHotkeyManager : IDisposable
         _keyboardHookThread?.Dispose();
         _keyboardHookThread = null;
 
-        if (_isRegistered)
+        foreach (var id in _registeredHotkeyIds)
         {
-            UnregisterHotKey(_window.Handle, HotkeyId);
-            _isRegistered = false;
+            UnregisterHotKey(_window.Handle, id);
         }
+
+        _registeredHotkeyIds.Clear();
+        _commandsById.Clear();
+        _printScreenHotkeyId = null;
+        _nextHotkeyId = 0;
     }
 
     public void Dispose()
@@ -140,6 +189,7 @@ public sealed class GlobalHotkeyManager : IDisposable
     private sealed class KeyboardHookThread : IDisposable
     {
         private readonly IntPtr _targetWindow;
+        private readonly int _hotkeyId;
         private readonly LowLevelKeyboardProc _callback;
         private readonly Thread _thread;
         private readonly ManualResetEventSlim _started = new();
@@ -147,9 +197,10 @@ public sealed class GlobalHotkeyManager : IDisposable
         private IntPtr _hook;
         private bool _isPrintScreenDown;
 
-        public KeyboardHookThread(IntPtr targetWindow)
+        public KeyboardHookThread(IntPtr targetWindow, int hotkeyId)
         {
             _targetWindow = targetWindow;
+            _hotkeyId = hotkeyId;
             _callback = HandleLowLevelKeyboard;
             _thread = new Thread(Run)
             {
@@ -206,7 +257,7 @@ public sealed class GlobalHotkeyManager : IDisposable
                     if (!_isPrintScreenDown)
                     {
                         _isPrintScreenDown = true;
-                        PostMessage(_targetWindow, WmHotkey, (IntPtr)HotkeyId, IntPtr.Zero);
+                        PostMessage(_targetWindow, WmHotkey, (IntPtr)_hotkeyId, IntPtr.Zero);
                     }
 
                     return (IntPtr)1;
@@ -240,15 +291,15 @@ public sealed class GlobalHotkeyManager : IDisposable
 
     private sealed class HotkeyWindow : NativeWindow, IDisposable
     {
-        public event Action? HotkeyPressed;
+        public event Action<int>? HotkeyPressed;
 
         public HotkeyWindow() => CreateHandle(new CreateParams());
 
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == WmHotkey && m.WParam.ToInt32() == HotkeyId)
+            if (m.Msg == WmHotkey)
             {
-                HotkeyPressed?.Invoke();
+                HotkeyPressed?.Invoke(m.WParam.ToInt32());
             }
 
             base.WndProc(ref m);
@@ -257,3 +308,18 @@ public sealed class GlobalHotkeyManager : IDisposable
         public void Dispose() => DestroyHandle();
     }
 }
+
+public enum GlobalHotkeyCommand
+{
+    Capture,
+    StartSession,
+    EndSession,
+}
+
+public sealed record GlobalHotkeyBinding(
+    GlobalHotkeyCommand Command,
+    Keys Key,
+    bool Ctrl,
+    bool Shift,
+    bool Alt,
+    bool Win);

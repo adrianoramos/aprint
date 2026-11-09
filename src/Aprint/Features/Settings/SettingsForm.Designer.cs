@@ -8,6 +8,29 @@ partial class SettingsForm
     private TabPage tabCapture = null!;
     private TabPage tabEditor = null!;
     private TabPage tabGeneral = null!;
+    private TabPage tabSession = null!;
+    private Label lblCaptureHotkey = null!;
+    private Label lblStartSessionHotkey = null!;
+    private Label lblEndSessionHotkey = null!;
+    private CheckBox chkStartSessionCtrl = null!;
+    private CheckBox chkStartSessionShift = null!;
+    private CheckBox chkStartSessionAlt = null!;
+    private CheckBox chkStartSessionWin = null!;
+    private ComboBox cmbStartSessionKey = null!;
+    private CheckBox chkEndSessionCtrl = null!;
+    private CheckBox chkEndSessionShift = null!;
+    private CheckBox chkEndSessionAlt = null!;
+    private CheckBox chkEndSessionWin = null!;
+    private ComboBox cmbEndSessionKey = null!;
+    private Label lblDocumentTemplatePath = null!;
+    private TextBox txtDocumentTemplatePath = null!;
+    private Button btnBrowseDocumentTemplate = null!;
+    private Label lblDocumentOutputFolder = null!;
+    private TextBox txtDocumentOutputFolder = null!;
+    private Button btnBrowseDocumentOutputFolder = null!;
+    private CheckBox chkCloseEditorAfterDocumentSend = null!;
+    private CheckBox chkCloseAllEditorsOnSessionEnd = null!;
+    private CheckBox chkSaveDocumentWithoutPrompt = null!;
     private CheckBox chkCtrl = null!;
     private CheckBox chkShift = null!;
     private CheckBox chkAlt = null!;
@@ -72,6 +95,19 @@ partial class SettingsForm
         chkWin = new CheckBox();
         chkForcePrintScreen = new CheckBox();
         cmbKey = new ComboBox();
+        lblCaptureHotkey = new Label();
+        lblStartSessionHotkey = new Label();
+        lblEndSessionHotkey = new Label();
+        chkStartSessionCtrl = new CheckBox();
+        chkStartSessionShift = new CheckBox();
+        chkStartSessionAlt = new CheckBox();
+        chkStartSessionWin = new CheckBox();
+        cmbStartSessionKey = new ComboBox();
+        chkEndSessionCtrl = new CheckBox();
+        chkEndSessionShift = new CheckBox();
+        chkEndSessionAlt = new CheckBox();
+        chkEndSessionWin = new CheckBox();
+        cmbEndSessionKey = new ComboBox();
         tabCapture = new TabPage();
         lblCaptureMode = new Label();
         cmbCaptureMode = new ComboBox();
@@ -95,6 +131,16 @@ partial class SettingsForm
         chkShowToolLabels = new CheckBox();
         lblDefaultEditorTool = new Label();
         cmbDefaultEditorTool = new ComboBox();
+        tabSession = new TabPage();
+        lblDocumentTemplatePath = new Label();
+        txtDocumentTemplatePath = new TextBox();
+        btnBrowseDocumentTemplate = new Button();
+        lblDocumentOutputFolder = new Label();
+        txtDocumentOutputFolder = new TextBox();
+        btnBrowseDocumentOutputFolder = new Button();
+        chkCloseEditorAfterDocumentSend = new CheckBox();
+        chkCloseAllEditorsOnSessionEnd = new CheckBox();
+        chkSaveDocumentWithoutPrompt = new CheckBox();
         btnSave = new Button();
         btnCancel = new Button();
         tabSettings.SuspendLayout();
@@ -102,6 +148,7 @@ partial class SettingsForm
         tabHotkey.SuspendLayout();
         tabCapture.SuspendLayout();
         tabEditor.SuspendLayout();
+        tabSession.SuspendLayout();
         SuspendLayout();
         // 
         // tabSettings
@@ -110,6 +157,7 @@ partial class SettingsForm
         tabSettings.Controls.Add(tabHotkey);
         tabSettings.Controls.Add(tabCapture);
         tabSettings.Controls.Add(tabEditor);
+        tabSettings.Controls.Add(tabSession);
         tabSettings.Location = new Point(12, 12);
         tabSettings.Name = "tabSettings";
         tabSettings.SelectedIndex = 0;
@@ -205,6 +253,19 @@ partial class SettingsForm
         tabHotkey.Controls.Add(chkWin);
         tabHotkey.Controls.Add(chkForcePrintScreen);
         tabHotkey.Controls.Add(cmbKey);
+        tabHotkey.Controls.Add(lblCaptureHotkey);
+        tabHotkey.Controls.Add(lblStartSessionHotkey);
+        tabHotkey.Controls.Add(lblEndSessionHotkey);
+        tabHotkey.Controls.Add(chkStartSessionCtrl);
+        tabHotkey.Controls.Add(chkStartSessionShift);
+        tabHotkey.Controls.Add(chkStartSessionAlt);
+        tabHotkey.Controls.Add(chkStartSessionWin);
+        tabHotkey.Controls.Add(cmbStartSessionKey);
+        tabHotkey.Controls.Add(chkEndSessionCtrl);
+        tabHotkey.Controls.Add(chkEndSessionShift);
+        tabHotkey.Controls.Add(chkEndSessionAlt);
+        tabHotkey.Controls.Add(chkEndSessionWin);
+        tabHotkey.Controls.Add(cmbEndSessionKey);
         tabHotkey.Location = new Point(4, 24);
         tabHotkey.Name = "tabHotkey";
         tabHotkey.Padding = new Padding(3);
@@ -212,11 +273,99 @@ partial class SettingsForm
         tabHotkey.TabIndex = 1;
         tabHotkey.Text = "Atalho";
         tabHotkey.UseVisualStyleBackColor = true;
+        //
+        // lblCaptureHotkey
+        //
+        lblCaptureHotkey.AutoSize = true;
+        lblCaptureHotkey.Location = new Point(15, 12);
+        lblCaptureHotkey.Name = "lblCaptureHotkey";
+        lblCaptureHotkey.Size = new Size(139, 15);
+        lblCaptureHotkey.TabIndex = 6;
+        lblCaptureHotkey.Text = "Atalho para capturar imagem";
+        //
+        // lblStartSessionHotkey
+        //
+        lblStartSessionHotkey.AutoSize = true;
+        lblStartSessionHotkey.Location = new Point(15, 104);
+        lblStartSessionHotkey.Name = "lblStartSessionHotkey";
+        lblStartSessionHotkey.Size = new Size(113, 15);
+        lblStartSessionHotkey.TabIndex = 7;
+        lblStartSessionHotkey.Text = "Iniciar sessão:";
+        //
+        // lblEndSessionHotkey
+        //
+        lblEndSessionHotkey.AutoSize = true;
+        lblEndSessionHotkey.Location = new Point(15, 164);
+        lblEndSessionHotkey.Name = "lblEndSessionHotkey";
+        lblEndSessionHotkey.Size = new Size(113, 15);
+        lblEndSessionHotkey.TabIndex = 8;
+        lblEndSessionHotkey.Text = "Encerrar sessão:";
+        //
+        // Session shortcut modifiers and keys
+        //
+        chkStartSessionCtrl.AutoSize = true;
+        chkStartSessionCtrl.Location = new Point(15, 128);
+        chkStartSessionCtrl.Name = "chkStartSessionCtrl";
+        chkStartSessionCtrl.Size = new Size(45, 19);
+        chkStartSessionCtrl.TabIndex = 11;
+        chkStartSessionCtrl.Text = "Ctrl";
+        chkStartSessionShift.AutoSize = true;
+        chkStartSessionShift.Location = new Point(76, 128);
+        chkStartSessionShift.Name = "chkStartSessionShift";
+        chkStartSessionShift.Size = new Size(50, 19);
+        chkStartSessionShift.TabIndex = 12;
+        chkStartSessionShift.Text = "Shift";
+        chkStartSessionAlt.AutoSize = true;
+        chkStartSessionAlt.Location = new Point(142, 128);
+        chkStartSessionAlt.Name = "chkStartSessionAlt";
+        chkStartSessionAlt.Size = new Size(41, 19);
+        chkStartSessionAlt.TabIndex = 13;
+        chkStartSessionAlt.Text = "Alt";
+        chkStartSessionWin.AutoSize = true;
+        chkStartSessionWin.Location = new Point(199, 128);
+        chkStartSessionWin.Name = "chkStartSessionWin";
+        chkStartSessionWin.Size = new Size(47, 19);
+        chkStartSessionWin.TabIndex = 14;
+        chkStartSessionWin.Text = "Win";
+        cmbStartSessionKey.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbStartSessionKey.Location = new Point(262, 126);
+        cmbStartSessionKey.Name = "cmbStartSessionKey";
+        cmbStartSessionKey.Size = new Size(151, 23);
+        cmbStartSessionKey.TabIndex = 15;
+        chkEndSessionCtrl.AutoSize = true;
+        chkEndSessionCtrl.Location = new Point(15, 188);
+        chkEndSessionCtrl.Name = "chkEndSessionCtrl";
+        chkEndSessionCtrl.Size = new Size(45, 19);
+        chkEndSessionCtrl.TabIndex = 16;
+        chkEndSessionCtrl.Text = "Ctrl";
+        chkEndSessionShift.AutoSize = true;
+        chkEndSessionShift.Location = new Point(76, 188);
+        chkEndSessionShift.Name = "chkEndSessionShift";
+        chkEndSessionShift.Size = new Size(50, 19);
+        chkEndSessionShift.TabIndex = 17;
+        chkEndSessionShift.Text = "Shift";
+        chkEndSessionAlt.AutoSize = true;
+        chkEndSessionAlt.Location = new Point(142, 188);
+        chkEndSessionAlt.Name = "chkEndSessionAlt";
+        chkEndSessionAlt.Size = new Size(41, 19);
+        chkEndSessionAlt.TabIndex = 18;
+        chkEndSessionAlt.Text = "Alt";
+        chkEndSessionWin.AutoSize = true;
+        chkEndSessionWin.Location = new Point(199, 188);
+        chkEndSessionWin.Name = "chkEndSessionWin";
+        chkEndSessionWin.Size = new Size(47, 19);
+        chkEndSessionWin.TabIndex = 19;
+        chkEndSessionWin.Text = "Win";
+        cmbEndSessionKey.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbEndSessionKey.Location = new Point(262, 186);
+        cmbEndSessionKey.Name = "cmbEndSessionKey";
+        cmbEndSessionKey.Size = new Size(151, 23);
+        cmbEndSessionKey.TabIndex = 20;
         // 
         // chkCtrl
         // 
         chkCtrl.AutoSize = true;
-        chkCtrl.Location = new Point(15, 46);
+        chkCtrl.Location = new Point(15, 63);
         chkCtrl.Name = "chkCtrl";
         chkCtrl.Size = new Size(45, 19);
         chkCtrl.TabIndex = 1;
@@ -225,7 +374,7 @@ partial class SettingsForm
         // chkShift
         // 
         chkShift.AutoSize = true;
-        chkShift.Location = new Point(76, 46);
+        chkShift.Location = new Point(76, 63);
         chkShift.Name = "chkShift";
         chkShift.Size = new Size(50, 19);
         chkShift.TabIndex = 2;
@@ -234,7 +383,7 @@ partial class SettingsForm
         // chkAlt
         // 
         chkAlt.AutoSize = true;
-        chkAlt.Location = new Point(142, 46);
+        chkAlt.Location = new Point(142, 63);
         chkAlt.Name = "chkAlt";
         chkAlt.Size = new Size(41, 19);
         chkAlt.TabIndex = 3;
@@ -243,7 +392,7 @@ partial class SettingsForm
         // chkWin
         // 
         chkWin.AutoSize = true;
-        chkWin.Location = new Point(199, 46);
+        chkWin.Location = new Point(199, 63);
         chkWin.Name = "chkWin";
         chkWin.Size = new Size(47, 19);
         chkWin.TabIndex = 4;
@@ -252,7 +401,7 @@ partial class SettingsForm
         // chkForcePrintScreen
         // 
         chkForcePrintScreen.AutoSize = true;
-        chkForcePrintScreen.Location = new Point(15, 18);
+        chkForcePrintScreen.Location = new Point(15, 35);
         chkForcePrintScreen.Name = "chkForcePrintScreen";
         chkForcePrintScreen.Size = new Size(260, 19);
         chkForcePrintScreen.TabIndex = 0;
@@ -262,7 +411,7 @@ partial class SettingsForm
         // cmbKey
         // 
         cmbKey.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbKey.Location = new Point(262, 44);
+        cmbKey.Location = new Point(262, 61);
         cmbKey.Name = "cmbKey";
         cmbKey.Size = new Size(151, 23);
         cmbKey.TabIndex = 5;
@@ -403,6 +552,104 @@ partial class SettingsForm
         tabEditor.TabIndex = 3;
         tabEditor.Text = "Editor";
         tabEditor.UseVisualStyleBackColor = true;
+        //
+        // tabSession
+        //
+        tabSession.Controls.Add(lblDocumentTemplatePath);
+        tabSession.Controls.Add(txtDocumentTemplatePath);
+        tabSession.Controls.Add(btnBrowseDocumentTemplate);
+        tabSession.Controls.Add(lblDocumentOutputFolder);
+        tabSession.Controls.Add(txtDocumentOutputFolder);
+        tabSession.Controls.Add(btnBrowseDocumentOutputFolder);
+        tabSession.Controls.Add(chkCloseEditorAfterDocumentSend);
+        tabSession.Controls.Add(chkCloseAllEditorsOnSessionEnd);
+        tabSession.Controls.Add(chkSaveDocumentWithoutPrompt);
+        tabSession.Location = new Point(4, 24);
+        tabSession.Name = "tabSession";
+        tabSession.Padding = new Padding(3);
+        tabSession.Size = new Size(428, 304);
+        tabSession.TabIndex = 4;
+        tabSession.Text = "Sessão";
+        tabSession.UseVisualStyleBackColor = true;
+        //
+        // lblDocumentTemplatePath
+        //
+        lblDocumentTemplatePath.AutoSize = true;
+        lblDocumentTemplatePath.Location = new Point(15, 18);
+        lblDocumentTemplatePath.Name = "lblDocumentTemplatePath";
+        lblDocumentTemplatePath.Size = new Size(128, 15);
+        lblDocumentTemplatePath.TabIndex = 0;
+        lblDocumentTemplatePath.Text = "Template do documento:";
+        //
+        // txtDocumentTemplatePath
+        //
+        txtDocumentTemplatePath.Location = new Point(15, 39);
+        txtDocumentTemplatePath.Name = "txtDocumentTemplatePath";
+        txtDocumentTemplatePath.ReadOnly = true;
+        txtDocumentTemplatePath.Size = new Size(317, 23);
+        txtDocumentTemplatePath.TabIndex = 1;
+        //
+        // btnBrowseDocumentTemplate
+        //
+        btnBrowseDocumentTemplate.Location = new Point(340, 38);
+        btnBrowseDocumentTemplate.Name = "btnBrowseDocumentTemplate";
+        btnBrowseDocumentTemplate.Size = new Size(73, 25);
+        btnBrowseDocumentTemplate.TabIndex = 2;
+        btnBrowseDocumentTemplate.Text = "Procurar...";
+        btnBrowseDocumentTemplate.Click += btnBrowseDocumentTemplate_Click;
+        //
+        // chkCloseEditorAfterDocumentSend
+        //
+        chkCloseEditorAfterDocumentSend.AutoSize = true;
+        chkCloseEditorAfterDocumentSend.Location = new Point(15, 152);
+        chkCloseEditorAfterDocumentSend.Name = "chkCloseEditorAfterDocumentSend";
+        chkCloseEditorAfterDocumentSend.Size = new Size(248, 19);
+        chkCloseEditorAfterDocumentSend.TabIndex = 3;
+        chkCloseEditorAfterDocumentSend.Text = "Fechar editor ao enviar imagem ao documento";
+        //
+        // chkCloseAllEditorsOnSessionEnd
+        //
+        chkCloseAllEditorsOnSessionEnd.AutoSize = true;
+        chkCloseAllEditorsOnSessionEnd.Location = new Point(15, 184);
+        chkCloseAllEditorsOnSessionEnd.Name = "chkCloseAllEditorsOnSessionEnd";
+        chkCloseAllEditorsOnSessionEnd.Size = new Size(248, 19);
+        chkCloseAllEditorsOnSessionEnd.TabIndex = 4;
+        chkCloseAllEditorsOnSessionEnd.Text = "Fechar todos os editores ao encerrar sessão";
+        //
+        // chkSaveDocumentWithoutPrompt
+        //
+        chkSaveDocumentWithoutPrompt.AutoSize = true;
+        chkSaveDocumentWithoutPrompt.Location = new Point(15, 120);
+        chkSaveDocumentWithoutPrompt.Name = "chkSaveDocumentWithoutPrompt";
+        chkSaveDocumentWithoutPrompt.Size = new Size(160, 19);
+        chkSaveDocumentWithoutPrompt.TabIndex = 8;
+        chkSaveDocumentWithoutPrompt.Text = "Salvar sem perguntar";
+        //
+        // lblDocumentOutputFolder
+        //
+        lblDocumentOutputFolder.AutoSize = true;
+        lblDocumentOutputFolder.Location = new Point(15, 70);
+        lblDocumentOutputFolder.Name = "lblDocumentOutputFolder";
+        lblDocumentOutputFolder.Size = new Size(170, 15);
+        lblDocumentOutputFolder.TabIndex = 5;
+        lblDocumentOutputFolder.Text = "Salvar documentos na pasta:";
+        //
+        // txtDocumentOutputFolder
+        //
+        txtDocumentOutputFolder.Location = new Point(15, 91);
+        txtDocumentOutputFolder.Name = "txtDocumentOutputFolder";
+        txtDocumentOutputFolder.ReadOnly = true;
+        txtDocumentOutputFolder.Size = new Size(317, 23);
+        txtDocumentOutputFolder.TabIndex = 6;
+        //
+        // btnBrowseDocumentOutputFolder
+        //
+        btnBrowseDocumentOutputFolder.Location = new Point(340, 90);
+        btnBrowseDocumentOutputFolder.Name = "btnBrowseDocumentOutputFolder";
+        btnBrowseDocumentOutputFolder.Size = new Size(73, 25);
+        btnBrowseDocumentOutputFolder.TabIndex = 7;
+        btnBrowseDocumentOutputFolder.Text = "Procurar...";
+        btnBrowseDocumentOutputFolder.Click += btnBrowseDocumentOutputFolder_Click;
         // 
         // chkOpenEditor
         // 
@@ -539,6 +786,8 @@ partial class SettingsForm
         tabCapture.PerformLayout();
         tabEditor.ResumeLayout(false);
         tabEditor.PerformLayout();
+        tabSession.ResumeLayout(false);
+        tabSession.PerformLayout();
         ResumeLayout(false);
     }
 }

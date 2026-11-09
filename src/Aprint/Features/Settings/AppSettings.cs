@@ -12,6 +12,28 @@ public enum EditorWindowStartState
     Minimized = 2,
 }
 
+public sealed class HotkeySettings
+{
+    public Keys Key { get; set; } = Keys.S;
+
+    public bool Ctrl { get; set; }
+
+    public bool Shift { get; set; }
+
+    public bool Alt { get; set; }
+
+    public bool Win { get; set; }
+
+    public HotkeySettings Clone() => new()
+    {
+        Key = Key,
+        Ctrl = Ctrl,
+        Shift = Shift,
+        Alt = Alt,
+        Win = Win,
+    };
+}
+
 public sealed class AppSettings
 {
     public string SaveFolder { get; set; } = GetDefaultSaveFolder();
@@ -44,6 +66,20 @@ public sealed class AppSettings
     public bool SaveEditorImageWithoutPrompt { get; set; }
 
     public bool CloseEditorOnCopyOrSave { get; set; }
+
+    public string DocumentTemplatePath { get; set; } = string.Empty;
+
+    public string DocumentOutputFolder { get; set; } = GetDefaultDocumentOutputFolder();
+
+    public bool SaveDocumentWithoutPrompt { get; set; }
+
+    public bool CloseEditorAfterDocumentSend { get; set; } = true;
+
+    public bool CloseAllEditorsOnSessionEnd { get; set; }
+
+    public HotkeySettings StartSessionHotkey { get; set; } = new() { Key = Keys.S, Ctrl = true, Alt = true };
+
+    public HotkeySettings EndSessionHotkey { get; set; } = new() { Key = Keys.E, Ctrl = true, Alt = true };
 
     public bool AutoCloseEditorWhenInactive { get; set; }
 
@@ -100,5 +136,11 @@ public sealed class AppSettings
 
     private static string GetDefaultSaveFolder() =>
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+
+    internal static string GetDefaultDocumentOutputFolder()
+    {
+        var documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        return string.IsNullOrWhiteSpace(documentsFolder) ? GetDefaultSaveFolder() : documentsFolder;
+    }
 
 }

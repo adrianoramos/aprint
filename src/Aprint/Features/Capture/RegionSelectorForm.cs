@@ -271,6 +271,7 @@ public sealed class RegionSelectorForm : Form
     private readonly Rectangle _screenUnderCursorAtStart;
     private readonly Bitmap _background;
     private readonly OutsideCaptureClickAction _outsideCaptureClickAction;
+    private readonly bool _documentSessionActive;
     private readonly SolidBrush _overlayBrush = new(Color.FromArgb(120, 0, 0, 0));
     private readonly Pen _borderPen = new(Color.White, SelectionBorderWidth);
     private readonly Pen _sendToEditorFlashPen = new(Color.FromArgb(0, 210, 170), 4);
@@ -428,12 +429,13 @@ public sealed class RegionSelectorForm : Form
 
     public EditTool LastUsedTool { get; private set; } = EditTool.Freehand;
 
-    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth)
+    public RegionSelectorForm(Bitmap background, OutsideCaptureClickAction outsideCaptureClickAction = OutsideCaptureClickAction.SelectNewArea, MaskMode maskMode = MaskMode.Pixelate, int maskPixelSize = 6, int lineColorArgb = -65536, int highlightWidth = 18, int? fillColorArgb = null, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int textColorArgb = -65536, bool showToolLabels = true, EditTool lastCaptureTool = EditTool.Freehand, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth, bool documentSessionActive = false)
     {
         _background = background;
         _screenUnderCursorAtStart = Screen.FromPoint(Cursor.Position).Bounds;
         _editHistory = new EditHistory(_background, _nextCounterValue);
         _outsideCaptureClickAction = outsideCaptureClickAction;
+        _documentSessionActive = documentSessionActive;
         _maskMode = maskMode;
         _maskPixelSize = Math.Clamp(maskPixelSize, 4, 32);
         _lineColor = Color.FromArgb(lineColorArgb);
@@ -1418,28 +1420,45 @@ public sealed class RegionSelectorForm : Form
             ShowItemToolTips = true,
         };
 
-        var captureLabel = AppLocalization.Translate("Capture.Region.Capture");
+        var captureLabel = AppLocalization.Translate(_documentSessionActive
+            ? "Capture.Region.SendToDocument"
+            : "Capture.Region.Capture");
         var captureButton = CreateActionButton(
             GetCaptureToolButtonText(captureLabel),
-            LoadActionIcon("capture.png", Color.White));
-        captureButton.BackColor = ToolStripColorPalette.PrimaryButtonBackground;
+            LoadActionIcon(_documentSessionActive ? "documentsession.png" : "capture.png", Color.White));
+        captureButton.BackColor = _documentSessionActive
+            ? Color.FromArgb(0, 130, 112)
+            : ToolStripColorPalette.PrimaryButtonBackground;
         captureButton.ForeColor = Color.White;
         captureButton.AccessibleName = captureLabel;
         captureButton.ToolTipText = $"{captureLabel} (Enter)";
-        captureButton.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
+        captureButton.Click += (_, _) => CompleteSelection(_documentSessionActive
+            ? RegionSelectionAction.SendToDocument
+            : RegionSelectionAction.Capture);
 
         var captureDropdownButton = CreateDropdownButton();
-        captureDropdownButton.BackColor = ToolStripColorPalette.PrimaryButtonBackground;
+        captureDropdownButton.BackColor = captureButton.BackColor;
         captureDropdownButton.ForeColor = Color.White;
         captureDropdownButton.AccessibleName = AppLocalization.Translate("Capture.Region.Actions");
         ApplyCaptureSplitButtonSize(captureButton, captureDropdownButton);
         renderer.SetPrimaryGroup(captureButton, captureDropdownButton);
+        var baseCaptureLabel = AppLocalization.Translate("Capture.Region.Capture");
 
-        var captureMenuItem = new ToolStripMenuItem(captureLabel, LoadActionIcon("capture.png", Color.FromArgb(45, 49, 54)))
+        var captureMenuItem = new ToolStripMenuItem(baseCaptureLabel, LoadActionIcon("capture.png", Color.FromArgb(45, 49, 54)))
         {
             ShortcutKeyDisplayString = "Enter",
         };
         captureMenuItem.Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
+        if (_documentSessionActive)
+        {
+            captureDropdownButton.DropDownItems.Add(new ToolStripMenuItem(
+                baseCaptureLabel,
+                LoadActionIcon("capture.png", Color.FromArgb(45, 49, 54)))
+            {
+                ShortcutKeyDisplayString = "Enter",
+            });
+            captureDropdownButton.DropDownItems[^1].Click += (_, _) => CompleteSelection(RegionSelectionAction.Capture);
+        }
         var sendToEditorMenuItem = new ToolStripMenuItem(
             AppLocalization.Translate("Capture.Region.SendToEditor"),
             LoadActionIcon("sendtoeditor.png", Color.FromArgb(45, 49, 54)))
@@ -1457,7 +1476,12 @@ public sealed class RegionSelectorForm : Form
             ShortcutKeyDisplayString = "Ctrl+S",
         };
         saveMenuItem.Click += (_, _) => CompleteSelection(RegionSelectionAction.Save);
-        captureDropdownButton.DropDownItems.AddRange([captureMenuItem, sendToEditorMenuItem, copyMenuItem, saveMenuItem]);
+        if (!_documentSessionActive)
+        {
+            captureDropdownButton.DropDownItems.Add(captureMenuItem);
+        }
+
+        captureDropdownButton.DropDownItems.AddRange([sendToEditorMenuItem, copyMenuItem, saveMenuItem]);
 
         var drawingLabel = AppLocalization.Translate("Capture.Region.Drawing");
         var drawingButton = CreateActionButton(
@@ -3923,4 +3947,5 @@ public enum RegionSelectionAction
     Capture,
     Save,
     Copy,
+    SendToDocument,
 }

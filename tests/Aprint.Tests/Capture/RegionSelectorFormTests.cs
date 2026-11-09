@@ -8,6 +8,22 @@ namespace Aprint.Tests.Capture;
 public sealed class RegionSelectorFormTests
 {
     [Fact]
+    public void ActiveDocumentSessionUsesDocumentSessionCaptureIcon()
+    {
+        using var background = new Bitmap(140, 100);
+        using var selector = new RegionSelectorForm(background, documentSessionActive: true);
+        var actionBar = (ToolStrip)typeof(RegionSelectorForm)
+            .GetField("_actionBar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(selector)!;
+        var sendButton = Assert.Single(actionBar.Items.OfType<ToolStripButton>(), button =>
+            (button.ToolTipText ?? string.Empty).StartsWith(
+                AppLocalization.Translate("Capture.Region.SendToDocument"),
+                StringComparison.Ordinal));
+
+        Assert.NotNull(sendButton.Image);
+    }
+
+    [Fact]
     public void BufferedSelectionPaintPreservesNativeUpdateRegion()
     {
         using var background = new Bitmap(140, 100);

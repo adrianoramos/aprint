@@ -27,6 +27,7 @@ public sealed class SettingsStore
                 if (settings is not null)
                 {
                     NormalizeHotkeySettings(settings);
+                    NormalizeSessionSettings(settings);
                     return settings;
                 }
             }
@@ -42,6 +43,7 @@ public sealed class SettingsStore
     public void Save(AppSettings settings)
     {
         NormalizeHotkeySettings(settings);
+        NormalizeSessionSettings(settings);
         var directory = Path.GetDirectoryName(_settingsFilePath)!;
         Directory.CreateDirectory(directory);
         var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -60,5 +62,29 @@ public sealed class SettingsStore
         settings.HotkeyShift = false;
         settings.HotkeyAlt = false;
         settings.HotkeyWin = false;
+    }
+
+    private static void NormalizeSessionSettings(AppSettings settings)
+    {
+        settings.DocumentTemplatePath ??= string.Empty;
+        settings.DocumentOutputFolder ??= AppSettings.GetDefaultDocumentOutputFolder();
+        settings.StartSessionHotkey ??= new HotkeySettings { Key = Keys.S, Ctrl = true, Alt = true };
+        settings.EndSessionHotkey ??= new HotkeySettings { Key = Keys.E, Ctrl = true, Alt = true };
+        NormalizeSessionHotkey(settings.StartSessionHotkey, Keys.S);
+        NormalizeSessionHotkey(settings.EndSessionHotkey, Keys.E);
+    }
+
+    private static void NormalizeSessionHotkey(HotkeySettings hotkey, Keys fallbackKey)
+    {
+        if (hotkey.Key is < Keys.A or > Keys.Z and not (>= Keys.F1 and <= Keys.F12) and not (>= Keys.D0 and <= Keys.D9))
+        {
+            hotkey.Key = fallbackKey;
+        }
+
+        if (!hotkey.Ctrl && !hotkey.Shift && !hotkey.Alt && !hotkey.Win)
+        {
+            hotkey.Ctrl = true;
+            hotkey.Alt = true;
+        }
     }
 }

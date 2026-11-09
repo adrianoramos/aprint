@@ -28,6 +28,13 @@ public sealed class SettingsStoreTests : IDisposable
             LastCaptureTool = EditTool.Circle,
             ShowToolLabels = false,
             SaveEditorImageWithoutPrompt = true,
+            DocumentTemplatePath = @"C:\Templates\report.docx",
+            DocumentOutputFolder = @"C:\Reports",
+            SaveDocumentWithoutPrompt = false,
+            CloseEditorAfterDocumentSend = true,
+            CloseAllEditorsOnSessionEnd = true,
+            StartSessionHotkey = new HotkeySettings { Key = Keys.F7, Ctrl = true, Win = true },
+            EndSessionHotkey = new HotkeySettings { Key = Keys.F9, Shift = true, Alt = true },
             AutoCloseEditorWhenInactive = true,
             EditorInactivityTimeoutSeconds = 180,
             LastTextFontFamily = "Arial",
@@ -74,6 +81,12 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.False(settings.ShowToolLabels);
         Assert.True(settings.HotkeyCtrl);
         Assert.True(settings.HotkeyShift);
+        Assert.Equal(Keys.S, settings.StartSessionHotkey.Key);
+        Assert.True(settings.StartSessionHotkey.Ctrl);
+        Assert.Equal(Keys.E, settings.EndSessionHotkey.Key);
+        Assert.True(settings.EndSessionHotkey.Ctrl);
+        Assert.True(settings.EndSessionHotkey.Alt);
+        Assert.True(settings.EndSessionHotkey.Ctrl);
     }
 
     [Fact]
@@ -88,6 +101,9 @@ public sealed class SettingsStoreTests : IDisposable
 
         Assert.Equal(MaskMode.Solid, settings.MaskMode);
         Assert.Equal(24, settings.LastMaskPixelSize);
+        Assert.True(settings.CloseEditorAfterDocumentSend);
+        Assert.Equal(AppSettings.GetDefaultDocumentOutputFolder(), settings.DocumentOutputFolder);
+        Assert.False(settings.SaveDocumentWithoutPrompt);
     }
 
     [Fact]
@@ -114,6 +130,20 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.False(loaded.HotkeyShift);
         Assert.False(loaded.HotkeyAlt);
         Assert.False(loaded.HotkeyWin);
+    }
+
+    [Fact]
+    public void LoadNormalizesNullOrUnsupportedSessionHotkeys()
+    {
+        var filePath = Path.Combine(_testDirectory, "settings.json");
+        Directory.CreateDirectory(_testDirectory);
+        File.WriteAllText(filePath, "{\"StartSessionHotkey\":null,\"EndSessionHotkey\":{\"Key\":\"PrintScreen\"}}");
+        var store = new SettingsStore(filePath);
+
+        var settings = store.Load();
+
+        Assert.Equal(Keys.S, settings.StartSessionHotkey.Key);
+        Assert.Equal(Keys.E, settings.EndSessionHotkey.Key);
     }
 
     public void Dispose()

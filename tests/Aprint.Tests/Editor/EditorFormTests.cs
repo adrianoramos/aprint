@@ -6,6 +6,28 @@ namespace Aprint.Tests.Editor;
 
 public sealed class EditorFormTests
 {
+    [Fact]
+    public void DocumentSendButtonTracksSessionState()
+    {
+        using var bitmap = new Bitmap(8, 8);
+        using var editor = new EditorForm(bitmap, string.Empty);
+        var sessionActive = typeof(EditorForm)
+            .GetField("_documentSessionActive", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var toolStrip = editor.Controls.OfType<ToolStrip>().Single();
+        var button = (ToolStripButton)typeof(EditorForm)
+            .GetField("_btnSendToDocument", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(editor)!;
+
+        Assert.False((bool)sessionActive.GetValue(editor)!);
+        Assert.DoesNotContain(button, toolStrip.Items.Cast<ToolStripItem>());
+        editor.SetDocumentSessionState(active: true, closeAfterSend: true);
+        Assert.True((bool)sessionActive.GetValue(editor)!);
+        Assert.Contains(button, toolStrip.Items.Cast<ToolStripItem>());
+        editor.SetDocumentSessionState(active: false, closeAfterSend: false);
+        Assert.False((bool)sessionActive.GetValue(editor)!);
+        Assert.DoesNotContain(button, toolStrip.Items.Cast<ToolStripItem>());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
