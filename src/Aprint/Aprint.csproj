@@ -25,7 +25,12 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\AppIcon.ico" />
+    <EmbeddedResource Include="Resources\AppIconSession.ico" />
     <EmbeddedResource Include="Resources\Icons\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aprint.DocumentSession\Aprint.DocumentSession.csproj" />
   </ItemGroup>
 
   <ItemGroup>

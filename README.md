@@ -9,6 +9,7 @@ Aprint is a Windows application for capturing, annotating, redacting, and sharin
 - Freehand drawing, lines, arrows, rectangles, circles, translucent highlighting, formatted text, and numbered markers.
 - Solid or pixelated masks, applied manually or to text regions suggested by Windows OCR.
 - Cropping, undo/redo, and tool preferences remembered between captures.
+- Create capture sessions from a Word `.docx` template, append screenshots to a working copy, and save the finished document to a configured folder or chosen path.
 - Configurable workflows to copy, save, open in the editor, or copy and save; global shortcuts, notifications, and startup with Windows.
 
 ## Getting Started
@@ -68,6 +69,14 @@ Tool appearance settings are saved and reused for future captures. To copy or sa
 | `Ctrl+C` / `Ctrl+S` | Copy / save |
 | `Ctrl+N` | Start a new capture |
 
+## Document Sessions
+
+Choose a `.docx` template and output folder under **Settings > Session**, then configure the start/end shortcuts under **Settings > Shortcut**. Start a session from the tray menu or its configured global shortcut. If the configured template is missing or invalid, Aprint asks whether to use a blank Word document. With **Save document without asking** enabled, Aprint saves a uniquely named document in the configured folder; otherwise, it prompts with that folder and a suggested name. The template is not modified. While the session is active, the selection toolbar's primary button and `Enter` send the capture to the document. `Ctrl+C`, `Ctrl+S`, and `Ctrl+Enter` keep their existing meanings. The editor has a separate **Send to document** button for the edited image; pending masks are applied before it is added.
+
+End the session from the tray menu or its configured shortcut to publish the document. Captures are appended at the end of the template, with page breaks between images. Ending an empty session creates no output. The tray icon changes while a session is active. Session settings can close the editor after a successful send and close all open editors after the document is saved.
+
+The document writer is isolated in `Aprint.DocumentSession` and uses the Open XML SDK; Word does not need to be installed. The host depends on a format-neutral `IDocumentSessionWriter` contract that accepts image bytes and session operations, so a future PDF writer can implement the same contract without exposing Word-specific types to the capture workflow.
+
 ## Automatic Masking
 
 In the editor, choose **Automatic mask** from the mask tool menu or press `Ctrl+F8`. During region capture, the same option is available in the floating toolbar's mask menu.
@@ -82,6 +91,7 @@ Open **Settings** from the tray menu. Options include:
 
 - **Shortcut:** choose a global modifier-and-key combination or use `Print Screen`.
 - **Capture:** default mode, action on completion (clipboard, disk, or both), destination folder, and what happens when you click outside the selected region.
+- **Session:** Word document template, output folder, save prompt, and editor closing behavior. **Shortcut** also configures the session start/end shortcuts.
 - **Editor:** automatic opening, initial window state, default or last-used tool, tool labels, saving without a dialog, closing after copying/saving, and closing after inactivity (30 seconds, 1, 3, or 5 minutes).
 - **General:** notifications and click behavior (do nothing, open the folder, open the file, or open the capture in the editor), capture sound, language, and startup with Windows.
 
@@ -97,7 +107,7 @@ As a tray application, Aprint stays available without keeping a main window open
 
 ## Privacy and Processing
 
-Capturing, editing, and text detection happen locally on your computer; Aprint does not send images or recognized text to external services. Depending on your selected actions, an image can be copied to the clipboard or saved to disk. Automatic masking is an aid, not a substitute for manual review, and temporarily revealing the image with `Space` displays its original content on screen.
+Capturing, editing, document generation, and text detection happen locally on your computer; Aprint does not send images or recognized text to external services. Session documents are written to the path selected by the user. An interrupted application can leave its temporary working `.docx` beside that destination; remove it if the session will not be resumed. Depending on your selected actions, an image can also be copied to the clipboard or saved to disk. Automatic masking is an aid, not a substitute for manual review, and temporarily revealing the image with `Space` displays its original content on screen.
 
 ## Requirements
 
@@ -110,6 +120,7 @@ Capturing, editing, and text detection happen locally on your computer; Aprint d
 
 ```text
 src/Aprint/          WinForms application and product features
+src/Aprint.DocumentSession/  DOCX session writer module
 tests/Aprint.Tests/  Automated tests
 installer/scripts/   Inno Setup script and release automation
 artifacts/           Local publish and build outputs

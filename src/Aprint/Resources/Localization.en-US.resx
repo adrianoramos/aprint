@@ -195,6 +195,22 @@
   <data name="Tray.IconText" xml:space="preserve">
     <value>Aprint - Screen Capture</value>
   </data>
+  <data name="Tray.SessionIconText" xml:space="preserve"><value>Aprint - Session active</value></data>
+  <data name="Tray.StartSession" xml:space="preserve"><value>Start session for a document</value></data>
+  <data name="Tray.EndSession" xml:space="preserve"><value>End session for a document</value></data>
+  <data name="Tray.SessionStarted" xml:space="preserve"><value>Session started</value></data>
+  <data name="Tray.SessionReady" xml:space="preserve"><value>Primary captures will be sent to the document.</value></data>
+  <data name="Tray.SessionStartError" xml:space="preserve"><value>Could not start the session</value></data>
+  <data name="Tray.SessionTemplateMissing" xml:space="preserve"><value>Choose a valid .docx template in Settings.</value></data>
+  <data name="Tray.SessionUseBlankTemplatePrompt" xml:space="preserve"><value>No valid Word template was found. Would you like to start the session with a blank Word document?</value></data>
+  <data name="Tray.SessionEnded" xml:space="preserve"><value>Session ended</value></data>
+  <data name="Tray.SessionEmpty" xml:space="preserve"><value>No images were added; no document was created.</value></data>
+  <data name="Tray.DocumentSaved" xml:space="preserve"><value>Document saved</value></data>
+  <data name="Tray.SessionEndError" xml:space="preserve"><value>Could not end the session</value></data>
+  <data name="Tray.SessionNotActive" xml:space="preserve"><value>No document session is active.</value></data>
+  <data name="Tray.DocumentOperationInProgress" xml:space="preserve"><value>Wait for the document operation to finish.</value></data>
+  <data name="Tray.ImageAddedToDocument" xml:space="preserve"><value>Image sent to document</value></data>
+  <data name="Tray.DocumentImageCount" xml:space="preserve"><value>Images: {0}</value></data>
   <data name="Tray.HotkeyRegisterError" xml:space="preserve">
     <value>Could not register the global hotkey. It may already be in use by another app.</value>
   </data>
@@ -229,7 +245,7 @@
     <value>Open error</value>
   </data>
   <data name="Tray.AboutText" xml:space="preserve">
-    <value>A powerful and highly configurable screenshot tool designed for corporate environments, prioritizing privacy and data security without using third-party libraries or collecting or transmitting any data.</value>
+    <value>A powerful and highly configurable screenshot tool designed for corporate environments, prioritizing privacy and data security without collecting or transmitting screenshots.</value>
   </data>
   <data name="Tray.AboutAuthor" xml:space="preserve">
     <value>Created by Adriano Ramos da Silva</value>
@@ -255,6 +271,20 @@
   <data name="Settings.HotkeyGroup" xml:space="preserve">
     <value>Hotkey</value>
   </data>
+  <data name="Settings.CaptureHotkeyLabel" xml:space="preserve"><value>Capture image shortcut</value></data>
+  <data name="Settings.StartSessionHotkeyLabel" xml:space="preserve"><value>Start capture session for a document:</value></data>
+  <data name="Settings.EndSessionHotkeyLabel" xml:space="preserve"><value>End capture session for a document:</value></data>
+  <data name="Settings.SessionGroup" xml:space="preserve"><value>Session</value></data>
+  <data name="Settings.DocumentTemplateLabel" xml:space="preserve"><value>Document template (.docx):</value></data>
+  <data name="Settings.DocumentOutputFolderLabel" xml:space="preserve"><value>Save documents to folder:</value></data>
+  <data name="Settings.DocumentTemplateFilter" xml:space="preserve"><value>Word documents (*.docx)|*.docx</value></data>
+  <data name="Settings.CloseEditorAfterDocumentSend" xml:space="preserve"><value>Close editor after sending image to document</value></data>
+  <data name="Settings.CloseAllEditorsOnSessionEnd" xml:space="preserve"><value>Close all editors when ending the session</value></data>
+  <data name="Settings.SaveDocumentWithoutPrompt" xml:space="preserve"><value>Save document without asking</value></data>
+  <data name="Settings.DuplicateHotkeys" xml:space="preserve"><value>Capture, start, and end shortcuts must be different.</value></data>
+  <data name="Settings.InvalidDocumentTemplate" xml:space="preserve"><value>Select an existing .docx file to use as the template.</value></data>
+  <data name="Capture.Region.SendToDocument" xml:space="preserve"><value>Send to document</value></data>
+  <data name="Editor.SendToDocument" xml:space="preserve"><value>Send to document</value></data>
   <data name="Settings.ForcePrintScreen" xml:space="preserve">
     <value>Use the Print Screen key to capture</value>
   </data>

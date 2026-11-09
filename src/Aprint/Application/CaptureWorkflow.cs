@@ -13,7 +13,8 @@ public sealed class CaptureWorkflow
         CaptureMode? captureModeOverride = null,
         Action<Bitmap>? sendToEditor = null,
         Action? settingsChanged = null,
-        Func<Bitmap, bool>? sendToEditorWithOwnership = null)
+        Func<Bitmap, bool>? sendToEditorWithOwnership = null,
+        bool documentSessionActive = false)
     {
         var selectedMode = captureModeOverride ?? settings.CaptureMode;
         var captureMode = selectedMode == CaptureMode.SelectArea
@@ -34,6 +35,7 @@ public sealed class CaptureWorkflow
                 sendToEditor,
                 sendToEditorWithOwnership,
                 settingsChanged,
+                documentSessionActive,
                 out var lastCaptureTool,
                 out var wasCancelled,
                 out regionAction);
@@ -50,7 +52,11 @@ public sealed class CaptureWorkflow
             }
 
             var bitmap = selectedRegionBitmap ?? fullBitmap!;
-            var actions = ResolveActions(settings, regionAction);
+            var sendToDocument = documentSessionActive &&
+                (regionAction is null or RegionSelectionAction.Capture or RegionSelectionAction.SendToDocument);
+            var actions = sendToDocument
+                ? (OpenEditor: false, CopyToClipboard: false, SaveToDisk: false)
+                : ResolveActions(settings, regionAction);
 
             if (settings.PlaySoundOnCapture)
             {
@@ -85,7 +91,7 @@ public sealed class CaptureWorkflow
                 }
             }
 
-            var result = new CaptureResult(bitmap, filePath, actions.OpenEditor, regionAction);
+            var result = new CaptureResult(bitmap, filePath, actions.OpenEditor, regionAction, sendToDocument);
             transferSelectedRegionBitmap = selectedRegionBitmap is not null;
             transferFullBitmap = selectedRegionBitmap is null;
             return result;
@@ -127,6 +133,7 @@ public sealed class CaptureWorkflow
         Action<Bitmap>? sendToEditor,
         Func<Bitmap, bool>? sendToEditorWithOwnership,
         Action? settingsChanged,
+        bool documentSessionActive,
         out EditTool selectedCaptureTool,
         out bool wasCancelled,
         out RegionSelectionAction? selectedAction)
@@ -158,7 +165,8 @@ public sealed class CaptureWorkflow
             settings.LastCounterSize,
             settings.LastCounterTextColorArgb,
             settings.LastCounterCircleColorArgb,
-            settings.LastLineWidth);
+            settings.LastLineWidth,
+            documentSessionActive);
         BindSelectorSettings(selector, settings, settingsChanged);
         if (sendToEditorWithOwnership is not null)
         {
@@ -271,12 +279,18 @@ public sealed class CaptureResult : IDisposable
 {
     private Bitmap? _bitmap;
 
-    public CaptureResult(Bitmap bitmap, string? savedFilePath, bool openEditor, RegionSelectionAction? selectionAction)
+    public CaptureResult(
+        Bitmap bitmap,
+        string? savedFilePath,
+        bool openEditor,
+        RegionSelectionAction? selectionAction,
+        bool sendToDocument = false)
     {
         _bitmap = bitmap;
         SavedFilePath = savedFilePath;
         OpenEditor = openEditor;
         SelectionAction = selectionAction;
+        SendToDocument = sendToDocument;
     }
 
     public Bitmap Bitmap => _bitmap ?? throw new ObjectDisposedException(nameof(CaptureResult));
@@ -286,6 +300,8 @@ public sealed class CaptureResult : IDisposable
     public bool OpenEditor { get; }
 
     public RegionSelectionAction? SelectionAction { get; }
+
+    public bool SendToDocument { get; }
 
     public Bitmap TakeBitmap()
     {

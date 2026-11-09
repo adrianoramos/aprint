@@ -43,6 +43,13 @@ public sealed partial class SettingsForm : Form
             ShowToolLabels = currentSettings.ShowToolLabels,
             SaveEditorImageWithoutPrompt = currentSettings.SaveEditorImageWithoutPrompt,
             CloseEditorOnCopyOrSave = currentSettings.CloseEditorOnCopyOrSave,
+            DocumentTemplatePath = currentSettings.DocumentTemplatePath,
+            DocumentOutputFolder = currentSettings.DocumentOutputFolder,
+            SaveDocumentWithoutPrompt = currentSettings.SaveDocumentWithoutPrompt,
+            CloseEditorAfterDocumentSend = currentSettings.CloseEditorAfterDocumentSend,
+            CloseAllEditorsOnSessionEnd = currentSettings.CloseAllEditorsOnSessionEnd,
+            StartSessionHotkey = currentSettings.StartSessionHotkey.Clone(),
+            EndSessionHotkey = currentSettings.EndSessionHotkey.Clone(),
             AutoCloseEditorWhenInactive = currentSettings.AutoCloseEditorWhenInactive,
             EditorInactivityTimeoutSeconds = currentSettings.EditorInactivityTimeoutSeconds,
             RememberLastEditorTool = currentSettings.RememberLastEditorTool,
@@ -117,6 +124,11 @@ public sealed partial class SettingsForm : Form
 
     private void LoadValuesIntoControls()
     {
+        txtDocumentTemplatePath.Text = _workingSettings.DocumentTemplatePath;
+        txtDocumentOutputFolder.Text = _workingSettings.DocumentOutputFolder;
+        chkCloseEditorAfterDocumentSend.Checked = _workingSettings.CloseEditorAfterDocumentSend;
+        chkCloseAllEditorsOnSessionEnd.Checked = _workingSettings.CloseAllEditorsOnSessionEnd;
+        chkSaveDocumentWithoutPrompt.Checked = _workingSettings.SaveDocumentWithoutPrompt;
         txtSaveFolder.Text = _workingSettings.SaveFolder;
         chkShowNotification.Checked = _workingSettings.ShowNotificationAfterCapture;
         chkOpenEditor.Checked = _workingSettings.OpenEditorAfterCapture;
@@ -227,16 +239,15 @@ public sealed partial class SettingsForm : Form
 
         PopulateLanguageOptions();
 
-        cmbKey.Items.Clear();
-        foreach (var key in Enum.GetValues<Keys>())
-        {
-            if (key is >= Keys.A and <= Keys.Z or >= Keys.F1 and <= Keys.F12 or >= Keys.D0 and <= Keys.D9)
-            {
-                cmbKey.Items.Add(key);
-            }
-        }
+        PopulateHotkeyKeyOptions(cmbKey);
+        PopulateHotkeyKeyOptions(cmbStartSessionKey);
+        PopulateHotkeyKeyOptions(cmbEndSessionKey);
 
         ApplyHotkeyUiState(_workingSettings.HotkeyKey, _workingSettings.HotkeyCtrl, _workingSettings.HotkeyShift, _workingSettings.HotkeyAlt, _workingSettings.HotkeyWin);
+        ApplyHotkeyUiState(_workingSettings.StartSessionHotkey,
+            chkStartSessionCtrl, chkStartSessionShift, chkStartSessionAlt, chkStartSessionWin, cmbStartSessionKey);
+        ApplyHotkeyUiState(_workingSettings.EndSessionHotkey,
+            chkEndSessionCtrl, chkEndSessionShift, chkEndSessionAlt, chkEndSessionWin, cmbEndSessionKey);
         chkForcePrintScreen.Checked = _workingSettings.ForcePrintScreen;
         UpdateHotkeyControlsEnabled(chkForcePrintScreen.Checked);
 
@@ -279,6 +290,9 @@ public sealed partial class SettingsForm : Form
         Text = AppLocalization.Translate("Settings.FormTitle");
         tabHotkey.Text = AppLocalization.Translate("Settings.HotkeyGroup");
         chkForcePrintScreen.Text = AppLocalization.Translate("Settings.ForcePrintScreen");
+        lblCaptureHotkey.Text = AppLocalization.Translate("Settings.CaptureHotkeyLabel");
+        lblStartSessionHotkey.Text = AppLocalization.Translate("Settings.StartSessionHotkeyLabel");
+        lblEndSessionHotkey.Text = AppLocalization.Translate("Settings.EndSessionHotkeyLabel");
         tabCapture.Text = AppLocalization.Translate("Settings.CaptureGroup");
         lblCaptureMode.Text = AppLocalization.Translate("Settings.CaptureModeLabel");
         lblCaptureAction.Text = AppLocalization.Translate("Settings.ActionGroup");
@@ -289,6 +303,14 @@ public sealed partial class SettingsForm : Form
         lblNotificationClick.Text = AppLocalization.Translate("Settings.NotificationClickLabel");
         tabEditor.Text = AppLocalization.Translate("Settings.EditorGroup");
         tabGeneral.Text = AppLocalization.Translate("Settings.GeneralGroup");
+        tabSession.Text = AppLocalization.Translate("Settings.SessionGroup");
+        lblDocumentTemplatePath.Text = AppLocalization.Translate("Settings.DocumentTemplateLabel");
+        lblDocumentOutputFolder.Text = AppLocalization.Translate("Settings.DocumentOutputFolderLabel");
+        btnBrowseDocumentTemplate.Text = AppLocalization.Translate("Settings.Browse");
+        btnBrowseDocumentOutputFolder.Text = AppLocalization.Translate("Settings.Browse");
+        chkCloseEditorAfterDocumentSend.Text = AppLocalization.Translate("Settings.CloseEditorAfterDocumentSend");
+        chkCloseAllEditorsOnSessionEnd.Text = AppLocalization.Translate("Settings.CloseAllEditorsOnSessionEnd");
+        chkSaveDocumentWithoutPrompt.Text = AppLocalization.Translate("Settings.SaveDocumentWithoutPrompt");
         chkOpenEditor.Text = AppLocalization.Translate("Settings.OpenEditorAfterCapture");
         chkShowToolLabels.Text = AppLocalization.Translate("Settings.ShowToolLabels");
         chkSaveEditorImageWithoutPrompt.Text = AppLocalization.Translate("Settings.SaveEditorImageWithoutPrompt");
@@ -332,6 +354,94 @@ public sealed partial class SettingsForm : Form
         }
     }
 
+    private void btnBrowseDocumentTemplate_Click(object? sender, EventArgs e)
+    {
+        var currentDirectory = Path.GetDirectoryName(txtDocumentTemplatePath.Text);
+        using var dialog = new OpenFileDialog
+        {
+            CheckFileExists = true,
+            DefaultExt = "docx",
+            Filter = AppLocalization.Translate("Settings.DocumentTemplateFilter"),
+            InitialDirectory = Directory.Exists(currentDirectory) ? currentDirectory : string.Empty,
+            Title = AppLocalization.Translate("Settings.DocumentTemplateLabel"),
+        };
+
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            txtDocumentTemplatePath.Text = dialog.FileName;
+        }
+    }
+
+    private void btnBrowseDocumentOutputFolder_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new FolderBrowserDialog
+        {
+            Description = AppLocalization.Translate("Settings.DocumentOutputFolderLabel"),
+            SelectedPath = Directory.Exists(txtDocumentOutputFolder.Text)
+                ? txtDocumentOutputFolder.Text
+                : string.Empty,
+            ShowNewFolderButton = true,
+        };
+
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            txtDocumentOutputFolder.Text = dialog.SelectedPath;
+        }
+    }
+
+    private static void PopulateHotkeyKeyOptions(ComboBox comboBox)
+    {
+        comboBox.Items.Clear();
+        foreach (var key in Enum.GetValues<Keys>())
+        {
+            if (key is >= Keys.A and <= Keys.Z or >= Keys.F1 and <= Keys.F12 or >= Keys.D0 and <= Keys.D9)
+            {
+                comboBox.Items.Add(key);
+            }
+        }
+    }
+
+    private static void ApplyHotkeyUiState(
+        HotkeySettings hotkey,
+        CheckBox ctrl,
+        CheckBox shift,
+        CheckBox alt,
+        CheckBox win,
+        ComboBox key)
+    {
+        ctrl.Checked = hotkey.Ctrl;
+        shift.Checked = hotkey.Shift;
+        alt.Checked = hotkey.Alt;
+        win.Checked = hotkey.Win;
+        key.SelectedItem = hotkey.Key;
+        if (key.SelectedIndex < 0 && key.Items.Count > 0)
+        {
+            key.SelectedIndex = 0;
+        }
+    }
+
+    private static HotkeySettings ReadHotkey(
+        CheckBox ctrl,
+        CheckBox shift,
+        CheckBox alt,
+        CheckBox win,
+        ComboBox key,
+        Keys fallbackKey) => new()
+    {
+        Key = (Keys)(key.SelectedItem ?? fallbackKey),
+        Ctrl = ctrl.Checked,
+        Shift = shift.Checked,
+        Alt = alt.Checked,
+        Win = win.Checked,
+    };
+
+    private static bool HasModifier(HotkeySettings hotkey) =>
+        hotkey.Ctrl || hotkey.Shift || hotkey.Alt || hotkey.Win;
+
+    private static bool HotkeysEqual(HotkeySettings left, HotkeySettings right) =>
+        left.Key == right.Key && left.Ctrl == right.Ctrl && left.Shift == right.Shift &&
+        left.Alt == right.Alt && left.Win == right.Win;
+
     private void btnSave_Click(object? sender, EventArgs e)
     {
         var action = (CaptureAction)Math.Max(cmbCaptureAction.SelectedIndex, 0);
@@ -350,6 +460,44 @@ public sealed partial class SettingsForm : Form
             return;
         }
 
+        var captureHotkey = new HotkeySettings
+        {
+            Key = chkForcePrintScreen.Checked ? Keys.PrintScreen : (Keys)(cmbKey.SelectedItem ?? Keys.P),
+            Ctrl = !chkForcePrintScreen.Checked && chkCtrl.Checked,
+            Shift = !chkForcePrintScreen.Checked && chkShift.Checked,
+            Alt = !chkForcePrintScreen.Checked && chkAlt.Checked,
+            Win = !chkForcePrintScreen.Checked && chkWin.Checked,
+        };
+        var startSessionHotkey = ReadHotkey(
+            chkStartSessionCtrl, chkStartSessionShift, chkStartSessionAlt, chkStartSessionWin, cmbStartSessionKey, Keys.S);
+        var endSessionHotkey = ReadHotkey(
+            chkEndSessionCtrl, chkEndSessionShift, chkEndSessionAlt, chkEndSessionWin, cmbEndSessionKey, Keys.E);
+        if (!HasModifier(startSessionHotkey) || !HasModifier(endSessionHotkey))
+        {
+            MessageBox.Show(this, AppLocalization.Translate("Settings.SelectModifier"), AppLocalization.Translate("Settings.WarningTitle"),
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (HotkeysEqual(captureHotkey, startSessionHotkey) ||
+            HotkeysEqual(captureHotkey, endSessionHotkey) ||
+            HotkeysEqual(startSessionHotkey, endSessionHotkey))
+        {
+            MessageBox.Show(this, AppLocalization.Translate("Settings.DuplicateHotkeys"), AppLocalization.Translate("Settings.WarningTitle"),
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(txtDocumentTemplatePath.Text) &&
+            (!string.Equals(Path.GetExtension(txtDocumentTemplatePath.Text), ".docx", StringComparison.OrdinalIgnoreCase) ||
+             !File.Exists(txtDocumentTemplatePath.Text)))
+        {
+            MessageBox.Show(this, AppLocalization.Translate("Settings.InvalidDocumentTemplate"), AppLocalization.Translate("Settings.WarningTitle"),
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            tabSettings.SelectedTab = tabSession;
+            return;
+        }
+
         _workingSettings.SaveFolder = txtSaveFolder.Text.Trim();
         _workingSettings.ShowNotificationAfterCapture = chkShowNotification.Checked;
         _workingSettings.OpenEditorAfterCapture = chkOpenEditor.Checked;
@@ -358,6 +506,13 @@ public sealed partial class SettingsForm : Form
         _workingSettings.ShowToolLabels = chkShowToolLabels.Checked;
         _workingSettings.SaveEditorImageWithoutPrompt = chkSaveEditorImageWithoutPrompt.Checked;
         _workingSettings.CloseEditorOnCopyOrSave = chkCloseEditorOnCopyOrSave.Checked;
+        _workingSettings.DocumentTemplatePath = txtDocumentTemplatePath.Text.Trim();
+        _workingSettings.DocumentOutputFolder = txtDocumentOutputFolder.Text.Trim();
+        _workingSettings.CloseEditorAfterDocumentSend = chkCloseEditorAfterDocumentSend.Checked;
+        _workingSettings.CloseAllEditorsOnSessionEnd = chkCloseAllEditorsOnSessionEnd.Checked;
+        _workingSettings.SaveDocumentWithoutPrompt = chkSaveDocumentWithoutPrompt.Checked;
+        _workingSettings.StartSessionHotkey = startSessionHotkey;
+        _workingSettings.EndSessionHotkey = endSessionHotkey;
         _workingSettings.AutoCloseEditorWhenInactive = chkAutoCloseEditorWhenInactive.Checked;
         _workingSettings.EditorInactivityTimeoutSeconds = cmbEditorInactivityTimeout.SelectedIndex switch
         {
@@ -374,11 +529,11 @@ public sealed partial class SettingsForm : Form
         _workingSettings.DefaultScreenshotFormat = ScreenshotFileFormats.Normalize(
             (ScreenshotFileFormat)cmbDefaultScreenshotFormat.SelectedIndex);
         _workingSettings.NotificationClickAction = (NotificationClickAction)Math.Max(cmbNotificationClick.SelectedIndex, 0);
-        _workingSettings.HotkeyCtrl = chkCtrl.Checked;
-        _workingSettings.HotkeyShift = chkShift.Checked;
-        _workingSettings.HotkeyAlt = chkAlt.Checked;
-        _workingSettings.HotkeyWin = chkWin.Checked;
-        _workingSettings.HotkeyKey = chkForcePrintScreen.Checked ? Keys.PrintScreen : (Keys)(cmbKey.SelectedItem ?? Keys.P);
+        _workingSettings.HotkeyCtrl = captureHotkey.Ctrl;
+        _workingSettings.HotkeyShift = captureHotkey.Shift;
+        _workingSettings.HotkeyAlt = captureHotkey.Alt;
+        _workingSettings.HotkeyWin = captureHotkey.Win;
+        _workingSettings.HotkeyKey = captureHotkey.Key;
         _workingSettings.ForcePrintScreen = chkForcePrintScreen.Checked;
         if (chkForcePrintScreen.Checked)
         {

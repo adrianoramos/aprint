@@ -8,6 +8,7 @@ internal static class Program
 {
     // Carregado uma única vez e compartilhado entre a bandeja e os formulários.
     public static Icon AppIcon { get; } = IconProvider.LoadAppIcon();
+    public static Icon SessionIcon { get; } = IconProvider.LoadSessionIcon();
 
     [STAThread]
     private static void Main()

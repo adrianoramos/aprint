@@ -30,6 +30,22 @@
   <data name="Tray.About" xml:space="preserve"><value>Acerca de</value></data>
   <data name="Tray.Exit" xml:space="preserve"><value>Salir</value></data>
   <data name="Tray.IconText" xml:space="preserve"><value>Aprint - Captura de pantalla</value></data>
+  <data name="Tray.SessionIconText" xml:space="preserve"><value>Aprint - Sesión activa</value></data>
+  <data name="Tray.StartSession" xml:space="preserve"><value>Iniciar sesión para un documento</value></data>
+  <data name="Tray.EndSession" xml:space="preserve"><value>Finalizar sesión para un documento</value></data>
+  <data name="Tray.SessionStarted" xml:space="preserve"><value>Sesión iniciada</value></data>
+  <data name="Tray.SessionReady" xml:space="preserve"><value>Las capturas principales se enviarán al documento.</value></data>
+  <data name="Tray.SessionStartError" xml:space="preserve"><value>No se pudo iniciar la sesión</value></data>
+  <data name="Tray.SessionTemplateMissing" xml:space="preserve"><value>Configure una plantilla .docx válida en Configuración.</value></data>
+  <data name="Tray.SessionUseBlankTemplatePrompt" xml:space="preserve"><value>No se encontró una plantilla de Word válida. ¿Desea iniciar la sesión con un documento de Word en blanco?</value></data>
+  <data name="Tray.SessionEnded" xml:space="preserve"><value>Sesión finalizada</value></data>
+  <data name="Tray.SessionEmpty" xml:space="preserve"><value>No se añadieron imágenes; no se creó el documento.</value></data>
+  <data name="Tray.DocumentSaved" xml:space="preserve"><value>Documento guardado</value></data>
+  <data name="Tray.SessionEndError" xml:space="preserve"><value>No se pudo finalizar la sesión</value></data>
+  <data name="Tray.SessionNotActive" xml:space="preserve"><value>No hay una sesión de documento activa.</value></data>
+  <data name="Tray.DocumentOperationInProgress" xml:space="preserve"><value>Espere a que finalice la operación del documento.</value></data>
+  <data name="Tray.ImageAddedToDocument" xml:space="preserve"><value>Imagen enviada al documento</value></data>
+  <data name="Tray.DocumentImageCount" xml:space="preserve"><value>Imágenes: {0}</value></data>
   <data name="Tray.HotkeyRegisterError" xml:space="preserve"><value>No se pudo registrar el atajo de teclado global. Es posible que otra aplicación ya lo esté usando.</value></data>
   <data name="Tray.ScreenshotCaptured" xml:space="preserve"><value>Captura de pantalla realizada</value></data>
   <data name="Tray.EditorOpened" xml:space="preserve"><value>Se abrió el editor para finalizar la captura.</value></data>
@@ -41,7 +57,7 @@
   <data name="Tray.ScreenshotSaved" xml:space="preserve"><value>Captura de pantalla guardada</value></data>
   <data name="Tray.ScreenshotCopied" xml:space="preserve"><value>Captura de pantalla copiada</value></data>
   <data name="Tray.OpenError" xml:space="preserve"><value>Error al abrir</value></data>
-  <data name="Tray.AboutText" xml:space="preserve"><value>Una herramienta de captura de pantalla potente y altamente configurable, diseñada para entornos corporativos y centrada en la privacidad y la seguridad de los datos. No utiliza bibliotecas de terceros ni recopila ni transmite datos.</value></data>
+  <data name="Tray.AboutText" xml:space="preserve"><value>Una herramienta de captura de pantalla potente y altamente configurable, diseñada para entornos corporativos y centrada en la privacidad y la seguridad de los datos. No recopila ni transmite capturas de pantalla.</value></data>
   <data name="Tray.AboutAuthor" xml:space="preserve"><value>Creado por Adriano Ramos da Silva</value></data>
   <data name="Tray.AboutVersion" xml:space="preserve"><value>Versión {0}</value></data>
   <data name="Tray.AboutLinkedIn" xml:space="preserve"><value>linkedin.com/in/adrianorsilva</value></data>
@@ -50,6 +66,20 @@
   <data name="Tray.AboutTitle" xml:space="preserve"><value>Acerca de</value></data>
   <data name="Settings.FormTitle" xml:space="preserve"><value>Aprint - Configuración</value></data>
   <data name="Settings.HotkeyGroup" xml:space="preserve"><value>Atajo de teclado</value></data>
+  <data name="Settings.CaptureHotkeyLabel" xml:space="preserve"><value>Atajo para capturar imagen</value></data>
+  <data name="Settings.StartSessionHotkeyLabel" xml:space="preserve"><value>Iniciar sesión de capturas para un documento:</value></data>
+  <data name="Settings.EndSessionHotkeyLabel" xml:space="preserve"><value>Finalizar sesión de capturas para un documento:</value></data>
+  <data name="Settings.SessionGroup" xml:space="preserve"><value>Sesión</value></data>
+  <data name="Settings.DocumentTemplateLabel" xml:space="preserve"><value>Plantilla del documento (.docx):</value></data>
+  <data name="Settings.DocumentOutputFolderLabel" xml:space="preserve"><value>Guardar documentos en la carpeta:</value></data>
+  <data name="Settings.DocumentTemplateFilter" xml:space="preserve"><value>Documentos de Word (*.docx)|*.docx</value></data>
+  <data name="Settings.CloseEditorAfterDocumentSend" xml:space="preserve"><value>Cerrar el editor al enviar la imagen al documento</value></data>
+  <data name="Settings.CloseAllEditorsOnSessionEnd" xml:space="preserve"><value>Cerrar todos los editores al finalizar la sesión</value></data>
+  <data name="Settings.SaveDocumentWithoutPrompt" xml:space="preserve"><value>Guardar documento sin preguntar</value></data>
+  <data name="Settings.DuplicateHotkeys" xml:space="preserve"><value>Los atajos de captura, inicio y fin deben ser diferentes.</value></data>
+  <data name="Settings.InvalidDocumentTemplate" xml:space="preserve"><value>Seleccione un archivo .docx existente como plantilla.</value></data>
+  <data name="Capture.Region.SendToDocument" xml:space="preserve"><value>Enviar al documento</value></data>
+  <data name="Editor.SendToDocument" xml:space="preserve"><value>Enviar al documento</value></data>
   <data name="Settings.ForcePrintScreen" xml:space="preserve"><value>Usar la tecla Impr Pant para capturar</value></data>
   <data name="Settings.CaptureModeGroup" xml:space="preserve"><value>Modo de captura</value></data>
   <data name="Settings.CaptureGroup" xml:space="preserve"><value>Captura</value></data>

@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Diagnostics;
+using Aprint.DocumentSession;
 using Aprint.Features.About;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
@@ -19,16 +20,19 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly Image _captureNowIcon;
     private readonly ToolStripMenuItem _captureNowMenuItem;
     private readonly ToolStripMenuItem _toggleCaptureModeMenuItem;
+    private readonly ToolStripMenuItem _sessionMenuItem;
     private readonly ToolStripMenuItem _settingsMenuItem;
     private readonly ToolStripMenuItem _aboutMenuItem;
     private readonly ToolStripMenuItem _exitMenuItem;
-    private readonly HashSet<EditorForm> _modelessEditors = [];
+    private readonly HashSet<EditorForm> _openEditors = [];
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
     private AboutForm? _aboutForm;
     private string? _lastSavedFilePath;
     private Bitmap? _lastCapturedBitmap;
+    private IDocumentSessionWriter? _documentSession;
     private bool _isCaptureInProgress;
+    private bool _isDocumentOperationInProgress;
 
     public TrayApplicationContext(AppSettings settings, SettingsStore settingsStore)
     {
@@ -42,6 +46,18 @@ public sealed class TrayApplicationContext : ApplicationContext
         _toggleCaptureModeMenuItem = new ToolStripMenuItem();
         _toggleCaptureModeMenuItem.Click += (_, _) => CaptureScreenshot(
             _settings.CaptureMode == CaptureMode.SelectArea ? CaptureMode.AllScreens : CaptureMode.SelectArea);
+        _sessionMenuItem = new ToolStripMenuItem();
+        _sessionMenuItem.Click += (_, _) =>
+        {
+            if (_documentSession is null)
+            {
+                StartSession();
+            }
+            else
+            {
+                EndSession();
+            }
+        };
         _settingsMenuItem = new ToolStripMenuItem();
         _settingsMenuItem.Click += (_, _) => OpenSettings();
         _aboutMenuItem = new ToolStripMenuItem();
@@ -52,6 +68,8 @@ public sealed class TrayApplicationContext : ApplicationContext
         _contextMenu = new ContextMenuStrip();
         _contextMenu.Items.Add(_captureNowMenuItem);
         _contextMenu.Items.Add(_toggleCaptureModeMenuItem);
+        _contextMenu.Items.Add(new ToolStripSeparator());
+        _contextMenu.Items.Add(_sessionMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_settingsMenuItem);
         _contextMenu.Items.Add(_aboutMenuItem);
@@ -73,12 +91,13 @@ public sealed class TrayApplicationContext : ApplicationContext
         };
 
         ApplyLocalizedTexts();
+        UpdateSessionUi();
 
-        _hotkeyManager.HotkeyPressed += CaptureScreenshot;
-        RegisterHotkey();
+        _hotkeyManager.CommandPressed += HandleHotkeyCommand;
+        RegisterHotkeys();
     }
 
-    private void RegisterHotkey()
+    private void RegisterHotkeys()
     {
         var key = _settings.ForcePrintScreen ? Keys.PrintScreen : _settings.HotkeyKey;
         var ctrl = _settings.ForcePrintScreen ? false : _settings.HotkeyCtrl;
@@ -86,12 +105,185 @@ public sealed class TrayApplicationContext : ApplicationContext
         var alt = _settings.ForcePrintScreen ? false : _settings.HotkeyAlt;
         var win = _settings.ForcePrintScreen ? false : _settings.HotkeyWin;
 
-        var ok = _hotkeyManager.Register(key, ctrl, shift, alt, win);
-        if (!ok)
+        var failedCommands = _hotkeyManager.RegisterMany([
+            new GlobalHotkeyBinding(GlobalHotkeyCommand.Capture, key, ctrl, shift, alt, win),
+            new GlobalHotkeyBinding(
+                GlobalHotkeyCommand.StartSession,
+                _settings.StartSessionHotkey.Key,
+                _settings.StartSessionHotkey.Ctrl,
+                _settings.StartSessionHotkey.Shift,
+                _settings.StartSessionHotkey.Alt,
+                _settings.StartSessionHotkey.Win),
+            new GlobalHotkeyBinding(
+                GlobalHotkeyCommand.EndSession,
+                _settings.EndSessionHotkey.Key,
+                _settings.EndSessionHotkey.Ctrl,
+                _settings.EndSessionHotkey.Shift,
+                _settings.EndSessionHotkey.Alt,
+                _settings.EndSessionHotkey.Win),
+        ]);
+        if (failedCommands.Count > 0)
         {
             _notifyIcon.ShowBalloonTip(3000, AppLocalization.Translate("App.Name"),
                 AppLocalization.Translate("Tray.HotkeyRegisterError"),
                 ToolTipIcon.Warning);
+        }
+    }
+
+    private void HandleHotkeyCommand(GlobalHotkeyCommand command)
+    {
+        switch (command)
+        {
+            case GlobalHotkeyCommand.Capture:
+                CaptureScreenshot();
+                break;
+            case GlobalHotkeyCommand.StartSession:
+                StartSession();
+                break;
+            case GlobalHotkeyCommand.EndSession:
+                EndSession();
+                break;
+        }
+    }
+
+    private void StartSession()
+    {
+        if (_documentSession is not null || _isCaptureInProgress)
+        {
+            return;
+        }
+
+        var templatePath = _settings.DocumentTemplatePath;
+        var hasTemplate = !string.IsNullOrWhiteSpace(templatePath) &&
+            string.Equals(Path.GetExtension(templatePath), ".docx", StringComparison.OrdinalIgnoreCase) &&
+            File.Exists(templatePath);
+        if (!hasTemplate && MessageBox.Show(
+                AppLocalization.Translate("Tray.SessionUseBlankTemplatePrompt"),
+                AppLocalization.Translate("App.Name"),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            var outputFolder = string.IsNullOrWhiteSpace(_settings.DocumentOutputFolder)
+                ? AppSettings.GetDefaultDocumentOutputFolder()
+                : _settings.DocumentOutputFolder;
+            Directory.CreateDirectory(outputFolder);
+            var fileName = $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}.docx";
+            var outputPath = Path.Combine(outputFolder, $"Aprint_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}_{Guid.NewGuid():N}.docx");
+            if (!_settings.SaveDocumentWithoutPrompt)
+            {
+                using var dialog = new SaveFileDialog
+                {
+                    AddExtension = true,
+                    DefaultExt = "docx",
+                    FileName = fileName,
+                    Filter = AppLocalization.Translate("Settings.DocumentTemplateFilter"),
+                    InitialDirectory = outputFolder,
+                    OverwritePrompt = true,
+                };
+                if (dialog.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
+
+                outputPath = dialog.FileName;
+            }
+
+            _documentSession = hasTemplate
+                ? DocxSessionWriter.Create(templatePath, outputPath)
+                : DocxSessionWriter.CreateBlank(outputPath);
+            foreach (var editor in _openEditors)
+            {
+                editor.SetDocumentSessionState(true, _settings.CloseEditorAfterDocumentSend);
+            }
+            UpdateSessionUi();
+            _notifyIcon.ShowBalloonTip(3000, AppLocalization.Translate("Tray.SessionStarted"),
+                AppLocalization.Translate("Tray.SessionReady"), ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            _notifyIcon.ShowBalloonTip(4000, AppLocalization.Translate("Tray.SessionStartError"), ex.Message, ToolTipIcon.Error);
+        }
+    }
+
+    private bool EndSession()
+    {
+        var session = _documentSession;
+        if (session is null)
+        {
+            return session is null;
+        }
+
+        if (_isCaptureInProgress || _isDocumentOperationInProgress)
+        {
+            _notifyIcon.ShowBalloonTip(3000, AppLocalization.Translate("Tray.SessionEndError"),
+                AppLocalization.Translate("Tray.DocumentOperationInProgress"), ToolTipIcon.Warning);
+            return false;
+        }
+
+        try
+        {
+            var documentPath = session.Complete();
+            session.Dispose();
+            _documentSession = null;
+            foreach (var editor in _openEditors.ToArray())
+            {
+                editor.SetDocumentSessionState(false, closeAfterSend: false);
+            }
+            UpdateSessionUi();
+            if (_settings.CloseAllEditorsOnSessionEnd)
+            {
+                foreach (var editor in _openEditors.ToArray())
+                {
+                    editor.Close();
+                }
+            }
+
+            _notifyIcon.ShowBalloonTip(3000,
+                documentPath is null ? AppLocalization.Translate("Tray.SessionEnded") : AppLocalization.Translate("Tray.DocumentSaved"),
+                documentPath is null ? AppLocalization.Translate("Tray.SessionEmpty") : AppLocalization.Format("Tray.SavedTo", documentPath),
+                ToolTipIcon.Info);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _notifyIcon.ShowBalloonTip(4000, AppLocalization.Translate("Tray.SessionEndError"), ex.Message, ToolTipIcon.Error);
+            return false;
+        }
+    }
+
+    private void UpdateSessionUi()
+    {
+        var active = _documentSession is not null;
+        _notifyIcon.Icon = active ? Program.SessionIcon : Program.AppIcon;
+        _notifyIcon.Text = AppLocalization.Translate(active ? "Tray.SessionIconText" : "Tray.IconText");
+        _sessionMenuItem.Text = AppLocalization.Translate(active ? "Tray.EndSession" : "Tray.StartSession");
+    }
+
+    private async Task AddImageToDocumentAsync(Bitmap image)
+    {
+        var session = _documentSession ?? throw new InvalidOperationException(AppLocalization.Translate("Tray.SessionNotActive"));
+        if (_isDocumentOperationInProgress)
+        {
+            throw new InvalidOperationException(AppLocalization.Translate("Tray.DocumentOperationInProgress"));
+        }
+
+        _isDocumentOperationInProgress = true;
+        try
+        {
+            using var encoded = new MemoryStream();
+            image.Save(encoded, System.Drawing.Imaging.ImageFormat.Png);
+            await session.AddImageAsync(encoded.ToArray());
+            _notifyIcon.ShowBalloonTip(2000, AppLocalization.Translate("Tray.ImageAddedToDocument"),
+                AppLocalization.Format("Tray.DocumentImageCount", session.ImageCount), ToolTipIcon.Info);
+        }
+        finally
+        {
+            _isDocumentOperationInProgress = false;
         }
     }
 
@@ -119,7 +311,8 @@ public sealed class TrayApplicationContext : ApplicationContext
                 {
                     OpenEditor(bitmap, showWithoutActivation: true, takeBitmapOwnership: true);
                     return true;
-                });
+                },
+                documentSessionActive: _documentSession is not null);
             if (_settings.LastCaptureTool != previousCaptureTool)
             {
                 _settingsStore.Save(_settings);
@@ -135,6 +328,12 @@ public sealed class TrayApplicationContext : ApplicationContext
                 _settings.NotificationClickAction == NotificationClickAction.OpenEditor
                     ? (Bitmap)result.Bitmap.Clone()
                     : null;
+
+            if (result.SendToDocument)
+            {
+                await AddImageToDocumentAsync(result.Bitmap);
+                return;
+            }
 
             if (result.OpenEditor)
             {
@@ -211,9 +410,12 @@ public sealed class TrayApplicationContext : ApplicationContext
             _settings.LastCounterCircleColorArgb,
             _settings.LastLineWidth,
             takeBitmapOwnership,
-            _settings.DefaultScreenshotFormat);
+            _settings.DefaultScreenshotFormat,
+            _documentSession is not null,
+            _settings.CloseEditorAfterDocumentSend);
         var captureAgain = false;
         editor.NewCaptureRequested += () => captureAgain = true;
+        editor.SendToDocumentRequested += AddImageToDocumentAsync;
 
         editor.TextFormattingChanged += (fontFamily, fontSize, fontStyle) =>
         {
@@ -332,19 +534,20 @@ public sealed class TrayApplicationContext : ApplicationContext
                 break;
         }
 
+        _openEditors.Add(editor);
+        editor.FormClosed += (_, _) =>
+        {
+            _openEditors.Remove(editor);
+            SaveLastEditorTool(editor);
+            if (captureAgain)
+            {
+                CaptureScreenshot();
+            }
+        };
+
         if (showWithoutActivation)
         {
             editor.TopMost = topMost;
-            _modelessEditors.Add(editor);
-            editor.FormClosed += (_, _) =>
-            {
-                _modelessEditors.Remove(editor);
-                SaveLastEditorTool(editor);
-                if (captureAgain)
-                {
-                    CaptureScreenshot();
-                }
-            };
             editor.Show();
             return;
         }
@@ -355,12 +558,6 @@ public sealed class TrayApplicationContext : ApplicationContext
             editor.ShowDialog();
         }
 
-        SaveLastEditorTool(editor);
-
-        if (captureAgain)
-        {
-            CaptureScreenshot();
-        }
     }
 
     private void SaveLastEditorTool(EditorForm editor)
@@ -455,7 +652,11 @@ public sealed class TrayApplicationContext : ApplicationContext
             AppLocalization.ApplyCulture(_settings.Language);
             _settingsStore.Save(_settings);
             ApplyLocalizedTexts();
-            RegisterHotkey();
+            foreach (var editor in _openEditors)
+            {
+                editor.SetDocumentSessionState(_documentSession is not null, _settings.CloseEditorAfterDocumentSend);
+            }
+            RegisterHotkeys();
         };
         _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         _settingsForm.Show();
@@ -464,6 +665,11 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ExitApplication()
     {
+        if (_documentSession is not null && !EndSession())
+        {
+            return;
+        }
+
         _notifyIcon.Visible = false;
         _lastCapturedBitmap?.Dispose();
         _hotkeyManager.Dispose();
@@ -492,6 +698,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settingsMenuItem.Text = AppLocalization.Translate("Tray.Settings");
         _aboutMenuItem.Text = AppLocalization.Translate("Tray.About");
         _exitMenuItem.Text = AppLocalization.Translate("Tray.Exit");
-        _notifyIcon.Text = AppLocalization.Translate("Tray.IconText");
+        _sessionMenuItem.Text = AppLocalization.Translate(_documentSession is null ? "Tray.StartSession" : "Tray.EndSession");
+        _notifyIcon.Text = AppLocalization.Translate(_documentSession is null ? "Tray.IconText" : "Tray.SessionIconText");
     }
 }

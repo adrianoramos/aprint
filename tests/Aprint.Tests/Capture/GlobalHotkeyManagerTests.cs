@@ -89,6 +89,35 @@ public sealed class GlobalHotkeyManagerTests
         }
     }
 
+    [Fact]
+    public void RegisterManyDispatchesSessionCommandByHotkeyId()
+    {
+        using var manager = new GlobalHotkeyManager();
+        var failedCommands = manager.RegisterMany([
+            new GlobalHotkeyBinding(GlobalHotkeyCommand.StartSession, Keys.PrintScreen, false, false, false, false),
+        ]);
+        Assert.Empty(failedCommands);
+
+        var hook = GetHook(manager);
+        var callback = hook.GetType().GetMethod("HandleLowLevelKeyboard", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var notifications = new List<GlobalHotkeyCommand>();
+        manager.CommandPressed += notifications.Add;
+        var keyData = Marshal.AllocHGlobal(sizeof(int));
+        try
+        {
+            Marshal.WriteInt32(keyData, (int)Keys.PrintScreen);
+            callback.Invoke(hook, [0, (IntPtr)0x0100, keyData]);
+            callback.Invoke(hook, [0, (IntPtr)0x0101, keyData]);
+            System.Windows.Forms.Application.DoEvents();
+
+            Assert.Equal([GlobalHotkeyCommand.StartSession], notifications);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(keyData);
+        }
+    }
+
     private static object GetHook(GlobalHotkeyManager manager) => typeof(GlobalHotkeyManager)
         .GetField("_keyboardHookThread", BindingFlags.Instance | BindingFlags.NonPublic)!
         .GetValue(manager)!;

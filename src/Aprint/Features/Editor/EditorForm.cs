@@ -169,6 +169,7 @@ public sealed class EditorForm : Form
         Filled,
         Pixelated,
         AutomaticMask,
+        DocumentSession,
         Undo,
         Redo,
         Copy,
@@ -215,6 +216,8 @@ public sealed class EditorForm : Form
     private bool _isAutomaticMaskRevealActive;
     private string _initialFolder;
     private readonly bool _closeAfterCopyOrSave;
+    private bool _documentSessionActive;
+    private bool _closeAfterDocumentSend;
     private readonly bool _saveWithoutPrompt;
     private readonly bool _showWithoutActivation;
     private readonly string _automaticSavePath;
@@ -259,6 +262,9 @@ public sealed class EditorForm : Form
     private readonly List<ToolStripMenuItem> _textStyleMenuItems = [];
     private readonly ToolStripButton _btnUndo;
     private readonly ToolStripButton _btnRedo;
+    private ToolStripButton _btnSendToDocument = null!;
+    private ToolStripButton _btnSaveAs = null!;
+    private ToolStrip _editorToolStrip = null!;
     private readonly ToolStripLabel _centerToolsSpacer;
     private readonly EditorToolStripRenderer _toolStripRenderer = new();
     private readonly ToolStripLabel _actionSpacerBefore;
@@ -314,6 +320,7 @@ public sealed class EditorForm : Form
 
     public event Action<string>? Saved;
     public event Action? Copied;
+    public event Func<Bitmap, Task>? SendToDocumentRequested;
     public event Action<MaskMode>? MaskModeChanged;
     public event Action<Color>? LineColorChanged;
     public event Action<Color>? HighlightColorChanged;
@@ -329,7 +336,7 @@ public sealed class EditorForm : Form
     public event Action<int>? HighlightWidthChanged;
     public event Action<int>? LineWidthChanged;
 
-    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth, bool takeBitmapOwnership = false, ScreenshotFileFormat defaultScreenshotFormat = ScreenshotFileFormat.Png)
+    public EditorForm(Bitmap bitmap, string initialFolder, MaskMode maskMode = MaskMode.Pixelate, bool showToolLabels = true, bool closeAfterCopyOrSave = false, EditTool initialTool = EditTool.Freehand, bool saveWithoutPrompt = false, bool autoCloseWhenInactive = false, int inactivityTimeoutSeconds = 30, string textFontFamily = "Segoe UI", float textFontSize = 12F, FontStyle textFontStyle = FontStyle.Regular, int highlightWidth = 18, int lineColorArgb = -65536, int textColorArgb = -65536, int? fillColorArgb = null, int maskPixelSize = 6, bool showWithoutActivation = false, int highlightColorArgb = -256, int maskColorArgb = -65536, int counterSize = ImageEditingService.CounterMarkerDiameter, int counterTextColorArgb = -65536, int counterCircleColorArgb = -65536, int lineWidth = ImageEditingService.AnnotationPenWidth, bool takeBitmapOwnership = false, ScreenshotFileFormat defaultScreenshotFormat = ScreenshotFileFormat.Png, bool documentSessionActive = false, bool closeAfterDocumentSend = false)
     {
         _workingBitmap = takeBitmapOwnership ? bitmap : (Bitmap)bitmap.Clone();
         _showWithoutActivation = showWithoutActivation;
@@ -363,6 +370,8 @@ public sealed class EditorForm : Form
         _textFont.Dispose();
         _textFont = new Font(_textFontFamily, _textFontSize, _textFontStyle, GraphicsUnit.Point);
         _closeAfterCopyOrSave = closeAfterCopyOrSave;
+        _documentSessionActive = documentSessionActive;
+        _closeAfterDocumentSend = closeAfterDocumentSend;
         _saveWithoutPrompt = saveWithoutPrompt;
         if (autoCloseWhenInactive)
         {
@@ -878,16 +887,25 @@ public sealed class EditorForm : Form
             Close();
         };
 
-        var btnSaveAs = CreateStandardToolButton(
+        _btnSaveAs = CreateStandardToolButton(
             AppLocalization.Translate("Editor.SaveAs"),
             ToolIconKind.Save,
             Color.Black,
             shortcut: "Ctrl+S");
-        btnSaveAs.Click += async (_, _) => await SaveAsAsync();
+        _btnSaveAs.Click += async (_, _) => await SaveAsAsync();
+
+        _btnSendToDocument = CreateStandardToolButton(
+            AppLocalization.Translate("Editor.SendToDocument"),
+            ToolIconKind.DocumentSession,
+            Color.White);
+        _btnSendToDocument.BackColor = Color.FromArgb(0, 130, 112);
+        _btnSendToDocument.ForeColor = Color.White;
+        _btnSendToDocument.Visible = _documentSessionActive;
+        _btnSendToDocument.Click += async (_, _) => await SendToDocumentAsync();
 
         var copyGroupSeparator = CreateToolStripSeparator();
         copyGroupSeparator.Alignment = ToolStripItemAlignment.Right;
-        foreach (var actionButton in new[] { btnCopy, btnSaveAs })
+        foreach (var actionButton in new[] { btnCopy, _btnSaveAs, _btnSendToDocument })
         {
             actionButton.Alignment = ToolStripItemAlignment.Right;
         }
@@ -936,10 +954,15 @@ public sealed class EditorForm : Form
             _btnConfirmCrop,
             _btnCancelCrop,
             _actionSpacerAfter,
-            btnSaveAs,
+            _btnSaveAs,
             btnCopy,
             copyGroupSeparator,
         ]);
+        _editorToolStrip = toolStrip;
+        if (_documentSessionActive)
+        {
+            toolStrip.Items.Insert(toolStrip.Items.IndexOf(_btnSaveAs), _btnSendToDocument);
+        }
 
         TrackToolGroupHover(toolStrip, _btnDrawing, _btnDrawingDropdown);
         TrackToolGroupHover(toolStrip, _btnHighlight, _btnHighlightSizeDropdown);
@@ -1368,6 +1391,7 @@ public sealed class EditorForm : Form
             ToolIconKind.Filled => "Aprint.Resources.Icons.filled.png",
             ToolIconKind.Pixelated => "Aprint.Resources.Icons.pixelated.png",
             ToolIconKind.AutomaticMask => "Aprint.Resources.Icons.automaticmask.png",
+            ToolIconKind.DocumentSession => "Aprint.Resources.Icons.documentsession.png",
             ToolIconKind.Undo => "Aprint.Resources.Icons.undo.png",
             ToolIconKind.Redo => "Aprint.Resources.Icons.redo.png",
             ToolIconKind.Copy => "Aprint.Resources.Icons.copy.png",
@@ -2683,6 +2707,58 @@ public sealed class EditorForm : Form
         if (_closeAfterCopyOrSave)
         {
             Close();
+        }
+    }
+
+    private async Task SendToDocumentAsync()
+    {
+        if (!_documentSessionActive || _textRegionDetectionInProgress || SendToDocumentRequested is null)
+        {
+            return;
+        }
+
+        using var protectedImage = CreateProtectedImage();
+        if (protectedImage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await SendToDocumentRequested.Invoke(protectedImage);
+            if (_closeAfterDocumentSend)
+            {
+                Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            if (Debugger.IsAttached)
+            {
+                throw;
+            }
+
+            MessageBox.Show(this, ex.Message, AppLocalization.Translate("App.Name"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    public void SetDocumentSessionState(bool active, bool closeAfterSend)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        _documentSessionActive = active;
+        _closeAfterDocumentSend = closeAfterSend;
+        var isInToolbar = _editorToolStrip.Items.Contains(_btnSendToDocument);
+        if (active && !isInToolbar)
+        {
+            _editorToolStrip.Items.Insert(_editorToolStrip.Items.IndexOf(_btnSaveAs), _btnSendToDocument);
+        }
+        else if (!active && isInToolbar)
+        {
+            _editorToolStrip.Items.Remove(_btnSendToDocument);
         }
     }
 
