@@ -23,7 +23,7 @@
 	#define MyLicenseFile "..\..\LICENSE"
 #endif
 #ifndef MyDotNetDesktopRuntimeUrl
-  #define MyDotNetDesktopRuntimeUrl "https://dotnet.microsoft.com/en-us/download/dotnet/8.0/runtime"
+	#define MyDotNetDesktopRuntimeUrl "https://dotnet.microsoft.com/en-us/download/dotnet/10.0/runtime"
 #endif
 #ifndef SignToolCmd
   #define SignToolCmd ""
@@ -100,7 +100,7 @@ begin
 	end;
 end;
 
-function HasWindowsDesktopRuntimeMinVersion(MinVersion: Integer): Boolean;
+function HasWindowsDesktopRuntimeMajorVersion(RequiredMajorVersion: Integer): Boolean;
 var
   BasePath: string;
   FindRec: TFindRec;
@@ -130,7 +130,7 @@ begin
 			  MajorVersionStr := Copy(VersionStr, 1, DotIndex - 1);
 			  try
 				MajorVersion := StrToInt(MajorVersionStr);
-				if MajorVersion >= MinVersion then
+				if MajorVersion = RequiredMajorVersion then
 				begin
 				  Result := True;
 				  Break;
@@ -166,7 +166,7 @@ begin
 				MajorVersionStr := Copy(VersionStr, 1, DotIndex - 1);
 				try
 				  MajorVersion := StrToInt(MajorVersionStr);
-				  if MajorVersion >= MinVersion then
+				  if MajorVersion = RequiredMajorVersion then
 				  begin
 					Result := True;
 					Break;
@@ -192,10 +192,10 @@ var
 begin
   Result := True;
 
-  if not HasWindowsDesktopRuntimeMinVersion(8) then
+	if not HasWindowsDesktopRuntimeMajorVersion(10) then
   begin
 	OpenRuntimePage := MsgBox(
-	  'This installer requires .NET 8 Desktop Runtime (WindowsDesktop) or higher.'+#13#10#13#10+
+	  'This installer requires .NET 10 Desktop Runtime (WindowsDesktop).'+#13#10#13#10+
 	  'Click Yes to open the official download page, then run the installer again.',
 	  mbConfirmation,
 	  MB_YESNO
