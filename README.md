@@ -112,8 +112,8 @@ Capturing, editing, document generation, and text detection happen locally on yo
 ## Requirements
 
 - Windows 10 version 1809 or later.
-- .NET 8 SDK for development.
-- .NET 8 Desktop Runtime to run a framework-dependent publish.
+- .NET 10 SDK for development.
+- .NET 10 Desktop Runtime to run a framework-dependent publish.
 - Inno Setup 6 to build the installer.
 
 ## Project Structure
@@ -164,6 +164,6 @@ Build the publish output and installer in one step:
 
 The script uses the version provided in the command for both the application and installer. The GitHub workflow also calculates the version and applies it to the build, publish output, and installer. There is no default version stored in a shared MSBuild file.
 
-The installer is framework-dependent and requires the .NET 8 Desktop Runtime on the target computer. The outputs in `artifacts/`, `bin/`, and `obj/` are generated locally and should not be committed.
+The installer is framework-dependent and requires the .NET 10 Desktop Runtime on the target computer. Microsoft's .NET 10 support on Windows 10 is limited to LTSC and Enterprise editions. The outputs in `artifacts/`, `bin/`, and `obj/` are generated locally and should not be committed.
 
 User settings are loaded and saved by `SettingsStore`. The application is Windows-only and uses Windows APIs for the system tray, global shortcuts, clipboard, screen capture, and OCR.
