@@ -79,8 +79,10 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(CaptureMode.SelectArea, settings.CaptureMode);
         Assert.Equal(ScreenshotFileFormat.Png, settings.DefaultScreenshotFormat);
         Assert.False(settings.ShowToolLabels);
+        Assert.Equal(Keys.P, settings.HotkeyKey);
         Assert.True(settings.HotkeyCtrl);
-        Assert.True(settings.HotkeyShift);
+        Assert.False(settings.HotkeyShift);
+        Assert.True(settings.HotkeyAlt);
         Assert.Equal(Keys.S, settings.StartSessionHotkey.Key);
         Assert.True(settings.StartSessionHotkey.Ctrl);
         Assert.Equal(Keys.E, settings.EndSessionHotkey.Key);
