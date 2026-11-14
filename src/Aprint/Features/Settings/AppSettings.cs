@@ -124,9 +124,9 @@ public sealed class AppSettings
 
     public bool HotkeyCtrl { get; set; } = true;
 
-    public bool HotkeyShift { get; set; } = true;
+    public bool HotkeyShift { get; set; }
 
-    public bool HotkeyAlt { get; set; }
+    public bool HotkeyAlt { get; set; } = true;
 
     public bool HotkeyWin { get; set; }
 
