@@ -92,6 +92,19 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void SettingsFileExistsReportsWhetherSettingsHaveBeenCreated()
+    {
+        var filePath = Path.Combine(_testDirectory, "settings.json");
+        var store = new SettingsStore(filePath);
+
+        Assert.False(store.SettingsFileExists);
+
+        store.Save(new AppSettings());
+
+        Assert.True(store.SettingsFileExists);
+    }
+
+    [Fact]
     public void LoadPreservesMaskSettingsFromLegacyJsonNames()
     {
         var filePath = Path.Combine(_testDirectory, "settings.json");

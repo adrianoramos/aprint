@@ -123,6 +123,66 @@
   <data name="App.AlreadyRunning" xml:space="preserve">
     <value>Aprint is already running in the system tray.</value>
   </data>
+  <data name="Welcome.Title" xml:space="preserve">
+    <value>Getting started - Aprint</value>
+  </data>
+  <data name="Welcome.Heading" xml:space="preserve">
+    <value>Welcome to Aprint</value>
+  </data>
+  <data name="Welcome.Intro" xml:space="preserve">
+    <value>Capture, annotate, and share images without interrupting your work.</value>
+  </data>
+  <data name="Welcome.CapabilitiesHeading" xml:space="preserve">
+    <value>What you can do</value>
+  </data>
+  <data name="Welcome.CapabilityCapture" xml:space="preserve">
+    <value>- Capture a full screen or select a region, including across multiple monitors.</value>
+  </data>
+  <data name="Welcome.CapabilityAnnotate" xml:space="preserve">
+    <value>- Highlight, draw, add text, and hide information with masks or local OCR suggestions.</value>
+  </data>
+  <data name="Welcome.CapabilityShare" xml:space="preserve">
+    <value>- Copy or save images, open them in the editor, or collect captures in a Word document.</value>
+  </data>
+  <data name="Welcome.TrayHeading" xml:space="preserve">
+    <value>Where to find Aprint</value>
+  </data>
+  <data name="Welcome.TrayText" xml:space="preserve">
+    <value>Aprint stays in the system tray, near the Windows clock. Right-click its icon to open the menu; double-click to start a capture. The app remains available even when no window is open.</value>
+  </data>
+  <data name="Welcome.ShortcutsHeading" xml:space="preserve">
+    <value>Main shortcuts</value>
+  </data>
+  <data name="Welcome.ShortcutCapture" xml:space="preserve">
+    <value>Start capture</value>
+  </data>
+  <data name="Welcome.ShortcutComplete" xml:space="preserve">
+    <value>Complete capture</value>
+  </data>
+  <data name="Welcome.ShortcutEditor" xml:space="preserve">
+    <value>Send to editor</value>
+  </data>
+  <data name="Welcome.ShortcutCopy" xml:space="preserve">
+    <value>Copy image</value>
+  </data>
+  <data name="Welcome.ShortcutSave" xml:space="preserve">
+    <value>Save image</value>
+  </data>
+  <data name="Welcome.ShortcutCancel" xml:space="preserve">
+    <value>Cancel capture</value>
+  </data>
+  <data name="Welcome.ShortcutNewCapture" xml:space="preserve">
+    <value>New capture in editor</value>
+  </data>
+  <data name="Welcome.ShortcutStartSession" xml:space="preserve">
+    <value>Start document session</value>
+  </data>
+  <data name="Welcome.ShortcutEndSession" xml:space="preserve">
+    <value>End document session</value>
+  </data>
+  <data name="Welcome.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
   <data name="Tray.CaptureNow" xml:space="preserve">
     <value>Capture now</value>
   </data>

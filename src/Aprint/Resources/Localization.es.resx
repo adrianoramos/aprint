@@ -5,6 +5,26 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="App.Name" xml:space="preserve"><value>Aprint</value></data>
+  <data name="Welcome.Title" xml:space="preserve"><value>Primeros pasos - Aprint</value></data>
+  <data name="Welcome.Heading" xml:space="preserve"><value>Bienvenido a Aprint</value></data>
+  <data name="Welcome.Intro" xml:space="preserve"><value>Captura, anota y comparte imágenes sin interrumpir tu trabajo.</value></data>
+  <data name="Welcome.CapabilitiesHeading" xml:space="preserve"><value>Qué puedes hacer</value></data>
+  <data name="Welcome.CapabilityCapture" xml:space="preserve"><value>- Captura una pantalla completa o selecciona un área, incluso en varios monitores.</value></data>
+  <data name="Welcome.CapabilityAnnotate" xml:space="preserve"><value>- Resalta, dibuja, añade texto y oculta información con máscaras o sugerencias de OCR local.</value></data>
+  <data name="Welcome.CapabilityShare" xml:space="preserve"><value>- Copia o guarda imágenes, ábrelas en el editor o reúne capturas en un documento de Word.</value></data>
+  <data name="Welcome.TrayHeading" xml:space="preserve"><value>Dónde encontrar Aprint</value></data>
+  <data name="Welcome.TrayText" xml:space="preserve"><value>Aprint está en la bandeja del sistema, junto al reloj de Windows. Haz clic derecho en el icono para abrir el menú; haz doble clic para iniciar una captura. La aplicación sigue disponible aunque no haya ninguna ventana abierta.</value></data>
+  <data name="Welcome.ShortcutsHeading" xml:space="preserve"><value>Atajos principales</value></data>
+  <data name="Welcome.ShortcutCapture" xml:space="preserve"><value>Iniciar captura</value></data>
+  <data name="Welcome.ShortcutComplete" xml:space="preserve"><value>Completar captura</value></data>
+  <data name="Welcome.ShortcutEditor" xml:space="preserve"><value>Enviar al editor</value></data>
+  <data name="Welcome.ShortcutCopy" xml:space="preserve"><value>Copiar imagen</value></data>
+  <data name="Welcome.ShortcutSave" xml:space="preserve"><value>Guardar imagen</value></data>
+  <data name="Welcome.ShortcutCancel" xml:space="preserve"><value>Cancelar captura</value></data>
+  <data name="Welcome.ShortcutNewCapture" xml:space="preserve"><value>Nueva captura en el editor</value></data>
+  <data name="Welcome.ShortcutStartSession" xml:space="preserve"><value>Iniciar sesión de documento</value></data>
+  <data name="Welcome.ShortcutEndSession" xml:space="preserve"><value>Finalizar sesión de documento</value></data>
+  <data name="Welcome.Close" xml:space="preserve"><value>Cerrar</value></data>
   <data name="App.AlreadyRunning" xml:space="preserve"><value>Aprint ya se está ejecutando en la bandeja del sistema.</value></data>
   <data name="Tray.CaptureNow" xml:space="preserve"><value>Capturar ahora</value></data>
   <data name="Tray.SelectArea" xml:space="preserve"><value>Seleccionar área</value></data>
