@@ -5,6 +5,7 @@ using Aprint.Features.About;
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
 using Aprint.Features.Settings;
+using Aprint.Features.Welcome;
 using Aprint.Infrastructure.Windows;
 
 namespace Aprint.Application;
@@ -34,7 +35,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private bool _isCaptureInProgress;
     private bool _isDocumentOperationInProgress;
 
-    public TrayApplicationContext(AppSettings settings, SettingsStore settingsStore)
+    public TrayApplicationContext(AppSettings settings, SettingsStore settingsStore, bool showGettingStarted = false)
     {
         _settings = settings;
         _settingsStore = settingsStore;
@@ -95,6 +96,13 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         _hotkeyManager.CommandPressed += HandleHotkeyCommand;
         RegisterHotkeys();
+
+        if (showGettingStarted)
+        {
+            using var gettingStartedForm = new GettingStartedForm(_settings, OpenSettings);
+            gettingStartedForm.ShowDialog();
+            _settingsStore.Save(_settings);
+        }
     }
 
     private void RegisterHotkeys()

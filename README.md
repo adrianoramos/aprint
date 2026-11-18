@@ -25,7 +25,7 @@ winget upgrade --id adrianoramos.Aprint --exact --source winget
 
 WinGet installs the required .NET 10 Desktop Runtime dependency automatically. The installer requires administrator privileges.
 
-After starting Aprint, look for its icon in the system tray. The application does not need to keep a main window open.
+On the first launch, Aprint shows a short guide to its features, system-tray location, and main shortcuts. Afterward, look for its icon in the system tray. The application does not need to keep a main window open.
 
 To start a capture, press `Ctrl+Alt+P` (the default shortcut), double-click the tray icon, or choose **Capture** from its menu. You can also configure `Print Screen` as the shortcut. The tray menu lets you switch between the configured capture mode and region selection. By default, Aprint starts in region mode and copies the completed capture to the clipboard.
 
