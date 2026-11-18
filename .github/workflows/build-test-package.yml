@@ -56,6 +56,10 @@ jobs:
       - name: Test
         run: dotnet test tests/Aprint.Tests/Aprint.Tests.csproj --configuration Release --no-build
 
+      - name: Test WinGet manifest generation
+        shell: pwsh
+        run: .\tests\Winget.Tests.ps1
+
       - name: Publish application
         run: dotnet publish src/Aprint/Aprint.csproj --configuration Release --no-build --output artifacts/publish "-p:Version=$env:PACKAGE_VERSION"
 
@@ -105,3 +109,12 @@ jobs:
           files: installer/*.exe
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  publish-winget:
+    if: ${{ !contains(needs.build-test-package.outputs.package-version, '-') }}
+    needs: [build-test-package, publish-release]
+    uses: ./.github/workflows/publish-winget.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}

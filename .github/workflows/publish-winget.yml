@@ -1,0 +1,100 @@
+name: Publish to WinGet
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Published stable release tag (vX.Y.Z)
+        required: true
+        type: string
+    secrets:
+      WINGET_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag (vX.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: winget-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.0
+        with:
+          persist-credentials: false
+
+      - name: Download published installer and generate manifests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw 'WinGet requires a stable release tag in the form vX.Y.Z.'
+          }
+          $version = $env:RELEASE_TAG.Substring(1)
+          $releaseJson = gh release view $env:RELEASE_TAG --repo adrianoramos/aprint --json isDraft,isPrerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the GitHub release.' }
+          $release = $releaseJson | ConvertFrom-Json
+          if ($release.isDraft -or $release.isPrerelease) {
+            throw 'Only published, stable releases can be submitted to WinGet.'
+          }
+          gh release download $env:RELEASE_TAG --repo adrianoramos/aprint --pattern "Aprint-$version-setup.exe" --dir artifacts\winget-installer
+          if ($LASTEXITCODE -ne 0) { throw 'Could not download the published installer.' }
+          .\installer\scripts\New-WingetManifest.ps1 -Version $version -InstallerPath "artifacts\winget-installer\Aprint-$version-setup.exe"
+
+      - name: Set up WinGet
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+            Install-Module Microsoft.WinGet.Client -Repository PSGallery -Force -Scope CurrentUser
+            Repair-WinGetPackageManager -AllUsers
+          }
+
+      - name: Validate manifests
+        shell: pwsh
+        run: |
+          winget validate --manifest artifacts\winget --disable-interactivity
+          if ($LASTEXITCODE -ne 0) { throw 'WinGet manifest validation failed.' }
+
+      - name: Upload WinGet manifests
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: winget-${{ inputs.tag }}
+          path: artifacts/winget/*.yaml
+          if-no-files-found: error
+
+      - name: Set up .NET for WinGetCreate
+        uses: actions/setup-dotnet@v4.1.0
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Submit to the WinGet community repository
+        shell: pwsh
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:WINGET_CREATE_GITHUB_TOKEN)) {
+            throw 'Configure the WINGET_TOKEN repository secret with a classic PAT with public_repo scope. The default GITHUB_TOKEN cannot submit to microsoft/winget-pkgs.'
+          }
+          $tool = Join-Path $env:RUNNER_TEMP 'wingetcreate.exe'
+          Invoke-WebRequest 'https://github.com/microsoft/winget-create/releases/download/v1.28.1.0/wingetcreate.exe' -OutFile $tool
+          if ((Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash -ne '63D980BA79E97042395BD6EB5992C2DB9E01E9E7A8A22958A95C288F27310413') {
+            throw 'Unexpected WinGetCreate SHA256.'
+          }
+          & $tool submit --no-open --prtitle "New version: adrianoramos.Aprint $env:RELEASE_TAG" artifacts\winget
+          if ($LASTEXITCODE -ne 0) { throw 'WinGet submission failed. Check existing PRs before retrying.' }
