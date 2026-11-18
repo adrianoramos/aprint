@@ -14,6 +14,7 @@ internal static class Program
     private static void Main()
     {
         var settingsStore = new SettingsStore();
+        var isFirstRun = !settingsStore.SettingsFileExists;
         var settings = settingsStore.Load();
         AppLocalization.ApplyCulture(settings.Language);
 
@@ -27,6 +28,6 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
-        System.Windows.Forms.Application.Run(new TrayApplicationContext(settings, settingsStore));
+        System.Windows.Forms.Application.Run(new TrayApplicationContext(settings, settingsStore, isFirstRun));
     }
 }

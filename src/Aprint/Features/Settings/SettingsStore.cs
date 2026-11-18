@@ -16,6 +16,8 @@ public sealed class SettingsStore
             "settings.json");
     }
 
+    internal bool SettingsFileExists => File.Exists(_settingsFilePath);
+
     public AppSettings Load()
     {
         try
