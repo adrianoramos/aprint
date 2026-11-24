@@ -743,7 +743,6 @@ partial class SettingsForm
         // 
         // btnSave
         // 
-        btnSave.DialogResult = DialogResult.OK;
         btnSave.Location = new Point(280, 356);
         btnSave.Name = "btnSave";
         btnSave.Size = new Size(80, 28);

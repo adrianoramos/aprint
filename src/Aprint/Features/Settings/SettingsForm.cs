@@ -1,6 +1,8 @@
 using Aprint.Features.Capture;
 using Aprint.Features.Editor;
 using Aprint.Infrastructure.Windows;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 
 namespace Aprint.Features.Settings;
 
@@ -72,6 +74,32 @@ public sealed partial class SettingsForm : Form
 
         ApplyLocalizedTexts();
         LoadValuesIntoControls();
+        btnSave.Enabled = false;
+        chkStartWithWindows.Enabled = false;
+        Shown += SettingsForm_Shown;
+    }
+
+    private async void SettingsForm_Shown(object? sender, EventArgs e)
+    {
+        try
+        {
+            var enabled = await StartupManager.IsEnabledAsync();
+            if (!IsDisposed)
+            {
+                chkStartWithWindows.Checked = enabled;
+                chkStartWithWindows.Enabled = true;
+                btnSave.Enabled = true;
+            }
+        }
+        catch (Exception ex) when (ex is Win32Exception or COMException or UnauthorizedAccessException or IOException or InvalidOperationException)
+        {
+            if (!IsDisposed)
+            {
+                MessageBox.Show(this, AppLocalization.Format("Settings.StartupError", ex.Message),
+                    AppLocalization.Translate("Settings.WarningTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Close();
+            }
+        }
     }
 
     private void ApplyHotkeyUiState(Keys key, bool ctrl, bool shift, bool alt, bool win)
@@ -132,7 +160,6 @@ public sealed partial class SettingsForm : Form
         txtSaveFolder.Text = _workingSettings.SaveFolder;
         chkShowNotification.Checked = _workingSettings.ShowNotificationAfterCapture;
         chkOpenEditor.Checked = _workingSettings.OpenEditorAfterCapture;
-        chkStartWithWindows.Checked = StartupManager.IsEnabled();
         chkPlaySound.Checked = _workingSettings.PlaySoundOnCapture;
         chkShowToolLabels.Checked = _workingSettings.ShowToolLabels;
         chkSaveEditorImageWithoutPrompt.Checked = _workingSettings.SaveEditorImageWithoutPrompt;
@@ -442,7 +469,7 @@ public sealed partial class SettingsForm : Form
         left.Key == right.Key && left.Ctrl == right.Ctrl && left.Shift == right.Shift &&
         left.Alt == right.Alt && left.Win == right.Win;
 
-    private void btnSave_Click(object? sender, EventArgs e)
+    private async void btnSave_Click(object? sender, EventArgs e)
     {
         var action = (CaptureAction)Math.Max(cmbCaptureAction.SelectedIndex, 0);
 
@@ -498,10 +525,46 @@ public sealed partial class SettingsForm : Form
             return;
         }
 
+        btnSave.Enabled = false;
+        try
+        {
+            var changed = await StartupManager.SetEnabledAsync(chkStartWithWindows.Checked);
+            if (IsDisposed)
+            {
+                return;
+            }
+            if (!changed)
+            {
+                MessageBox.Show(this, AppLocalization.Translate("Settings.StartupBlocked"),
+                    AppLocalization.Translate("Settings.WarningTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is Win32Exception or COMException or UnauthorizedAccessException or IOException or InvalidOperationException)
+        {
+            if (!IsDisposed)
+            {
+                MessageBox.Show(this, AppLocalization.Format("Settings.StartupError", ex.Message),
+                    AppLocalization.Translate("Settings.WarningTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            return;
+        }
+        finally
+        {
+            if (!IsDisposed)
+            {
+                btnSave.Enabled = true;
+            }
+        }
+
+        if (IsDisposed)
+        {
+            return;
+        }
+
         _workingSettings.SaveFolder = txtSaveFolder.Text.Trim();
         _workingSettings.ShowNotificationAfterCapture = chkShowNotification.Checked;
         _workingSettings.OpenEditorAfterCapture = chkOpenEditor.Checked;
-        StartupManager.SetEnabled(chkStartWithWindows.Checked);
         _workingSettings.PlaySoundOnCapture = chkPlaySound.Checked;
         _workingSettings.ShowToolLabels = chkShowToolLabels.Checked;
         _workingSettings.SaveEditorImageWithoutPrompt = chkSaveEditorImageWithoutPrompt.Checked;

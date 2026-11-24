@@ -465,6 +465,12 @@
   <data name="Settings.StartWithWindows" xml:space="preserve">
     <value>Start automatically with Windows</value>
   </data>
+  <data name="Settings.StartupError" xml:space="preserve">
+    <value>Could not read or change Windows startup: {0}</value>
+  </data>
+  <data name="Settings.StartupBlocked" xml:space="preserve">
+    <value>Windows blocked the startup change. Check startup app settings or your administrator's policy.</value>
+  </data>
   <data name="Settings.LanguageLabel" xml:space="preserve">
     <value>Language:</value>
   </data>

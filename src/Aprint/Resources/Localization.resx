@@ -465,6 +465,12 @@
   <data name="Settings.StartWithWindows" xml:space="preserve">
     <value>Iniciar automaticamente com o Windows</value>
   </data>
+  <data name="Settings.StartupError" xml:space="preserve">
+    <value>Não foi possível alterar ou consultar a inicialização do Windows: {0}</value>
+  </data>
+  <data name="Settings.StartupBlocked" xml:space="preserve">
+    <value>O Windows impediu a alteração da inicialização. Verifique as configurações de aplicativos de inicialização ou a política do administrador.</value>
+  </data>
   <data name="Settings.LanguageLabel" xml:space="preserve">
     <value>Idioma:</value>
   </data>
