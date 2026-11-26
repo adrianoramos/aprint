@@ -13,6 +13,7 @@
     <PublisherDisplayName>Adriano Silva</PublisherDisplayName>
     <Description>Capture, annotate, redact, and share screenshots.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
+    <PrivacyUri>https://aprint.site/privacy.html</PrivacyUri>
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
