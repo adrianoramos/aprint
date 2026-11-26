@@ -8,6 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The Store DPI validation also requires the setting in the executable manifest. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <AssemblyName>Aprint</AssemblyName>
     <RootNamespace>Aprint</RootNamespace>
     <StartupObject>Aprint.Program</StartupObject>

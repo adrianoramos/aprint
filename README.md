@@ -141,6 +141,8 @@ artifacts/           Local publish and build outputs
 
 ## Development
 
+The executable manifest declares PerMonitorV2 DPI awareness, matching the WinForms application configuration. Keep both settings aligned when changing DPI behavior.
+
 Restore dependencies and build the solution:
 
 ```powershell

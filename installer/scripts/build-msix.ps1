@@ -50,35 +50,54 @@ try {
     Add-Type -AssemblyName System.Drawing
     $assets = Join-Path $stage 'Assets'
     New-Item -ItemType Directory -Path $assets | Out-Null
-    $icon = New-Object System.Drawing.Icon($iconPath, 256, 256)
-    try {
-        $source = $icon.ToBitmap()
+    
+    # Map desired PNG sizes to nearest .ico sizes (preserve transparency)
+    $sizes = @{
+        50  = 48      # StoreLogo.png
+        150 = 128     # Square150x150Logo.png
+        44  = 48      # Square44x44Logo.png
+    }
+    
+    # Create PNG files from native .ico images, then resample to target size
+    foreach ($pngSize in @(50, 150, 44)) {
+        $pngName = switch ($pngSize) {
+            50  { 'StoreLogo.png' }
+            150 { 'Square150x150Logo.png' }
+            44  { 'Square44x44Logo.png' }
+        }
+        $icoSize = $sizes[$pngSize]
+        
+        # Extract and decode the native .ico image
+        $icon = New-Object System.Drawing.Icon($iconPath, $icoSize, $icoSize)
         try {
-            foreach ($size in @(50, 150, 44)) {
-                $name = switch ($size) {
-                    50 { 'StoreLogo.png' }
-                    150 { 'Square150x150Logo.png' }
-                    44 { 'Square44x44Logo.png' }
-                }
-                $bitmap = New-Object System.Drawing.Bitmap($size, $size)
-                try {
-                    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            # ToBitmap() preserves transparency for 32-bit icons
+            $source = $icon.ToBitmap()
+            try {
+                if ($source.Width -eq $pngSize) {
+                    # Already the right size; save directly
+                    $source.Save((Join-Path $assets $pngName), [System.Drawing.Imaging.ImageFormat]::Png)
+                } else {
+                    # Resample to PNG size with explicit ARGB format for transparency
+                    $bitmap = New-Object System.Drawing.Bitmap($pngSize, $pngSize, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
                     try {
-                        $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-                        $graphics.DrawImage($source, 0, 0, $size, $size)
+                        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                        try {
+                            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                            $graphics.DrawImage($source, 0, 0, $pngSize, $pngSize)
+                        } finally {
+                            $graphics.Dispose()
+                        }
+                        $bitmap.Save((Join-Path $assets $pngName), [System.Drawing.Imaging.ImageFormat]::Png)
                     } finally {
-                        $graphics.Dispose()
+                        $bitmap.Dispose()
                     }
-                    $bitmap.Save((Join-Path $assets $name), [System.Drawing.Imaging.ImageFormat]::Png)
-                } finally {
-                    $bitmap.Dispose()
                 }
+            } finally {
+                $source.Dispose()
             }
         } finally {
-            $source.Dispose()
+            $icon.Dispose()
         }
-    } finally {
-        $icon.Dispose()
     }
 
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
