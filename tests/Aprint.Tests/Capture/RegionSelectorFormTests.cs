@@ -5,6 +5,7 @@ using Aprint.Features.Settings;
 
 namespace Aprint.Tests.Capture;
 
+[Collection("Localization")]
 public sealed class RegionSelectorFormTests
 {
     [Fact]
@@ -621,7 +622,7 @@ public sealed class RegionSelectorFormTests
         var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
         try
         {
-            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            AppLocalization.ApplyCulture(language);
             using var bitmap = new Bitmap(4, 4);
             using var selector = new RegionSelectorForm(bitmap, showToolLabels: showToolLabels);
             var cursorScreenBounds = (Rectangle)typeof(RegionSelectorForm)
@@ -637,7 +638,7 @@ public sealed class RegionSelectorFormTests
         }
         finally
         {
-            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+            AppLocalization.ApplyCulture(previousCulture.Name);
         }
     }
 
