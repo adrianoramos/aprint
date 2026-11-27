@@ -14,10 +14,12 @@ public static class AppLocalization
     private static readonly CultureInfo EnglishUs = CultureInfo.GetCultureInfo(EnglishUsCode);
     private static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo(SpanishCode);
     private static readonly ResourceManager ResourceManager = new("Aprint.Resources.Localization", typeof(AppLocalization).Assembly);
+    private static CultureInfo _culture = CultureInfo.CurrentUICulture;
 
     public static void ApplyCulture(string? languageCode)
     {
         var culture = ResolveCulture(languageCode);
+        Volatile.Write(ref _culture, culture);
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
         CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -48,10 +50,10 @@ public static class AppLocalization
     }
 
     public static string Translate(string key) =>
-        ResourceManager.GetString(key, CultureInfo.CurrentUICulture) ?? key;
+        ResourceManager.GetString(key, Volatile.Read(ref _culture)) ?? key;
 
     public static string Format(string key, params object[] args) =>
-        string.Format(CultureInfo.CurrentCulture, Translate(key), args);
+        string.Format(Volatile.Read(ref _culture), Translate(key), args);
 
     public static IReadOnlyList<(string Code, string DisplayName)> GetLanguageOptions() =>
     [

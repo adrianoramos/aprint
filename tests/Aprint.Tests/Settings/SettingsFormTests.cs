@@ -3,6 +3,7 @@ using Aprint.Features.Settings;
 
 namespace Aprint.Tests.Settings;
 
+[Collection("Localization")]
 public sealed class SettingsFormTests
 {
     [Theory]
@@ -15,7 +16,7 @@ public sealed class SettingsFormTests
         var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
         try
         {
-            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            AppLocalization.ApplyCulture(language);
             var settings = new AppSettings { ShowToolLabels = showToolLabels };
             using var form = new SettingsForm(settings);
             var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
@@ -39,7 +40,7 @@ public sealed class SettingsFormTests
         }
         finally
         {
-            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+            AppLocalization.ApplyCulture(previousCulture.Name);
         }
     }
 
@@ -136,7 +137,7 @@ public sealed class SettingsFormTests
         var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
         try
         {
-            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            AppLocalization.ApplyCulture(language);
             using var form = new SettingsForm(new AppSettings { DefaultScreenshotFormat = ScreenshotFileFormat.Jpeg });
             var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
             var captureTab = tabControl.TabPages[2];
@@ -152,7 +153,7 @@ public sealed class SettingsFormTests
         }
         finally
         {
-            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+            AppLocalization.ApplyCulture(previousCulture.Name);
         }
     }
 
@@ -164,7 +165,7 @@ public sealed class SettingsFormTests
         var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
         try
         {
-            System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(language);
+            AppLocalization.ApplyCulture(language);
             using var form = new SettingsForm(new AppSettings());
             var tabControl = Assert.Single(form.Controls.OfType<TabControl>());
             var editorTab = tabControl.TabPages[3];
@@ -195,7 +196,7 @@ public sealed class SettingsFormTests
         }
         finally
         {
-            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+            AppLocalization.ApplyCulture(previousCulture.Name);
         }
     }
 }
