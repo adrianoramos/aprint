@@ -1,9 +1,15 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using Aprint.Infrastructure.Windows;
 using Aprint.Features.Settings;
 
 namespace Aprint.Features.Welcome;
 
 internal sealed class GettingStartedForm : Form
 {
+    private readonly CheckBox _startWithWindowsCheckBox;
+    private readonly Button _okButton;
+
     public GettingStartedForm(AppSettings settings, Action openSettings)
     {
         Text = AppLocalization.Translate("Welcome.Title");
@@ -15,8 +21,6 @@ internal sealed class GettingStartedForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9F);
         Icon = Program.AppIcon;
-        AcceptButton = CreateCloseButton();
-        CancelButton = (Button)AcceptButton;
 
         var content = new FlowLayoutPanel
         {
@@ -35,34 +39,91 @@ internal sealed class GettingStartedForm : Form
         content.Controls.Add(CreateLabel("Welcome.ShortcutsHeading", 11F, FontStyle.Bold, 4));
         content.Controls.Add(CreateShortcutTable(settings));
 
+        _startWithWindowsCheckBox = new CheckBox
+        {
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
+            AutoSize = true,
+            Checked = true,
+            Name = "chkStartWithWindows",
+            Text = AppLocalization.Translate("Settings.StartWithWindows"),
+        };
         Controls.Add(content);
-        Controls.Add(CreateSettingsButton(openSettings));
-        Controls.Add((Control)AcceptButton);
+        Controls.Add(_startWithWindowsCheckBox);
+
+        _okButton = CreateActionButton("Welcome.Ok", "btnOk");
+        _okButton.Click += OkButton_Click;
+        AcceptButton = _okButton;
+        Controls.Add(_okButton);
+        var settingsButton = CreateSettingsButton(openSettings, _okButton.Width);
+        Controls.Add(settingsButton);
+
+        _startWithWindowsCheckBox.Location = new Point(
+            12,
+            _okButton.Top + (_okButton.Height - _startWithWindowsCheckBox.Height) / 2);
     }
 
-    private static Button CreateSettingsButton(Action openSettings)
+    private Button CreateSettingsButton(Action openSettings, int okButtonWidth)
     {
-        var button = new Button
-        {
-            Bounds = new Rectangle(358, 478, 80, 28),
-            Size = new Size(80, 28),
-            Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-            Text = AppLocalization.Translate("Tray.Settings"),
-            UseVisualStyleBackColor = true,
-        };
+        var button = CreateActionButton("Tray.Settings", "btnSettings");
+        button.Location = new Point(
+            ClientSize.Width - button.Width - okButtonWidth - 20,
+            ClientSize.Height - button.Height - 12);
         button.Click += (_, _) => openSettings();
         return button;
     }
 
-    private static Button CreateCloseButton() => new()
+    private Button CreateActionButton(string textResourceKey, string name)
     {
-        Bounds = new Rectangle(446, 478, 80, 28),
-        Size = new Size(80, 28),
-        Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-        DialogResult = DialogResult.OK,
-        Text = AppLocalization.Translate("Welcome.Close"),
-        UseVisualStyleBackColor = true,
-    };
+        var button = new Button
+        {
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+            Name = name,
+            Text = AppLocalization.Translate(textResourceKey),
+            UseVisualStyleBackColor = true,
+        };
+        var preferredSize = button.GetPreferredSize(Size.Empty);
+        button.Size = new Size(Math.Max(80, preferredSize.Width), Math.Max(28, preferredSize.Height));
+        button.Location = new Point(ClientSize.Width - button.Width - 12, ClientSize.Height - button.Height - 12);
+        return button;
+    }
+
+    private async void OkButton_Click(object? sender, EventArgs e)
+    {
+        _okButton.Enabled = false;
+        try
+        {
+            var changed = await StartupManager.SetEnabledAsync(_startWithWindowsCheckBox.Checked);
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (!changed)
+            {
+                MessageBox.Show(this, AppLocalization.Translate("Settings.StartupBlocked"),
+                    AppLocalization.Translate("Settings.WarningTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+        catch (Exception ex) when (ex is Win32Exception or COMException or UnauthorizedAccessException or IOException or InvalidOperationException)
+        {
+            if (!IsDisposed)
+            {
+                MessageBox.Show(this, AppLocalization.Format("Settings.StartupError", ex.Message),
+                    AppLocalization.Translate("Settings.WarningTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+        finally
+        {
+            if (!IsDisposed)
+            {
+                _okButton.Enabled = true;
+            }
+        }
+    }
 
     private static Label CreateLabel(string resourceKey, float fontSize, FontStyle fontStyle, int bottomMargin) => new()
     {

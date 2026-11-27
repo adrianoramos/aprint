@@ -183,6 +183,9 @@
   <data name="Welcome.Close" xml:space="preserve">
     <value>Fechar</value>
   </data>
+  <data name="Welcome.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
   <data name="Tray.CaptureNow" xml:space="preserve">
     <value>Capturar agora</value>
   </data>
