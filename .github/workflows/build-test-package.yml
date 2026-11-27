@@ -82,6 +82,24 @@ jobs:
 
           & $compilerPath "/DMyAppVersion=$env:PACKAGE_VERSION" "installer\scripts\aprint.iss"
 
+      - name: Build MSIX for Microsoft Store
+        if: ${{ !contains(steps.package-version.outputs.version, '-') }}
+        shell: pwsh
+        run: .\installer\scripts\build-msix.ps1 -Version $env:PACKAGE_VERSION
+
+      - name: Test MSIX package
+        if: ${{ !contains(steps.package-version.outputs.version, '-') }}
+        shell: pwsh
+        run: .\tests\Msix.Tests.ps1 -Version $env:PACKAGE_VERSION -PackagePath "artifacts\msix\Aprint-$env:PACKAGE_VERSION-x64.msix"
+
+      - name: Upload unsigned MSIX for Store submission
+        if: ${{ !contains(steps.package-version.outputs.version, '-') }}
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: Aprint-MSIX-Store-${{ steps.package-version.outputs.version }}
+          path: artifacts/msix/*.msix
+          if-no-files-found: error
+
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4.4.0
         with:

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap uap5 rescap">
+  <Identity Name="AdrianoSilva.Aprint"
+            Publisher="CN=D6D0E027-49F9-4265-8244-75AFE2DAE05B"
+            Version="1.0.0.0"
+            ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>Aprint</DisplayName>
+    <PublisherDisplayName>Adriano Silva</PublisherDisplayName>
+    <Description>Capture, annotate, redact, and share screenshots.</Description>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26300.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-US" />
+    <Resource Language="pt-BR" />
+    <Resource Language="es" />
+  </Resources>
+  <Applications>
+    <Application Id="Aprint" Executable="Aprint.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Aprint"
+                          Description="Capture, annotate, redact, and share screenshots."
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png"
+                          BackgroundColor="transparent" />
+      <Extensions>
+        <uap5:Extension Category="windows.startupTask" Executable="Aprint.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap5:StartupTask TaskId="AprintStartup" Enabled="false" DisplayName="Aprint" />
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

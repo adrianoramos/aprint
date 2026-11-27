@@ -126,6 +126,7 @@ Capturing, editing, document generation, and text detection happen locally on yo
 - .NET 10 SDK for development.
 - .NET 10 Desktop Runtime to run a framework-dependent publish.
 - Inno Setup 6 to build the installer.
+- Windows SDK with MakeAppx.exe to build the MSIX package.
 
 ## Project Structure
 
@@ -133,11 +134,14 @@ Capturing, editing, document generation, and text detection happen locally on yo
 src/Aprint/          WinForms application and product features
 src/Aprint.DocumentSession/  DOCX session writer module
 tests/Aprint.Tests/  Automated tests
-installer/scripts/   Inno Setup script and release automation
+installer/scripts/   Installer, MSIX, and release automation
+installer/msix/      Microsoft Store package manifest
 artifacts/           Local publish and build outputs
 ```
 
 ## Development
+
+The executable manifest declares PerMonitorV2 DPI awareness, matching the WinForms application configuration. Keep both settings aligned when changing DPI behavior.
 
 Restore dependencies and build the solution:
 
@@ -176,5 +180,19 @@ Build the publish output and installer in one step:
 The script uses the version provided in the command for both the application and installer. The GitHub workflow also calculates the version and applies it to the build, publish output, and installer. There is no default version stored in a shared MSBuild file.
 
 The installer is framework-dependent and requires the .NET 10 Desktop Runtime on the target computer. Microsoft's .NET 10 support on Windows 10 is limited to LTSC and Enterprise editions. The outputs in `artifacts/`, `bin/`, and `obj/` are generated locally and should not be committed.
+
+### Microsoft Store MSIX
+
+Build an x64 MSIX with the Partner Center identity:
+
+```powershell
+.\installer\scripts\build-msix.ps1 -Version 1.2.2
+```
+
+The script publishes a self-contained application and writes `artifacts/msix/Aprint-1.2.2-x64.msix`. It includes the .NET Desktop runtime and does not replace the Inno Setup installer. Use a stable `major.minor.patch` version with a nonzero major and components at most 65535; the MSIX version is `major.minor.patch.0`. Prerelease versions are not mapped to MSIX versions.
+
+The package is unsigned and intended for submission to Partner Center, not direct installation. The Store signs packages it publishes. For local testing or distribution outside the Store, sign it with a certificate whose subject matches the manifest publisher and establish trust on the test device. Run the Windows App Certification Kit and verify the submitted package in Partner Center before publishing.
+
+The GitHub workflow builds and tests the MSIX as a separate `Aprint-MSIX-Store-<version>` artifact for stable versions; prerelease tags skip MSIX generation. The existing GitHub release and WinGet installer remain unchanged. Choose a Store version deliberately for submission: workflow run-number versions are for CI and may not be suitable for a Store update.
 
 User settings are loaded and saved by `SettingsStore`. The application is Windows-only and uses Windows APIs for the system tray, global shortcuts, clipboard, screen capture, and OCR.

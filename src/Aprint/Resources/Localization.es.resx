@@ -140,6 +140,8 @@
   <data name="Settings.ShowNotification" xml:space="preserve"><value>Mostrar una notificación después de capturar</value></data>
   <data name="Settings.PlaySound" xml:space="preserve"><value>Reproducir el sonido de notificación de Windows al capturar</value></data>
   <data name="Settings.StartWithWindows" xml:space="preserve"><value>Iniciar automáticamente con Windows</value></data>
+  <data name="Settings.StartupError" xml:space="preserve"><value>No se pudo consultar o cambiar el inicio de Windows: {0}</value></data>
+  <data name="Settings.StartupBlocked" xml:space="preserve"><value>Windows bloqueó el cambio de inicio. Comprueba la configuración de aplicaciones de inicio o la directiva del administrador.</value></data>
   <data name="Settings.LanguageLabel" xml:space="preserve"><value>Idioma:</value></data>
   <data name="Settings.LanguageSystem" xml:space="preserve"><value>Usar el idioma del sistema</value></data>
   <data name="Settings.LanguagePortugueseBrazil" xml:space="preserve"><value>Portugués (Brasil)</value></data>
