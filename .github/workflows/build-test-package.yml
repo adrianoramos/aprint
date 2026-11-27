@@ -121,10 +121,29 @@ jobs:
           name: Aprint-${{ needs.build-test-package.outputs.package-version }}
           path: installer
 
+      - name: Generate installer SHA-256 checksum
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem -LiteralPath installer -Filter "*.exe" -File)
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one installer, found $($installers.Count)."
+          }
+
+          $installer = $installers[0]
+          $hash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $checksumPath = "$($installer.FullName).sha256"
+          [System.IO.File]::WriteAllText(
+            $checksumPath,
+            "$hash  $($installer.Name)`n",
+            [System.Text.UTF8Encoding]::new($false)
+          )
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2.1.0
         with:
-          files: installer/*.exe
+          files: |
+            installer/*.exe
+            installer/*.exe.sha256
           generate_release_notes: true
           fail_on_unmatched_files: true
 
