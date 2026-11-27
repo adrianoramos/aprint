@@ -25,6 +25,7 @@
   <data name="Welcome.ShortcutStartSession" xml:space="preserve"><value>Iniciar sesión de documento</value></data>
   <data name="Welcome.ShortcutEndSession" xml:space="preserve"><value>Finalizar sesión de documento</value></data>
   <data name="Welcome.Close" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="Welcome.Ok" xml:space="preserve"><value>Aceptar</value></data>
   <data name="App.AlreadyRunning" xml:space="preserve"><value>Aprint ya se está ejecutando en la bandeja del sistema.</value></data>
   <data name="Tray.CaptureNow" xml:space="preserve"><value>Capturar ahora</value></data>
   <data name="Tray.SelectArea" xml:space="preserve"><value>Seleccionar área</value></data>
